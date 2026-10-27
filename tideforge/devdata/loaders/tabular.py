@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pandas as pd
 
-READ_KEYS = {"format", "zip_member", "strip_columns", "drop_first_rows", "record_path", "normalize", "encoding", "melt"}
+READ_KEYS = {"format", "zip_member", "strip_columns", "drop_first_rows", "record_path", "normalize", "encoding", "melt",
+             "fillna"}
 
 
 def _frames(path: Path, read: dict):
@@ -52,6 +53,8 @@ def _parse(src, fmt, opts, read, comp):
         df.columns = [str(c).strip() for c in df.columns]
     n = int(read.get("drop_first_rows", 0) or 0)
     df = df.iloc[n:].reset_index(drop=True) if n else df
+    if read.get("fillna") is not None:            # e.g. 0 where a missing cell means "no events"
+        df = df.fillna(read["fillna"])
     if read.get("melt"):            # wide (one column per series) -> long: melt: {id_vars: [time], var_name: series}
         m = read["melt"]
         df = df.melt(id_vars=m["id_vars"], var_name=m.get("var_name", "series"), value_name=m.get("value_name", "value"))
@@ -83,7 +86,10 @@ def parse_time(df: pd.DataFrame, t: dict, tz: str) -> pd.Series:
         p = {k: pd.to_numeric(df[v], errors="coerce") for k, v in t["parts"].items()}
         ts = pd.to_datetime(pd.DataFrame(p), errors="coerce")
     else:
-        s = df[t["col"]] if "col" in t else df[t["cols"]].astype(str).agg(" ".join, axis=1)
+        if "expr" in t:                                       # e.g. "day * 86400 + time" (seconds), with unit
+            s = df.eval(t["expr"], engine="python")
+        else:
+            s = df[t["col"]] if "col" in t else df[t["cols"]].astype(str).agg(" ".join, axis=1)
         if "unit" in t:
             ts = pd.to_datetime(pd.to_numeric(s, errors="coerce"), unit=t["unit"], utc=True)
         else:

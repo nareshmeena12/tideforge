@@ -171,6 +171,25 @@ def build_task(name: str, task: dict, raw: Path, staging: Path, srcs, cities: pd
         out = tgt.rename(columns={"value": "target"}).merge(frc, on=["series_id", "timestamp"], how="left")
         cov_meta = {c: dict(v, source=task["target"]["source"], how="basin-mean Daymet forcing")
                     for c, v in task["covariates"].items()}
+    elif task["join"] == "same_source":
+        # covariates are other columns of the target source's own raw files: read them with the same loader settings
+        import dataclasses
+        from tideforge.devdata import fetch as F
+        from tideforge.devdata import loaders
+        from tideforge.devdata.ingest import regularise
+        cols = list(task["covariates"])
+        cs = dataclasses.replace(tgt_src, value=cols)
+        files = [(Path(raw) / tgt_src.slug / "files" / F.local_name(u), v) for u, v in F.file_list(tgt_src.fetch, sorted(set(tgt["series_id"])))]
+        files = [(p_, v) for p_, v in files if p_.exists()]
+        long = loaders.read_files(cs, files)
+        long = long[long["series_id"].str.rsplit("/", n=1).str[0].isin(set(tgt["series_id"]))]
+        out = tgt.rename(columns={"value": "target"})
+        for c in cols:
+            part = long[long["series_id"].str.endswith("/" + c)]
+            series = {sid.rsplit("/", 1)[0]: regularise(g, freq, "mean", False) for sid, g in part.groupby("series_id")}
+            out[c] = [series[s].get(ts, np.nan) if s in series else np.nan for s, ts in zip(out["series_id"], out["timestamp"])]
+        cov_meta = {c: dict(v, source=task["target"]["source"], how="a column of the target's own files")
+                    for c, v in task["covariates"].items()}
     elif task["join"] in ("calendar", "point_weather"):
         out = tgt.rename(columns={"value": "target"})
         if task["join"] == "point_weather":

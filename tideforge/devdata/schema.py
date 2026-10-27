@@ -179,14 +179,14 @@ def validate(src: Source) -> list[str]:
         fmt = (src.read or {}).get("format")
         if fmt not in FORMATS:
             p.append(f"{src.id}: read.format must be one of {sorted(FORMATS)}")
-        if not src.time or not (src.time.get("col") or src.time.get("cols") or src.time.get("parts")):
+        if not src.time or not (src.time.get("col") or src.time.get("cols") or src.time.get("parts") or src.time.get("expr")):
             p.append(f"{src.id}: time.col, time.cols or time.parts is required")
         if not src.id_cols and not isinstance(src.value, list):
             p.append(f"{src.id}: id columns are required (or a list of value columns)")
         if src.value is None and not src.events:
             p.append(f"{src.id}: value or events is required")
     f = src.fetch or {}
-    if not (f.get("urls") or f.get("url_template")):
+    if not (f.get("urls") or f.get("url_template") or f.get("manual")):
         p.append(f"{src.id}: fetch.urls or fetch.url_template is required")
     if f.get("url_template"):
         names = set(re.findall(r"{(\w+)}", f["url_template"]))

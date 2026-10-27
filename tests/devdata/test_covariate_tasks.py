@@ -71,3 +71,22 @@ def test_camels_and_calendar_tasks(tmp_path):
     m = T.build_task("iowa_liquor_holidays", tasks["iowa_liquor_holidays"], raw, staging, srcs)
     out = pd.read_parquet(staging / "covtasks" / "iowa_liquor_holidays" / "D.parquet")
     assert out["holiday"].tolist() == [0.0, 1.0] and m["covariates"]["holiday"]["oracle"] is False
+
+
+def test_same_source_task(tmp_path):
+    srcs, _ = load_sources()
+    from tideforge.devdata import fetch as F
+    raw, staging = tmp_path / "raw", tmp_path / "staging"
+    src = srcs["D295"]
+    url = F.file_list(src.fetch, ["3304557"])[0][0]
+    f = raw / src.slug / "files" / F.local_name(url)
+    f.parent.mkdir(parents=True)
+    f.write_text("data_iniSE,casos,tempmin,umidmax,umidmed,umidmin\n2025-12-28,215,25.4,84.8,69.0,51.6\n"
+                 "2025-12-21,144,23.2,87.5,65.5,42.3\n")
+    d = staging / src.slug
+    d.mkdir(parents=True)
+    w = pd.date_range("2025-12-21", periods=2, freq="W")
+    pd.DataFrame({"series_id": "3304557", "timestamp": w, "value": [144.0, 215.0]}).to_parquet(d / "W.parquet")
+    m = T.build_task("infodengue_weather", T.load_tasks()["infodengue_weather"], raw, staging, srcs)
+    out = pd.read_parquet(staging / "covtasks" / "infodengue_weather" / "W.parquet")
+    assert out["tempmin"].tolist() == [23.2, 25.4] and m["covariates"]["umidmed"]["oracle"] is True

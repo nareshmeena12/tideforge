@@ -53,16 +53,17 @@ D054:
     vars: {series: index}
     probe_vars: {series: USW00094728}
     rate_limit_s: 0.5
-  read: {format: csv, sep: "|", usecols: [Station_ID, Year, Month, Day, Hour, Minute, temperature, sea_level_pressure, wind_speed]}
-  time: {parts: {year: Year, month: Month, day: Day, hour: Hour, minute: Minute}, tz: UTC}
-  id: [Station_ID]
-  value: [temperature, sea_level_pressure, wind_speed]
+  read: {format: csv, sep: "|", usecols: [STATION, DATE, temperature], dtype: {STATION: str}}
+  time: {col: DATE, format: "ISO8601", tz: UTC}
+  id: [STATION]
+  value: [temperature]
   tasks: [{freq: h, how: mean}]
-  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "Station_ID.str[:2]"}}
-  exclude: {where: "not Station_ID.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather)"}
+  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "STATION.str[:2]"}}
+  exclude: {where: "not STATION.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather)"}
   tz: UTC
-  confirm: ["station-list URL and its id column", "by-station PSV URL pattern and column names",
-            "timestamps are UTC (ISD lineage); the owner expects local time: check the documentation"]
+  confirm: ["the names of further value columns (pressure, wind) beyond the 200 characters the probe showed"]
+  notes: "probe 2026-10-27: columns STATION, DATE (ISO), Year..Minute, temperature (degC); NYC's first record is 05:00 =
+          local midnight EST, so DATE is UTC"
 
 D057:
   slug: ndbc
@@ -128,22 +129,20 @@ D074:
   value: null
   tasks: [{freq: D, how: mean}]
   select: {max_series: 500, strata: [state]}
-  confirm: ["the legacy waterservices API still answers (USGS is moving to api.waterdata.usgs.gov)",
-            "the value column name of the dv RDB (e.g. '<ts_id>_00060_00003'): fill `value` from the probe"]
-  notes: "value is filled from the probe output (the dv column name carries a time-series id). Same split unit as CAMELS."
+  confirm: ["the value column name of the dv RDB (e.g. '<ts_id>_00060_00003'): the probe now prints the lines after the comments"]
+  notes: "probe 2026-10-27: the legacy waterservices API answers (site list and dv). Same split unit as CAMELS."
 
 D071:
   slug: camels_us
   loader: adapter:camels_us
-  index:
-    url: https://gdex.ucar.edu/dataset/camels/file/basin_timeseries_v1p2_metForcing_obsFlow.zip
-    id: series
-    strata: [huc]
   fetch:
-    urls: [https://gdex.ucar.edu/dataset/camels/file/basin_timeseries_v1p2_metForcing_obsFlow.zip]
+    urls: [https://zenodo.org/api/records/15529996/files/basin_timeseries_v1p2_metForcing_obsFlow.zip/content]
+    timeout_s: 1800
   tasks: [{freq: D, how: mean}]
   select: {max_series: 500, strata: [huc]}
-  confirm: ["the NCAR GDEX download URL (the catalog lists a Zenodo record)", "zip member layout (usgs_streamflow/<huc>/...)"]
+  confirm: ["zip member layout (usgs_streamflow/<huc>/...): listed after the download (3.4 GB)"]
+  notes: "the catalog's Zenodo record 15529996 (the GDEX URL returned 404 on 2026-10-27). No index: the one zip holds every
+          gauge; the 500 are selected after reading, stratified by HUC region."
 
 # ------------------------------------------------------------------------------------------------ energy
 D003:
@@ -191,13 +190,14 @@ D029:
   slug: ausgrid_solar
   loader: adapter:ausgrid
   fetch:
-    urls: ["https://www.ausgrid.com.au/Industry/Our-Research/Data-to-share/Solar-home-electricity-data"]
+    manual: true
   read: {skiprows: 1}
   tasks: [{freq: 30min, how: mean}]
   select: {max_series: 500}
   tz: Australia/Sydney
-  confirm: ["the three yearly zip URLs listed on the 'Solar home electricity data' page (replace urls with them)",
-            "local standard time or with daylight saving", "date format"]
+  confirm: ["the Ausgrid page returned 404 from Perlmutter and from the dev machine (2026-10-27): download the three yearly
+            half-hour files in a browser (Ausgrid's 'Solar home electricity data' page or data.nsw.gov.au) and put them in
+            <raw>/ausgrid_solar/files/", "local standard time or with daylight saving", "date format"]
 
 # ------------------------------------------------------------------------------------------------ air
 D078:
@@ -244,19 +244,26 @@ D381:
   slug: paris_bikes
   fetch:
     urls: ["https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/comptage-velo-donnees-compteurs/exports/csv?delimiter=%3B"]
-  read: {format: csv, sep: ";", usecols: [Identifiant du compteur, Comptage horaire, Date et heure de comptage]}
-  time: {col: Date et heure de comptage, has_offset: true}
-  id: [Identifiant du compteur]
-  value: Comptage horaire
+    timeout_s: 600
+  read: {format: csv, sep: ";", usecols: [id_compteur, sum_counts, date], dtype: {id_compteur: str}}
+  time: {col: date, has_offset: true}
+  id: [id_compteur]
+  value: sum_counts
   tasks: [{freq: h, how: sum}]
   select: {max_series: 500}
-  confirm: ["the export covers only the last 13 months: add the yearly archives (comptage-velo-historique) from the probe"]
+  confirm: ["the export covers only the last 13 months: the yearly archives (comptage-velo-historique-donnees-compteurs)
+            are still to be found"]
+  notes: "probe 2026-10-27: columns id_compteur, sum_counts, date (ISO with offset)"
 
 D181:
   slug: mta_ridership
   fetch:
-    urls: ["https://data.ny.gov/resource/wujg-7c2s.csv?$select=date_trunc_ymd(transit_timestamp)%20as%20day,station_complex_id,sum(ridership)%20as%20riders&$group=day,station_complex_id&$limit=5000000"]
+    url_template: "https://data.ny.gov/resource/wujg-7c2s.csv?$select=date_trunc_ymd(transit_timestamp)%20as%20day,station_complex_id,sum(ridership)%20as%20riders&$where=date_extract_y(transit_timestamp)={year}%20AND%20date_extract_m(transit_timestamp)={m}&$group=day,station_complex_id&$limit=100000"
+    vars: {year: {range: [2020, 2024]}, m: {range: [1, 12]}}
+    probe_vars: {year: 2023, m: 1}
     rate_limit_s: 1.0
+    timeout_s: 600
+    retries: 5
   read: {format: csv, dtype: {station_complex_id: str}}
   time: {col: day}
   id: [station_complex_id]
@@ -264,22 +271,25 @@ D181:
   tasks: [{freq: D, how: sum}]
   select: {max_series: 500}
   tz: America/New_York
-  confirm: ["dataset id wujg-7c2s (subway hourly ridership) and the SoQL aggregation"]
+  confirm: ["the monthly SoQL query answers in time (the whole-history aggregation timed out on 2026-10-27)"]
 
 # ------------------------------------------------------------------------------------------------ cloud
 D314:
   slug: huawei_serverless
   fetch:
-    url_template: https://raw.githubusercontent.com/sir-lab/data-release/main/requests_minute/day_{day}.csv
-    vars: {day: ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13"]}
-  read: {format: csv, melt: {id_vars: [time], var_name: function}}
-  time: {col: time, unit: s}
+    urls: ["https://drive.usercontent.google.com/download?id=1RfkSxt9TddpOHiybEJFwUXfWqpsJyqSK&export=download&confirm=t"]
+    timeout_s: 1800
+  read: {format: csv, zip_member: "public_dataset/.*requests_minute/day_\\d+\\.csv$",
+         melt: {id_vars: [time, day], var_name: function}, fillna: 0}
+  time: {expr: "day * 86400 + time", unit: s}
   id: [function]
   value: value
   tasks: [{freq: min, how: sum}, {freq: h, how: sum}]
   select: {max_series: 500}
-  confirm: ["repository path and file names", "wide layout (one column per function) and the time column unit"]
-  notes: "replaces D311 (Azure Functions 2021): that trace is a .rar archive, which needs a tool we have not approved"
+  confirm: ["the Google Drive file (README_data_release_2023.md, 'Huawei Public, requests per minute') is a zip with
+            .../public_dataset/.../requests_minute/day_00..25.csv", "fillna 0: an empty cell means no requests"]
+  notes: "layout from src/demo_public.ipynb: wide, columns time (s, 0..86340 within the day), day (0-25), 0..5092 per function.
+          Timestamps are relative (no calendar date in the release). Replaces D311 (a .rar archive)."
 
 D320:
   slug: backblaze
@@ -325,15 +335,21 @@ D138:
 D347:
   slug: iowa_liquor
   fetch:
-    urls: ["https://data.iowa.gov/resource/m3tr-qhgy.csv?$select=date_trunc_ymd(date)%20as%20day,county,sum(sale_dollars)%20as%20sales&$group=day,county&$limit=5000000"]
+    url_template: https://idh-be.iowa.gov/api/v1/datasets/{dataset}/rows.csv
+    vars: {dataset: ["1258", "1259"]}
+    probe_vars: {dataset: "1258"}
     rate_limit_s: 1.0
-  read: {format: csv}
-  time: {col: day}
+    timeout_s: 1800
+  read: {format: csv, usecols: [ordered_on, county, sale_dollars]}
+  time: {col: ordered_on}
   id: [county]
-  value: sales
+  events: {how: sum, value: sale_dollars}
   tasks: [{freq: D, how: sum}, {freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["dataset id m3tr-qhgy and column names (date, county, sale_dollars)"]
+  confirm: ["data.iowa.gov moved to the Iowa Data Hub: the Socrata id m3tr-qhgy returns 404 (2026-10-27). Known yearly
+            datasets: 2021 = 1258, 2022 = 1259, 2026 = 1263; ids for 2012-2020 and 2023-2025, or an all-years dataset, are
+            to be found in the Data Hub catalog", "the rows.csv endpoint (seen for dataset 1078) and the column names
+            county / sale_dollars (ordered_on is confirmed)"]
 
 # ------------------------------------------------------------------------------------------------ health
 D297:
@@ -354,15 +370,22 @@ D295:
     id: id
     derive: {uf: "`microrregiao.mesorregiao.UF.sigla`"}
     strata: [uf]
+    timeout_s: 300
+    retries: 6
   fetch:
     url_template: "https://info.dengue.mat.br/api/alertcity?geocode={series}&disease=dengue&format=csv&ew_start=1&ew_end=53&ey_start=2012&ey_end=2025"
     vars: {series: index}
     probe_vars: {series: "3304557"}
     rate_limit_s: 0.5
+    retries: 5
   read: {format: csv}
   time: {col: data_iniSE}
   id: [_var_series]
   value: casos
   tasks: [{freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["IBGE municipality JSON fields", "InfoDengue CSV columns (data_iniSE, casos)"]
+  confirm: ["IBGE municipality JSON fields (the index timed out on 2026-10-27: longer timeout and retries now; it is cached
+            under <raw>/infodengue/index/ once fetched)"]
+  notes: "probe 2026-10-27: CSV columns data_iniSE, SE, casos_est, casos, ..., tempmin, umidmax, umidmed, umidmin, ...
+          (weekly, newest first); the weather columns feed the covariate task infodengue_weather"
+

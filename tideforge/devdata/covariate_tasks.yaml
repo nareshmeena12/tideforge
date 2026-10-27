@@ -50,3 +50,14 @@ paris_bikes_weather:
   covariates:
     temperature: {column: temperature, role: known, oracle: true}
     holiday: {country: FR, role: known, oracle: false}
+
+infodengue_weather:
+  target: {source: D295, freq: W}
+  join: same_source
+  covariates:
+    tempmin: {role: known, oracle: true}
+    umidmax: {role: known, oracle: true}
+    umidmed: {role: known, oracle: true}
+    umidmin: {role: known, oracle: true}
+  notes: "the weather columns of the same InfoDengue CSVs (weekly means per municipality, observed). Further columns after
+          umidmin (tempmed / tempmax?) were cut off in the probe; add them once seen."

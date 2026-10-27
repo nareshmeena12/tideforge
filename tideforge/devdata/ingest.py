@@ -131,11 +131,17 @@ class Run:
         return F.file_list(self.src.fetch, series)
 
     def fetch(self, max_files: int | None = None) -> list[tuple[Path, dict]]:
+        if self.src.fetch.get("manual"):
+            files = self.files()
+            self.say(f"{self.src.id} {self.src.slug}: manual download, {len(files)} files in {self.dir / 'files'}")
+            return files
         urls = self.urls(True)
         self.say(f"{self.src.id} {self.src.slug}: {len(urls)} files")
         return F.fetch_all(urls, self.dir / "files", self.src.fetch, self.log, max_files, say=self.say)
 
     def files(self) -> list[tuple[Path, dict]]:
+        if self.src.fetch.get("manual"):          # files put in <raw>/<slug>/files/ by hand (browser-only sources)
+            return [(p, {}) for p in sorted((self.dir / "files").glob("*")) if p.is_file()]
         urls = self.urls(False)
         out = [(self.dir / "files" / F.local_name(u), v) for u, v in urls]
         return [(p, v) for p, v in out if p.exists()]

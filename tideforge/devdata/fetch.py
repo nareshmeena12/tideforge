@@ -143,7 +143,8 @@ def fetch_all(urls: list[tuple[str, dict]], folder: Path, fetch: dict, log: Path
     out = []
     for i, (u, v) in enumerate(urls[:max_files] if max_files else urls):
         dest = folder / local_name(u)
-        row = download(u, dest, fetch.get("headers"), fetch.get("auth"), log=log)
+        row = download(u, dest, fetch.get("headers"), fetch.get("auth"), retries=int(fetch.get("retries", 3)),
+                       timeout=float(fetch.get("timeout_s", 120)), log=log)
         if row["status"] != "exists":
             time.sleep(float(fetch.get("rate_limit_s", 0.2)))
         if dest.exists():
@@ -172,5 +173,12 @@ def probe(url: str, fetch: dict, n: int = 65536) -> str:
             head = d.decompress(head)
     if head[:2] == b"PK":
         return f"{meta}\n  (zip archive; members are listed after the full download)"
-    text = head.decode("utf-8", "replace").splitlines()[:8]
-    return meta + "\n" + "\n".join("  | " + t[:200] for t in text)
+    text = head.decode("utf-8", "replace")
+    if "<ListBucketResult" in text:                                   # S3 listing: show the keys
+        keys = re.findall(r"<Key>([^<]+)</Key>", text)
+        return meta + f"\n  S3 listing, {len(keys)} keys in the first {n} bytes:\n" + "\n".join("  | " + k for k in keys[:25])
+    lines = text.splitlines()
+    body = [x for x in lines if not x.startswith("#")]                 # skip comment headers (USGS RDB)
+    shown = (body or lines)[:8]
+    skipped = f"  ({len(lines) - len(body)} comment lines skipped)\n" if body and len(body) < len(lines) else ""
+    return meta + "\n" + skipped + "\n".join("  | " + x[:400] for x in shown)
