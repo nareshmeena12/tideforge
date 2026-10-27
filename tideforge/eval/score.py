@@ -5,6 +5,7 @@
   python -m tideforge.eval.score table --root R --names ft3mainbase[,...] --base ft3mainbase [--gate]
                                        [--looks --experiment E0.2 --why "..."]
   python -m tideforge.eval.score compare-log --root R --name ft3mainbase --log reference/fev_log_ft3.txt
+  python -m tideforge.eval.score compare-board --root R [--smoke] --ref <tidemark board>/scores_long.csv
 
 `score` runs third_party's score_groups.main (score_ft3 board for `board`) inside nan_variants.use_variant(variant). The variant code
 is appended to the checkpoint name, so it is part of every result tag: ft3main + baseline -> ft3mainbase_s0 (OFF) and
@@ -97,9 +98,38 @@ def cmd_compare(a) -> int:
     return G.main(["compare-log", "--root", a.root, "--name", a.name, "--log", a.log])
 
 
+def compare_board(ours, ref, name: str = "ft3mainbase", ref_name: str = "ft3main"):
+    """Per-task differences between our scores_long.csv and a reference board's (same columns: model, arm, seed, benchmark,
+    metric, task, window, err). Our arms <name> / <name>on map to the reference's <ref_name> / <ref_name>on (hidden / ON).
+    Returns the joined rows of the tasks both have (err_ours, err_ref, abs_diff, rel_diff)."""
+    import pandas as pd
+    o, r = pd.read_csv(ours), pd.read_csv(ref)
+    amap = {name: ref_name, name + "on": ref_name + "on"}
+    o = o[o["arm"].isin(amap)].assign(arm=lambda d: d["arm"].map(amap))
+    r = r[r["arm"].isin(amap.values())]
+    key = ["arm", "benchmark", "metric", "task", "window"]
+    j = o[key + ["err"]].merge(r[key + ["err"]], on=key, suffixes=("_ours", "_ref"))
+    j["abs_diff"] = (j["err_ours"] - j["err_ref"]).abs()
+    j["rel_diff"] = j["abs_diff"] / j["err_ref"].abs().clip(lower=1e-12)
+    return j.sort_values("rel_diff", ascending=False)
+
+
+def cmd_compare_board(a) -> int:
+    from pathlib import Path
+    ours = Path(a.root) / ("eval_smoke" if a.smoke else "eval") / "board" / "scores_long.csv"
+    j = compare_board(ours, a.ref, a.name, a.ref_name)
+    if j.empty:
+        print(f"no common (arm, benchmark, metric, task, window) between {ours} and {a.ref}")
+        return 1
+    print(j.to_string(index=False, float_format=lambda v: f"{v:.6g}"))
+    print(f"\n{len(j)} task rows compared; max relative difference {j['rel_diff'].max():.3g}; "
+          f"rows with |rel diff| > 1e-4: {int((j['rel_diff'] > 1e-4).sum())}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=("score", "board", "table", "compare-log"))
+    ap.add_argument("cmd", choices=("score", "board", "table", "compare-log", "compare-board"))
     ap.add_argument("--root", required=True)
     ap.add_argument("--ckpt", action="append", default=[], metavar="NAME=PATH")
     ap.add_argument("--variant", choices=VARIANTS, default="baseline")
@@ -118,12 +148,14 @@ def main(argv=None) -> int:
     ap.add_argument("--why", default=None)
     ap.add_argument("--name", default="ft3mainbase", help="compare-log: checkpoint name")
     ap.add_argument("--log", default="reference/fev_log_ft3.txt")
+    ap.add_argument("--ref", default=None, help="compare-board: the reference scores_long.csv")
+    ap.add_argument("--ref-name", default="ft3main", help="compare-board: the reference's checkpoint name")
     a = ap.parse_args(argv)
     if a.cmd == "score":
         if not a.ckpt:
             raise SystemExit("score needs at least one --ckpt NAME=PATH")
         return cmd_score(a)
-    return {"board": cmd_board, "table": cmd_table, "compare-log": cmd_compare}[a.cmd](a)
+    return {"board": cmd_board, "table": cmd_table, "compare-log": cmd_compare, "compare-board": cmd_compare_board}[a.cmd](a)
 
 
 if __name__ == "__main__":

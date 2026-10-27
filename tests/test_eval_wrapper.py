@@ -66,3 +66,14 @@ def test_gate_is_the_six_numbers():
 
 def test_repo_looks_file_has_the_header():
     assert looks.HEADER in Path(looks.LOOKS).read_text(encoding="utf-8").splitlines()
+
+
+def test_compare_board(tmp_path):
+    cols = "model,arm,seed,benchmark,metric,task,window,err\n"
+    (tmp_path / "ours.csv").write_text(cols + "ft3mainbaseon_s0,ft3mainbaseon,0,fev,test_error,t1,all,0.5\n"
+                                       "ft3mainbase_s0,ft3mainbase,0,time,MASE,d/short,all,0.70\n")
+    (tmp_path / "ref.csv").write_text(cols + "ft3mainon_s0,ft3mainon,0,fev,test_error,t1,all,0.5\n"
+                                      "ft3main_s0,ft3main,0,time,MASE,d/short,all,0.71\nft3main_s0,ft3main,0,fev,test_error,t9,all,1\n")
+    j = score.compare_board(tmp_path / "ours.csv", tmp_path / "ref.csv")
+    assert len(j) == 2 and j.iloc[0]["task"] == "d/short" and abs(j.iloc[0]["abs_diff"] - 0.01) < 1e-12
+    assert j.iloc[1]["abs_diff"] == 0
