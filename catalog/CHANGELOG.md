@@ -5,6 +5,13 @@ the same commit so that a rebuild keeps the change.
 
 ## 2026-10-27
 
+- D027 Pecan Street: access_class registration (unchanged) and counted size = the free University Access tier: 75 series,
+  1.31e7 points available (175k each), dev pull 75 series / 750k points (was 1000 / 1.75e8, pull 500 / 5M).
+- D028 UMass Smart*: counted size = the one linked file (443 homes, one 24-hour period; 1-min resolution assumed until
+  downloaded): 443 series, 637,920 points, pull the same (was 500 / 1e7, pull 500 / 5M). The minute-level 400+ home data
+  is marked "not linked". At ~1440 points per series most of it will fail the length rule (3 x longest horizon + 64).
+- Totals after both changes (counted, not pool / covariate-only, 365 datasets): available (bounded sources) 61.88M series,
+  400.51B points; dev pull 131,089 series, 641.4M points (was 650.0M). expand_catalog.py sizes updated to match.
 - D026 Irish CER smart meter trial: url arXiv review paper -> ISSDA's CER data page
   (https://www.ucd.ie/issda/data/commissionforenergyregulationcer; found by search, the page refuses automated fetches,
   url_verified no); access_class open -> application (ISSDA supplies the data on application; expand_catalog.py now maps
