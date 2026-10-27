@@ -129,7 +129,14 @@ def test_post_switch_changes_only_what_it_touches(point):
     hit = (d != 0).flatten(1).any(1)
     assert 0 < int(hit.sum()) < hit.numel()
     assert torch.equal(on[0][~hit], off[0][~hit])
-    assert torch.allclose(d[hit], torch.ones_like(d[hit]))
+    # exact: the hook computes x + shift * hit in the series' dtype, so the same expression on the off output must match bit for
+    # bit. (on - off) itself is NOT exactly 1 in float32 for |x| >~ 100: (x + 1) - x is off by up to one ulp of x, which is
+    # what failed on Perlmutter with torch.allclose (2026-10-27).
+    expect = off[0] + 1.0 * hit.view(-1, 1, 1).to(off[0].dtype)
+    if not torch.equal(on[0], expect):
+        k = int((on[0] - expect).abs().flatten().argmax())
+        raise AssertionError(f"worst element {k}: on {on[0].flatten()[k].item()!r}, off {off[0].flatten()[k].item()!r}, "
+                             f"expected {expect.flatten()[k].item()!r}")
     assert torch.equal(on[1], off[1]) and torch.equal(on[2], off[2])
 
 

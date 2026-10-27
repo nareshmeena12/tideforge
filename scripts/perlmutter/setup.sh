@@ -76,6 +76,6 @@ print("missing:", missing if missing else "none")
 if missing:
     raise SystemExit("install them as in tidemark's scripts/perlmutter/README.md section 5a (pip install --user ...)")
 PY
-python -m pytest -q
+python -m pytest -q -m "not gpu"          # GPU tests run only in the GPU step (see the last line)
 git -C "$TF_REPO" log --oneline -1
 echo "SETUP OK. GPU parity (on a GPU node): python -m pytest -q -m gpu tests/test_gen_parity.py tests/test_gen_switches.py"
