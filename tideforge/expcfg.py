@@ -10,7 +10,9 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
     seeds: [0]                    # screening: 1 seed; a win is confirmed with 3 (EXPERIMENTS.md rule 4)
     notes: free text
 
-Training settings join this file in T3 (5M recipe port).
+    train:                        # batcher / training settings: stored and validated now, applied by T3 (5M recipe port)
+      long_row_frac: 0.5
+
 """
 from __future__ import annotations
 
@@ -23,7 +25,10 @@ from tideforge.gen.config import GenConfig, b0
 
 REPO = Path(__file__).resolve().parents[1]
 EXP_DIR = REPO / "configs" / "exp"
-KEYS = {"id", "base", "gen", "switches", "seeds", "notes"}
+KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train"}
+# train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
+TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict}
+LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
 
 
@@ -35,6 +40,7 @@ class Exp:
     gen: GenConfig
     seeds: tuple[int, ...] = (0,)
     notes: str = ""
+    train: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict, compare=False)
 
     def run_id(self) -> str:
@@ -75,7 +81,23 @@ def load_exp(id_or_path: str | Path) -> Exp:
     base = base_config(base_name)
     gc = apply_changes(base, d.get("gen"), d.get("switches"))
     seeds = tuple(int(s) for s in d.get("seeds", [0]))
-    return Exp(d["id"], base_name, base, gc, seeds, str(d.get("notes", "") or ""), d)
+    return Exp(d["id"], base_name, base, gc, seeds, str(d.get("notes", "") or ""), check_train(d.get("train"), p), d)
+
+
+def check_train(train: dict | None, where="") -> dict:
+    train = dict(train or {})
+    bad = sorted(set(train) - set(TRAIN_KEYS))
+    if bad:
+        raise KeyError(f"{where}: unknown train setting(s) {bad}; known: {sorted(TRAIN_KEYS)}")
+    for k, typ in TRAIN_KEYS.items():
+        if k in train and not isinstance(train[k], (int, float) if typ is float else typ):
+            raise TypeError(f"{where}: train.{k} must be {typ.__name__}")
+    if "long_row_frac" in train and not 0 <= train["long_row_frac"] <= 1:
+        raise ValueError(f"{where}: train.long_row_frac must be in [0, 1]")
+    bad = sorted(set(train.get("lead_noise", {})) - LEAD_NOISE_KEYS)
+    if bad:
+        raise KeyError(f"{where}: unknown train.lead_noise key(s) {bad}; known: {sorted(LEAD_NOISE_KEYS)}")
+    return train
 
 
 def parse_kv(items: list[str]) -> dict:

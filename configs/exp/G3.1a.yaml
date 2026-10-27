@@ -1,0 +1,7 @@
+id: G3.1a
+base: b0
+switches:
+  family_share: {family: long_cycle, share: 0.15}
+seeds: [0]
+notes: >-
+  long_cycle 9.5% (B0) -> 15%

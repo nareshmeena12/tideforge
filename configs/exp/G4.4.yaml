@@ -1,0 +1,7 @@
+id: G4.4
+base: b0
+switches:
+  collapse: {p: 0.05}
+seeds: [0]
+notes: >-
+  collapse of level and amplitude with partial recovery on 5% of rows

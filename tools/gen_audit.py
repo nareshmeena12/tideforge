@@ -7,6 +7,7 @@ Usage (from the repo root):
     python tools/gen_audit.py --base b0 --switch NAME --param k=v --set gen_additions.breaks=true
     python tools/gen_audit.py --base defaults --set gen_additions.yearly=true --set cov_r3=true
         # = the earlier measurement in docs/notes/GENERATOR_GAPS.md (CONFIG defaults + yearly, cov_r3 for the group part)
+    python tools/gen_audit.py --exp G4.1 --row runs/audit/rows.csv        # also append one CSV row (the B0 comparison table)
 Everything goes through tideforge.gen (bit-exact with ft3_core when no switch is on); torch seed 0, switch seed 0.
 """
 import argparse, math, collections, json
@@ -26,6 +27,7 @@ ap.add_argument("--switch", action="append", default=[])
 ap.add_argument("--param", action="append", default=[])
 ap.add_argument("--set", dest="set_", action="append", default=[])
 ap.add_argument("--n", type=int, default=4096)
+ap.add_argument("--row", default=None, help="append one summary row to this CSV")
 a = ap.parse_args()
 base, gc, label = gc_from_cli(a.base, a.exp, a.switch, a.param, a.set_)
 prof = G.configure(gc)
@@ -114,13 +116,43 @@ print("  ", [(p, round(100 * k / tot_s, 1)) for p, k in c.most_common(15)])
 print(f"   share at a bank period (+-1): {100*sum(k for p,k in c.items() if any(abs(p-b)<=1 for b in bank))/tot_s:.0f}%")
 print(f"   share with period > 1/3 of what fits (<4 cycles): {100*sum(k for p,k in c.items() if 2048/p<4)/tot_s:.0f}%")
 
+ROW = dict(config=label, run_id=gc.run_id_fragment(base))
+for fam in ("long_cycle",):
+    ROW[f"share_{fam}"] = round(100 * W.get(fam, 0.0) / tot, 2)
+ns_all = [r for r in rows if not r["flat"]]
+ROW.update(integer=round(share(ns_all, "integer"), 2), jumps=round(share(ns_all, "n_jumps", lambda v: v >= 1), 2),
+           var_change=round(share(ns_all, "var_ratio", lambda v: abs(v) > math.log(2)), 2),
+           seasonal=round(share(ns_all, "seasonal"), 2), flat=round(share(rows, "flat"), 2))
+
+
+def write_row():
+    if not a.row:
+        return
+    import csv
+    out = Path(a.row)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    have = out.exists()
+    with open(out, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(ROW), lineterminator="\n")
+        if not have:
+            w.writeheader()
+        w.writerow(ROW)
+    print(f"row appended to {out}")
+
+
 # groups / covariates (the config's own group settings)
 V, gp = gc.group_lanes, gc.group_prob
 if V < 2 or gp <= 0:
     print(f"\nGROUPS: none in this config (group_lanes {V}, group_prob {gp})")
+    write_row()
     sys.exit(0)
 x, role, lgid = G.generate_blocks(512, V, 512, "cpu", profile=prof, group_prob=gp)
 nan_share = float(torch.isnan(x).float().mean())
+lane_nan = torch.isnan(x).any(-1)
+is_tgt = role == G.ROLE_TARGET
+ROW.update(nan_points=round(100 * nan_share, 2),
+           nan_target_lanes=round(100 * float(lane_nan[is_tgt].float().mean()), 2),
+           nan_cov_lanes=round(100 * float(lane_nan[~is_tgt].float().mean()), 2) if bool((~is_tgt).any()) else 0.0)
 role = role.numpy(); lgid = lgid.numpy()
 n_lanes = role.size
 in_group = np.zeros_like(role, bool)
@@ -128,13 +160,18 @@ for i in range(role.shape[0]):
     ids, cnt = np.unique(lgid[i], return_counts=True)
     big = ids[cnt > 1]
     in_group[i] = np.isin(lgid[i], big)
-tgt_with_known = 0; tgt_with_past = 0
+tgt_with_known = 0; tgt_with_past = 0; tgt_with_cov = 0
 for i in range(role.shape[0]):
     for gid in np.unique(lgid[i][in_group[i]]):
         m = lgid[i] == gid
         r = role[i][m]
         if (r == G.ROLE_KNOWN).any(): tgt_with_known += (r == G.ROLE_TARGET).sum()
         if (r == G.ROLE_PAST).any(): tgt_with_past += (r == G.ROLE_TARGET).sum()
+        if (r != G.ROLE_TARGET).any(): tgt_with_cov += (r == G.ROLE_TARGET).sum()
 print(f"\nGROUPS (V={V}, group_prob {gp}, cov_r3 {gc.cov_r3}): lanes in a related group {100*in_group.mean():.0f}%,"
       f" targets with KNOWN covariates {100*tgt_with_known/n_lanes:.1f}% of lanes,"
       f" with PAST covariates {100*tgt_with_past/n_lanes:.1f}%; NaN share {100*nan_share:.2f}%")
+ROW.update(target_known=round(100 * tgt_with_known / n_lanes, 2), target_past=round(100 * tgt_with_past / n_lanes, 2),
+           target_any_cov=round(100 * tgt_with_cov / n_lanes, 2),
+           in_group=round(100 * float(in_group.mean()), 2))
+write_row()

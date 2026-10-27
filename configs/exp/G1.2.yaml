@@ -1,0 +1,7 @@
+id: G1.2
+base: b0
+train:
+  lead_noise: {p_noisy: 0.5, sigma0_lo: 0.05, sigma0_hi: 0.5, step: 32}
+seeds: [0]
+notes: >-
+  known covariates with forecast error growing with lead time after the CPM span start (tideforge/gen/ext/g1_lead_noise.py); wired into the batcher in T3. Generator = B0.

@@ -1,0 +1,7 @@
+id: G7.4a
+base: b0
+switches:
+  int_share: {share: 0.10}
+seeds: [0]
+notes: >-
+  integer-valued rows ~3% (B0) -> 10%

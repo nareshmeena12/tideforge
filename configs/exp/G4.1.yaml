@@ -1,0 +1,7 @@
+id: G4.1
+base: b0
+gen:
+  gen_additions: {breaks: true}
+seeds: [0]
+notes: >-
+  breaks on at v0's rate 0.2

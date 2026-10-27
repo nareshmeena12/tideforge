@@ -1,0 +1,7 @@
+id: G4.2a
+base: b0
+switches:
+  breaks_rate: {p: 0.1}
+seeds: [0]
+notes: >-
+  breaks at rate 0.1

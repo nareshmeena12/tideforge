@@ -1,0 +1,7 @@
+id: G5.1
+base: b0
+gen:
+  gen_additions: {tv_season: true}
+seeds: [0]
+notes: >-
+  time-varying seasonality on

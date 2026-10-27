@@ -1,0 +1,7 @@
+id: G6.4
+base: b0
+switches:
+  no_ffill: true
+seeds: [0]
+notes: >-
+  no forward-filled missing runs (miss_p 0); compare with G6.1-G6.3, which keep them alongside

@@ -1,0 +1,7 @@
+id: G6.3
+base: b0
+switches:
+  gaps_periodic: {d_lo: 0.15, d_hi: 0.4, target_lanes: 0.3, cov_lanes: 0.3}
+seeds: [0]
+notes: >-
+  periodic NaN; needs T3's NaN handling

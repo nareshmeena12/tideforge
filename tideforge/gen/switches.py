@@ -185,6 +185,16 @@ class Installer:
             _groups.GROUP_KIND_PROBS = tuple(_groups.GROUP_KIND_PROBS) + (float(prob),)
             _hooks.GROUP_KINDS_EXT[kind] = (self.name, fn)
 
+    def set_profile(self, key: str, fn: Callable) -> None:
+        """Replace one setting of the active profile: profile[key] = fn(current value). Settings the v0 layers read from the
+        profile (breaks_p, miss_p, weights, ...); configure() rebuilds the profile from v0 first, so nothing carries over."""
+        self.plan.append(("profile", self.name, key, _qual(fn)))
+        if self.apply:
+            pr = _profiles.GEN_PROFILES[self.profile]
+            if key not in pr:
+                raise KeyError(f"{self.name}: profile {self.profile!r} has no setting {key!r}")
+            _profiles.GEN_PROFILES[self.profile] = dict(pr, **{key: fn(pr[key])})
+
     def set_group_size(self, fn: Callable) -> None:
         """fn(g, kind, is_group, V, ctx) -> g (first group of a block; the optional second group keeps v0's sizes)."""
         self.plan.append(("group_size", self.name, _qual(fn)))

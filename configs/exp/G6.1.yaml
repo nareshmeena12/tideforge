@@ -1,0 +1,7 @@
+id: G6.1
+base: b0
+switches:
+  gaps_scattered: {p: 0.05, target_lanes: 0.3, cov_lanes: 0.3}
+seeds: [0]
+notes: >-
+  scattered NaN; needs T3's NaN handling in the batcher

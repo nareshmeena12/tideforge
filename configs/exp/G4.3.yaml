@@ -1,0 +1,9 @@
+id: G4.3
+base: b0
+gen:
+  gen_additions: {breaks: true}
+switches:
+  breaks_late: {lo: 0.7, hi: 0.9}
+seeds: [0]
+notes: >-
+  breaks (rate 0.2) placed at 0.7-0.9 of the block; see the simulated-crop check in the test and the report

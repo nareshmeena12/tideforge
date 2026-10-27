@@ -17,7 +17,7 @@ def test_bad_configs(tmp_path):
     p.write_text("id: X2\nbase: defaults\n")
     with pytest.raises(ValueError, match="file name"):
         expcfg.load_exp(p)
-    p.write_text("id: X1\nbase: defaults\ntrain: {}\n")
+    p.write_text("id: X1\nbase: defaults\ntraining: {}\n")
     with pytest.raises(KeyError, match="unknown key"):
         expcfg.load_exp(p)
     p.write_text("id: X1\nbase: defaults\ngen: {nope: 1}\n")

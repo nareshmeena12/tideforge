@@ -112,6 +112,9 @@ class GenConfig:
             if k.startswith("switches."):        # the name only; the parameters are in the hash
                 parts.append(name if v is not None else f"no{name}")
                 continue
+            if isinstance(v, (tuple, list)):     # e.g. group_kind_probs: the name only, the values are in the hash
+                parts.append(name)
+                continue
             parts.append(name if v is True else f"no{name}" if v is False else f"{name}{v}")
         tag = "+".join(parts) if parts else "b0"
         return f"{self.version}-{tag}-{self.config_hash()}"

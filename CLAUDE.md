@@ -126,6 +126,13 @@ data/  runs/              never committed
 
 ## Build order
 
+T3 requirements already fixed (owner 2026-10-28; the batcher port must meet them):
+- NaN anywhere in a generated block (G6 switches write NaN at H8) becomes value 0 / mask 0 in the batcher's input AND is
+  masked out of the loss: a CPM span can cover a gap inside the context, so a NaN can be a target. ft3_core's next_batch
+  today copies NaN into X with mask True.
+- G1.2: tideforge/gen/ext/g1_lead_noise.lead_noise on the known lanes, from the start of the CPM-hidden span, for cells that
+  have one (configs/exp/G1.2.yaml, `train: lead_noise`). G3.3: `train: long_row_frac`.
+
 T0 scaffold: package skeleton, pyproject, v0 generator port + parity test (E0.1), scorer wrapper reproducing ft3_main
 (E0.2), NaN check (E0.3). T1 dev data v1 (E0.4) and the public-model sanity check (E0.5). T2 probe suite (E0.6). T3 5M
 recipe port, baseline seeds and controls (E0.7-E0.9). Then Phase 1 diagnosis and Phase 2 gaps in the order in
