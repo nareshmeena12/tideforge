@@ -9,6 +9,7 @@ venv/
 
 # Data, runs and checkpoints (never committed)
 data/
+!docs/report/data/
 datasets/
 runs/
 checkpoints/
