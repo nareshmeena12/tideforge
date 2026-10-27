@@ -6,9 +6,12 @@
 
 Jobs:
   e03_score.sbatch   E0.3 scoring in the background: nofill_delete and nofill_mask (groups ON and OFF) and cov_mask (groups ON
-                     only), one GPU per variant (shared QOS, 3 GPUs), then the E0.3 table against tidemark's board as the
-                     baseline. score_groups resumes
-                     per (tag, task), so a job that hits its time limit is requeued and continues where it stopped.
+                     only), split into five (variant, mode) units queued over the 4 GPUs of a full
+                     regular node (the fifth starts when a GPU frees up), then the E0.3 table against tidemark's board
+                     as the baseline. score_groups resumes per (tag, task), so a job that hits its time limit is requeued and continues where it stopped.
+QOS limits (Perlmutter GPU nodes: 4 GPUs, 128 cores): shared at most half a node (2 GPUs, 64 cores), regular a full node.
+check() refuses a job above them; main() prints each job's estimated GPU-hours (estimates, from UNITS_H) and the
+allocated maximum (GPUs x time limit).
 Submit from the log folder (the job's output lands there as <job name>-<job id>.out):
     cd $TF_ROOT/logs && sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch
 """
@@ -43,10 +46,17 @@ echo "$(date) job $SLURM_JOB_ID on $(hostname), restart count ${{SLURM_RESTART_C
 trap 'echo "$(date) SIGUSR1: time limit close, requeueing"; scontrol requeue "$SLURM_JOB_ID"; exit 0' USR1
 """
 
+NODE_GPUS, NODE_CPUS = 4, 128
+QOS = {"shared": dict(gpus=2, cpus=64, hours=48), "regular": dict(gpus=4, cpus=128, hours=48)}
+
+# E0.3 units (variant:mode, the order e03_nan.sh queues them) and their estimated hours on one A100 (estimates, not measured)
+UNITS_H = {"e03_score": {"nofill_delete:on": 2.5, "nofill_mask:on": 2.5, "nofill_delete:off": 2.0, "nofill_mask:off": 2.0,
+                         "cov_mask:on": 1.5}}
+
 JOBS = {
     "e03_score": dict(
-        qos="shared", gpus=3, cpus=96, time="06:00:00",
-        what="E0.3: ft3_main under nofill_delete, nofill_mask (ON + OFF) and cov_mask (ON), then the table vs tidemark's board.",
+        qos="regular", gpus=4, cpus=128, time="06:00:00",
+        what="E0.3: ft3_main under nofill_delete, nofill_mask (ON, OFF) and cov_mask (ON), then the table vs tidemark's board.",
         body="""bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score &
 wait $! || { echo "$(date) E0.3 scoring FAILED"; exit 1; }
 bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" table
@@ -55,8 +65,46 @@ echo "$(date) E0.3 JOB DONE"
 }
 
 
+def hours(time: str) -> float:
+    h, m, s = (int(x) for x in time.split(":"))
+    return h + m / 60 + s / 3600
+
+
+def check(job: dict) -> None:
+    """Raise ValueError if the job asks for more than its QOS allows (or more than a node has)."""
+    q = QOS.get(job["qos"])
+    if q is None:
+        raise ValueError(f"unknown QOS {job['qos']!r} (known: {sorted(QOS)})")
+    for k in ("gpus", "cpus"):
+        if not 1 <= job[k] <= q[k]:
+            raise ValueError(f"{k}={job[k]} outside 1..{q[k]} allowed by QOS {job['qos']}")
+    if hours(job["time"]) > q["hours"]:
+        raise ValueError(f"time {job['time']} above the {q['hours']} h limit of QOS {job['qos']}")
+    if job["cpus"] > job["gpus"] * NODE_CPUS // NODE_GPUS:
+        raise ValueError(f"cpus={job['cpus']} above {NODE_CPUS // NODE_GPUS} per GPU x {job['gpus']} GPUs")
+
+
+def makespan(units_h: list[float], gpus: int) -> float:
+    """Hours until the last unit ends when units start in list order on the first free GPU (what e03_nan.sh does)."""
+    free = [0.0] * gpus
+    for h in units_h:
+        i = free.index(min(free))
+        free[i] += h
+    return max(free)
+
+
+def estimate(name: str) -> str:
+    j, u = JOBS[name], list(UNITS_H.get(name, {}).values())
+    busy, span = sum(u), makespan(u, j["gpus"])
+    if span > hours(j["time"]):
+        raise ValueError(f"{name}: estimated makespan {span:.1f} h above its time limit {j['time']}")
+    return (f"{name}: estimated {busy:.1f} GPU-h busy, makespan {span:.1f} h on {j['gpus']} GPUs (estimates); "
+            f"allocated at most {j['gpus'] * hours(j['time']):.1f} GPU-h ({j['gpus']} x {j['time']}, QOS {j['qos']})")
+
+
 def render(name: str) -> str:
     j = JOBS[name]
+    check(j)
     return HEADER.format(account=ACCOUNT, name=name, **{k: v for k, v in j.items() if k != "body"}) + j["body"]
 
 
@@ -66,6 +114,7 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     bad = []
     for name in JOBS:
+        print(estimate(name))
         p, text = OUT / f"{name}.sbatch", render(name)
         if a.check:
             if not p.exists() or p.read_text(encoding="utf-8") != text:

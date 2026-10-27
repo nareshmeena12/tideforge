@@ -4,8 +4,8 @@
 #
 #   salloc --nodes 1 --qos interactive --time 04:00:00 --constraint gpu --gpus 2 --account=$NERSC_ACCOUNT
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh audit [--smoke]      # CPU only; writes R/eval/nan_audit.csv
-#   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # 3 GPUs: one variant per GPU
-#     (nofill_delete / nofill_mask: groups ON and OFF; cov_mask: groups ON only, OFF has no covariates)
+#   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # all visible GPUs: a queue of UNITS
+#     (variant:mode; nofill_delete / nofill_mask: groups ON and OFF; cov_mask: groups ON only, OFF has no covariates)
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh table                # after E0.2 and both variants are done
 #   (add --dry-run to any of them to print the commands)
 #   Batch job instead of salloc: sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch (tideforge/slurm.py)
@@ -17,8 +17,9 @@ source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 source "$TF_REPO/scripts/perlmutter/_evalroot.sh"
 CMD="${1:-}"
 [ $# -gt 0 ] && shift
-SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask cov_mask"   # the baseline is tidemark's board (see table)
-modes_of() { [ "$1" = cov_mask ] && echo on || echo on,off; }
+SMOKE=""; DRY=0   # the baseline is tidemark's board (see table)
+# one process per (variant, mode); separate tags, so they can run at once in the same root. Longest first (tideforge/slurm.py UNITS_H)
+UNITS="nofill_delete:on nofill_mask:on nofill_delete:off nofill_mask:off cov_mask:on"
 # cov_mask: fev only (TIME has no covariates: the audit found 0 covariate NaN there, so the variant cannot change it)
 extra_of() { [ "$1" = cov_mask ] && echo --skip-time || echo; }
 for a in "$@"; do case "$a" in
@@ -40,27 +41,38 @@ audit)
     ;;
 score)
     if [ "$DRY" -eq 1 ]; then
-        for v in $VARIANTS; do
-            echo "DRY RUN: python -m tideforge.eval.score score --root $R --ckpt ft3main=$FT3_MAIN_CKPT --variant $v --modes $(modes_of $v) $(extra_of $v) $SMOKE"
+        for u in $UNITS; do
+            echo "DRY RUN: python -m tideforge.eval.score score --root $R --ckpt ft3main=$FT3_MAIN_CKPT --variant ${u%:*} --modes ${u#*:} $(extra_of ${u%:*}) $SMOKE"
         done
         exit 0
     fi
     [ -f "$FT3_MAIN_CKPT" ] || { echo "missing checkpoint $FT3_MAIN_CKPT"; exit 2; }
     tf_link_eval || exit 2
     NGPU=$(nvidia-smi -L | wc -l)
-    NV=$(echo $VARIANTS | wc -w)
-    [ "$NGPU" -ge "$NV" ] || { echo "need $NV GPUs (one per variant), found $NGPU"; exit 2; }
+    [ "$NGPU" -ge 1 ] || { echo "no GPU found"; exit 2; }
     git -C "$TF_REPO" log --oneline -1
-    pids=(); g=0
-    for v in $VARIANTS; do
-        LOG="$TF_ROOT/logs/e03_${v}${SMOKE:+_smoke}.log"
-        echo "$(date) GPU $g: variant $v -> $LOG"
-        CUDA_VISIBLE_DEVICES=$g python -m tideforge.eval.score score --root "$R" --ckpt "ft3main=$FT3_MAIN_CKPT" --variant "$v" \
-            --modes "$(modes_of "$v")" $(extra_of "$v") $SMOKE > "$LOG" 2>&1 &
-        pids+=($!); g=$((g + 1))
-    done
+    Q=$(mktemp); FAIL=$(mktemp); printf '%s
+' $UNITS > "$Q"
+    # one worker per GPU; each takes the next unit from the queue file under a lock
+    worker() {
+        local g=$1 u v m LOG
+        while :; do
+            u=$(flock "$Q" sh -c 'head -n 1 "$1"; sed -i 1d "$1"' _ "$Q")
+            [ -n "$u" ] || return 0
+            v=${u%:*}; m=${u#*:}
+            LOG="$TF_ROOT/logs/e03_${v}_${m}${SMOKE:+_smoke}.log"
+            echo "$(date) GPU $g: variant $v, groups $m -> $LOG"
+            CUDA_VISIBLE_DEVICES=$g python -m tideforge.eval.score score --root "$R" --ckpt "ft3main=$FT3_MAIN_CKPT" --variant "$v"                 --modes "$m" $(extra_of "$v") $SMOKE > "$LOG" 2>&1 || echo "$u" >> "$FAIL"
+            echo "$(date) GPU $g: $u finished"
+        done
+    }
+    pids=()
+    for ((g = 0; g < NGPU; g++)); do worker "$g" & pids+=($!); done
     rc=0
     for p in "${pids[@]}"; do wait "$p" || rc=1; done
+    [ -s "$FAIL" ] && { echo "FAILED units: $(tr '
+' ' ' < "$FAIL")"; rc=1; }
+    rm -f "$Q" "$FAIL"
     [ "$rc" -eq 0 ] || { echo "a variant run FAILED: see $TF_ROOT/logs/e03_*.log"; exit 1; }
     python -m tideforge.eval.score board --root "$R" $SMOKE | tail -n 60
     [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "BOARDS FAILED"; exit 1; }
