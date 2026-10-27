@@ -1,0 +1,45 @@
+aggregator_id,source_id,rule
+D002,D005,ENTSO-E / OPSD: drop France (RTE ingested directly)
+D002,D214,ENTSO-E / OPSD: drop Germany (SMARD)
+D002,D017,ENTSO-E / OPSD: drop Belgium (Elia)
+D002,D030,ENTSO-E / OPSD: drop Denmark (Energi Data Service)
+D002,D220,ENTSO-E / OPSD: drop Ireland (EirGrid)
+D002,D004,ENTSO-E / OPSD: drop Great Britain (Elexon)
+D002,D015,ENTSO-E / OPSD: drop Austria
+D002,D016,ENTSO-E / OPSD: drop Luxembourg
+D001,D005,OPSD: drop France
+D001,D214,OPSD: drop Germany
+D001,D017,OPSD: drop Belgium
+D001,D030,OPSD: drop Denmark
+D001,D220,OPSD: drop Ireland
+D001,D004,OPSD: drop Great Britain
+D001,D015,OPSD: drop Austria
+D001,D016,OPSD: drop Luxembourg
+D077,D078,OpenAQ / WAQI: drop US stations (EPA AirNow)
+D077,D084,OpenAQ / WAQI: drop EEA-reported European stations
+D077,D083,OpenAQ / WAQI: drop India CPCB stations
+D077,D082,OpenAQ / WAQI: drop Beijing MEMC stations
+D079,D078,WAQI: drop US stations
+D079,D084,WAQI: drop EEA-reported European stations
+D079,D083,WAQI: drop India CPCB stations
+D079,D082,WAQI: drop Beijing MEMC stations
+D098,D298,HMD STMF: drop USA (NCHS)
+D098,D297,HMD STMF: drop countries taken from Eurostat
+D263,D073,GRDC: drop stations of the Caravan / CAMELS basins and USGS / UK EA gauges
+D166,D361,FRED: drop FHFA house price series
+D166,D167,FRED: drop series whose source is OECD / ECB / Eurostat
+D166,D365,FRED: drop series whose source is BIS
+D166,D366,FRED: drop series whose source is IMF
+D166,D168,FRED: drop series whose source is the World Bank
+D213,D031,pdfetch: drop the EIA spot price series
+D213,D032,pdfetch: drop the EIA storage series
+D191,D192,Eurostat tourism: drop France (INSEE)
+D226,D225,ENTSOG: drop UK National Gas points
+D281,D057,Copernicus Marine moorings: drop NDBC platforms
+D067,D066,OMNIWeb: drop the sunspot number parameter
+D067,D274,OMNIWeb: drop the F10.7 parameter
+D129,D179,NAB: drop nyc_taxi (derived from NYC TLC)
+D284,D282,BioTIME: drop studies from the Continuous Plankton Recorder
+D284,D286,BioTIME: drop studies from the Breeding Bird Survey
+D285,D118,Living Planet: drop populations taken from GPDD
+D378,D184,UTD19: drop cities whose detectors are Caltrans PeMS

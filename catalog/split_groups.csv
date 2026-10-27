@@ -1,0 +1,78 @@
+group_id,dataset_id,reason
+ghcn,D053,NOAA GHCN: Daily and Hourly share stations
+ghcn,D054,NOAA GHCN: Daily and Hourly share stations
+caravan_camels,D073,Caravan contains the CAMELS sets and LamaH-CE
+caravan_camels,D071,CAMELS-US (in Caravan; its streamflow is USGS NWIS)
+caravan_camels,D072,CAMELS-GB (in Caravan; flows from NRFA / EA gauges)
+caravan_camels,D265,CAMELS-DE and CAMELS-CH (Caravan extensions)
+caravan_camels,D264,LamaH-CE (in Caravan)
+caravan_camels,D074,USGS NWIS: the gauges behind CAMELS-US
+caravan_camels,D266,UK EA flood-monitoring: the gauges behind CAMELS-GB
+era5,D055,ERA5 reanalysis (Open-Meteo)
+era5,D064,ERA5 reanalysis (WeatherBench)
+wikimedia,D136,Wikipedia pageviews (Monash copy)
+wikimedia,D137,Wikipedia pageviews (extended to 2022)
+wikimedia,D138,Wikipedia pageviews (fresh pull)
+wikimedia,D322,Wikimedia edits and unique devices (same pages and projects)
+google_search,D143,Google Trends
+google_search,D301,Google Flu Trends (search-based)
+google_search,D303,Google symptom search trends
+alibaba,D119,Alibaba production clusters
+alibaba,D315,Alibaba production clusters (microservices)
+azure,D121,Azure public dataset (VMs)
+azure,D311,Azure Functions 2021
+azure,D312,Azure LLM inference
+sheffield_solar,D233,Sheffield Solar systems (Open Climate Fix)
+sheffield_solar,D234,Sheffield Solar PV_Live
+bikeshare_lyft,D176,Citi Bike (also in the bikedata cities set)
+bikeshare_lyft,D177,Divvy (also in the bikedata cities set)
+bikeshare_lyft,D178,bikedata cities (includes Citi Bike and Divvy)
+dengue,D086,OpenDengue
+dengue,D087,OpenDengue (Sci Data 2024 release of the same project)
+dengue,D295,InfoDengue (Brazil SINAN; feeds OpenDengue subnational)
+nhsn,D097,HHS hospital capacity (NHSN reporting)
+nhsn,D294,NHSN respiratory admissions
+nndss,D085,Project Tycho (historical NNDSS / MMWR tables)
+nndss,D293,CDC NNDSS weekly tables
+fred,D166,FRED
+fred,D164,Case-Shiller via FRED
+fred,D161,US Census retail via FRED
+fred,D213,pdfetch BLS and EIA series (also on FRED)
+macro_portals,D167,ECB / Eurostat / OECD (cross-published national series)
+macro_portals,D365,BIS statistics
+macro_portals,D366,IMF IFS / DOTS / CPI
+macro_portals,D168,World Bank WDI
+entsoe,D002,ENTSO-E Transparency Platform
+entsoe,D001,Open Power System Data (compiled from ENTSO-E and TSOs)
+entsoe,D045,Spain energy and weather (ENTSO-E Spain data)
+cmapss,D202,NASA C-MAPSS
+cmapss,D397,NASA N-CMAPSS
+itrust,D076,iTrust SWaT testbed
+itrust,D253,iTrust WADI testbed
+physionet,D102,PhysioNet umbrella
+physionet,D107,CHB-MIT (PhysioNet)
+physionet,D108,Apnea-ECG (PhysioNet)
+physionet,D109,BIDMC CHF (PhysioNet)
+physionet,D309,Sleep-EDF (PhysioNet)
+physionet,D304,MIMIC-IV (PhysioNet)
+physionet,D305,eICU (PhysioNet)
+tide_gauges,D058,NOAA CO-OPS tide gauges
+tide_gauges,D059,PSMSL (includes the NOAA gauges)
+radiation_net,D237,BSRN
+radiation_net,D238,SURFRAD (stations are BSRN stations)
+norway_fields,D036,Norwegian Offshore Directorate production
+norway_fields,D033,Equinor Volve (also reported by Sodir)
+supchains,D350,VN1 competition
+supchains,D351,VN2 competition
+food_prices,D374,WFP food prices
+food_prices,D375,FAO GIEWS FPMA (uses WFP prices)
+usda,D376,USDA AMS Market News
+usda,D212,USDA NASS
+aggregated_aq,D077,OpenAQ (aggregates government networks)
+aggregated_aq,D079,WAQI (aggregates the same networks)
+eia_iso,D003,EIA-930 (BA totals of the ISOs below)
+eia_iso,D009,CAISO OASIS (CISO in EIA-930)
+eia_iso,D010,PJM Data Miner (PJM in EIA-930)
+eia_iso,D011,ISO-NE (ISNE in EIA-930)
+eia_iso,D012,NYISO (NYIS in EIA-930)
+eia_iso,D222,"MISO and SPP (MISO, SWPP in EIA-930)"
