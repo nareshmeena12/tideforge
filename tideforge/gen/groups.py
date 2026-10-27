@@ -1,7 +1,7 @@
 """Generator v0: Section 3d: group kinds, set_group_options, multivariatizers, generate_blocks.
 
 Ported from third_party/tidemark_e21cbf0/tidemark/real/ft3_core.py L503-L503, L2399-L2677 (tidemark commit e21cbf0) by tools/port_gen_v0.py; do not edit by hand
-(edit and rerun the tool). Edits vs the source: imports only.
+(edit and rerun the tool). Edits vs the source: imports only; the hook points (`# [hook Hn]`, tideforge/gen/_hooks.py).
 Must stay bit-exact with ft3_core (tests/test_gen_parity.py, tests/test_gen_source.py).
 """
 # flake8: noqa
@@ -10,6 +10,7 @@ import math
 import torch
 import torch.nn.functional as F
 
+from tideforge.gen import _hooks
 from tideforge.gen.primitives import (  # noqa: F401
     _CLAMP,
     _MAX_SEG,
@@ -258,6 +259,8 @@ def _group_pass(x, is_group, g, kind, device):
             y, r = _mv_leadlag(zk, ak, mk, sk, device)
         elif name == "unrelated":
             y, r = _mv_unrelated(zk, ak, mk, sk, device)
+        elif name in _hooks.GROUP_KINDS_EXT:  # [hook H5]
+            y, r = _hooks.group_kind(name, zk, ak, mk, sk, device)  # [hook H5]
         else:
             y, r = _mv_covariates(zk, ak, mk, sk, device, known=(name == "known_cov"))
         y = torch.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0).clamp(-_CLAMP, _CLAMP)
@@ -282,6 +285,7 @@ def _multivariatize(x, group_prob, device):
     if _COV_SMALL_GROUP_P > 0:      # real covariate tasks have 1-4 covariates, not up to 7
         small = (torch.rand(N, device=device) < _COV_SMALL_GROUP_P) & ((kind == 2) | (kind == 3))
         g = torch.where(small, torch.randint(2, min(V, 4) + 1, (N,), device=device), g)
+    g = _hooks.group_size(g, kind, is_group, V, device)  # [hook H6]
     out, role, act = _group_pass(x, is_group, g, kind, device)
     lgid = torch.where(act, torch.zeros_like(lane), lane)
     h = V // 2
@@ -298,6 +302,7 @@ def _multivariatize(x, group_prob, device):
         out, r2, a2 = o2.roll(h, dims=1), r2.roll(h, dims=1), a2.roll(h, dims=1)
         role = torch.where(a2, r2, role)
         lgid = torch.where(a2, torch.full_like(lane, h), lgid)
+    out, role, lgid = _hooks.run_groups("after_groups", out, role, lgid, device)  # [hook H7]
     return out, role, lgid
 
 
@@ -305,9 +310,10 @@ def _multivariatize(x, group_prob, device):
 def generate_blocks(N, V, L, device, weights=None, profile="v1", group_prob=0.0):
     """N blocks of V aligned series of length L: x (N, V, L), role (N, V), lgid (N, V)."""
     # per-family rounding in _allocate can return a few rows more than asked for small batches
+    _hooks.tick("blocks")  # [hook tick]
     x = generate_batch(N * V, L, device, weights, profile=profile)
     while x.shape[0] < N * V:
         x = torch.cat([x, generate_batch(N * V, L, device, weights, profile=profile)], 0)
-    return _multivariatize(x[:N * V].view(N, V, L), group_prob, device)
+    return _hooks.final_blocks(_multivariatize(x[:N * V].view(N, V, L), group_prob, device), device)  # [hook H8]
 
 # <<< ft3_core.py

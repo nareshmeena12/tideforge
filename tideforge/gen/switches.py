@@ -1,15 +1,211 @@
 """Registry of tideforge generator switches (EXPERIMENTS.md rule 2: every change is a switch, off by default).
 
-Generator v0 has none. A switch is added here with its off value; code behind it must draw no random numbers when it is off,
-so v0 parity (tests/test_gen_parity.py) keeps holding with every switch off.
+A switch is off unless it is listed in GenConfig.switches. When on, its `install(params, inst)` registers what it changes through
+the Installer: new families, layer overrides (H1), hooks at H2-H4 / H7-H8, new group kinds (H5), a group-size rule (H6). The
+generated v0 modules are never edited for a switch; the code lives in tideforge/gen/ext/. configure() first restores v0 (tables,
+profiles, hooks), then installs the active switches in name order, so configure(b0()) after any switch config is v0 again.
+
+Random numbers (see _hooks.py): hooks and layer overrides draw only from ctx.rng(), the switch's own generator, so a
+post-processing switch leaves every global draw of v0 unchanged: the on output is the off output plus the change. Exceptions:
+  * a new family (add_family) changes the rows per family and the global draws of every family after it: the whole batch
+    changes, not only the new rows. Its function fn(n, L, device) draws from the global stream like the v0 families.
+  * a new group kind (add_group_kind) changes the kind draw (one more category), so every block's kind can change.
+  * value-dependent draws: on CPU torch.poisson consumes a value-dependent number of draws, so a hook or override that changes
+    values BEFORE _L_noise / _L_support (H2, H3, overrides of seasonality ... breaks) can shift later global draws on CPU.
+    H4, H7, H8 and overrides of noise and later layers are exact on every device.
+Hooks at the same point run by (priority, switch name); the defaults are _hooks.PRIORITY: structure 100 (breaks) <
+observation 200 (rounding, censoring) < gaps 300 (always last). The install plan (with priorities) goes into the config hash.
 """
 from __future__ import annotations
 
-# name -> (off value, one-line description, experiment id)
-REGISTRY: dict[str, tuple[object, str, str]] = {}
+import re
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Callable, Mapping
+
+from tideforge.gen import _hooks
+from tideforge.gen import groups as _groups
+from tideforge.gen import profiles as _profiles
+
+NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
-def validate(switches: dict) -> None:
-    unknown = sorted(set(switches) - set(REGISTRY))
-    if unknown:
-        raise KeyError(f"unknown generator switch(es) {unknown}; registered: {sorted(REGISTRY)}")
+@dataclass(frozen=True)
+class Switch:
+    name: str                                   # [a-z][a-z0-9_]*, used in run ids
+    experiment: str                             # e.g. "G5.2"; "TEST" for the test switches
+    doc: str
+    install: Callable[[dict, "Installer"], None]
+    params: Mapping[str, object] = field(default_factory=dict)      # defaults; a config may override any of them
+
+
+REGISTRY: dict[str, Switch] = {}
+
+
+def register(sw: Switch) -> Switch:
+    if not NAME.match(sw.name):
+        raise ValueError(f"switch name {sw.name!r} must match {NAME.pattern}")
+    if sw.name in REGISTRY:
+        raise KeyError(f"switch {sw.name!r} is already registered")
+    REGISTRY[sw.name] = Switch(sw.name, sw.experiment, sw.doc, sw.install, MappingProxyType(dict(sw.params)))
+    return REGISTRY[sw.name]
+
+
+def unregister(name: str) -> None:
+    REGISTRY.pop(name, None)
+
+
+def _freeze(v):
+    if isinstance(v, (list, tuple)):
+        return tuple(_freeze(x) for x in v)
+    if isinstance(v, dict):
+        return tuple(sorted((k, _freeze(x)) for k, x in v.items()))
+    return v
+
+
+def normalize(switches) -> tuple[tuple[str, tuple], ...]:
+    """{name: True | {param: value}} or ((name, params), ...) -> sorted ((name, ((param, value), ...)), ...) with every
+    parameter resolved (defaults filled in). False / None means off and is dropped. Unknown switches or parameters raise."""
+    items = switches.items() if isinstance(switches, Mapping) else switches
+    out = {}
+    for name, val in items:
+        if val is False or val is None:
+            continue
+        if name not in REGISTRY:
+            raise KeyError(f"unknown generator switch {name!r}; registered: {sorted(REGISTRY)}")
+        sw = REGISTRY[name]
+        given = {} if val is True else dict(val)
+        bad = sorted(set(given) - set(sw.params))
+        if bad:
+            raise KeyError(f"switch {name!r} has no parameter(s) {bad}; parameters: {sorted(sw.params)}")
+        out[name] = tuple(sorted((k, _freeze(given.get(k, d))) for k, d in sw.params.items()))
+    return tuple(sorted(out.items()))
+
+
+def validate(switches) -> None:
+    normalize(switches)
+
+
+# ---------------------------------------------------------------------------------------------------- v0 snapshot / restore
+_V0_FAMILIES = dict(_profiles.FAMILIES)
+_V0_PASSTHROUGH = frozenset(_profiles.PASSTHROUGH_FAMILIES)
+_V0_PROFILES = dict(_profiles.GEN_PROFILES)
+_V0_GROUP_KINDS = tuple(_groups.GROUP_KINDS)
+
+
+def restore_v0() -> None:
+    """Put back the v0 tables (in place: batch.py imported the same dict / set objects) and empty every hook table."""
+    for k in [k for k in _profiles.FAMILIES if k not in _V0_FAMILIES]:
+        del _profiles.FAMILIES[k]
+    assert all(_profiles.FAMILIES[k] is v for k, v in _V0_FAMILIES.items()), "a v0 family entry was replaced"
+    _profiles.PASSTHROUGH_FAMILIES.clear()
+    _profiles.PASSTHROUGH_FAMILIES.update(_V0_PASSTHROUGH)
+    for k in [k for k in _profiles.GEN_PROFILES if k not in _V0_PROFILES]:
+        del _profiles.GEN_PROFILES[k]
+    _profiles.GEN_PROFILES.update(_V0_PROFILES)          # clean2 is then rebuilt by resolve_profile for the config
+    _groups.GROUP_KINDS = _V0_GROUP_KINDS
+
+
+# ---------------------------------------------------------------------------------------------------- installer
+class Installer:
+    """What a switch's install() may change. apply=False only records the plan (for the config hash)."""
+
+    def __init__(self, name: str, profile: str | None, apply: bool, plan: list):
+        self.name, self.profile, self.apply, self.plan = name, profile, apply, plan
+
+    def add_family(self, family: str, fn: Callable, *, weight: float, is_count: bool = False, is_nonneg: bool = False,
+                   allow_add: bool = True, passthrough: bool = False, mode: str = "add") -> None:
+        """mode "add": the family gets `weight` on top of the profile's weights (_allocate renormalises the others).
+        mode "replace:<family>": the new family takes exactly `weight` from <family> (error if <family> has less); it is
+        placed right after <family>, so the other families' row counts stay as they were."""
+        if not (weight > 0):
+            raise ValueError(f"{self.name}: weight must be > 0")
+        if mode != "add" and not mode.startswith("replace:"):
+            raise ValueError(f"{self.name}: mode must be 'add' or 'replace:<family>', not {mode!r}")
+        self.plan.append(("family", self.name, family, mode, float(weight), bool(is_count), bool(is_nonneg), bool(allow_add),
+                          bool(passthrough), _qual(fn)))
+        if not self.apply:
+            return
+        if family in _profiles.FAMILIES:
+            raise KeyError(f"{self.name}: family {family!r} exists already")
+        pr = _profiles.GEN_PROFILES[self.profile]
+        w = dict(pr["weights"])
+        if mode == "add":
+            w[family] = float(weight)
+        else:
+            old = mode.split(":", 1)[1]
+            have = w.get(old, 0.0)
+            if have + 1e-12 < weight:
+                raise ValueError(f"{self.name}: replace:{old} needs weight {weight}, but {old} has {have} in profile "
+                                 f"{self.profile!r}")
+            rest = have - weight
+            w = {k2: v2 for k, v in w.items()
+                 for k2, v2 in (((k, 0.0 if abs(rest) < 1e-12 else rest), (family, float(weight))) if k == old else ((k, v),))}
+        _profiles.FAMILIES[family] = (fn, bool(is_count), bool(is_nonneg), bool(allow_add), 0.0)
+        if passthrough:
+            _profiles.PASSTHROUGH_FAMILIES.add(family)
+        _profiles.GEN_PROFILES[self.profile] = dict(pr, weights=w)
+
+    def override_layer(self, layer: str, fn: Callable) -> None:
+        """fn(args, kwargs, out, ctx) -> new out (same structure); runs after the v0 layer, which still makes its draws."""
+        if layer not in _hooks.LAYERS:
+            raise KeyError(f"{self.name}: no layer {layer!r}; layers: {_hooks.LAYERS}")
+        self.plan.append(("layer", self.name, layer, _qual(fn)))
+        if self.apply:
+            if layer in _hooks.LAYER_OVERRIDES:
+                raise ValueError(f"{self.name}: layer {layer!r} is already overridden by {_hooks.LAYER_OVERRIDES[layer][0]!r}")
+            _hooks.LAYER_OVERRIDES[layer] = (self.name, fn)
+
+    def add_hook(self, point: str, fn: Callable, priority: int | str = "observation") -> None:
+        """Batch points: fn(x, ctx) -> x (ctx.is_count / is_nonneg / allow_add may be replaced). Block points:
+        fn(x, role, lgid, ctx) -> (x, role, lgid). Only "final_blocks" may write NaN."""
+        if point not in _hooks.POINTS:
+            raise KeyError(f"{self.name}: no hook point {point!r}; points: {_hooks.POINTS}")
+        prio = _hooks.PRIORITY[priority] if isinstance(priority, str) else int(priority)
+        self.plan.append(("hook", point, prio, self.name, _qual(fn)))
+        if self.apply:
+            _hooks.HOOKS[point].append((prio, self.name, fn))
+            _hooks.HOOKS[point].sort(key=lambda h: (h[0], h[1]))       # stable: one switch's hooks keep their order
+
+    def add_group_kind(self, kind: str, fn: Callable, prob: float) -> None:
+        """fn(z, act, mu, sd, ctx) -> (y, role); `prob` is appended to GROUP_KIND_PROBS (relative to the v0 kinds' sum)."""
+        if not (prob > 0):
+            raise ValueError(f"{self.name}: prob must be > 0")
+        self.plan.append(("group_kind", self.name, kind, float(prob), _qual(fn)))
+        if self.apply:
+            if kind in _groups.GROUP_KINDS:
+                raise KeyError(f"{self.name}: group kind {kind!r} exists already")
+            _groups.GROUP_KINDS = tuple(_groups.GROUP_KINDS) + (kind,)
+            _groups.GROUP_KIND_PROBS = tuple(_groups.GROUP_KIND_PROBS) + (float(prob),)
+            _hooks.GROUP_KINDS_EXT[kind] = (self.name, fn)
+
+    def set_group_size(self, fn: Callable) -> None:
+        """fn(g, kind, is_group, V, ctx) -> g (first group of a block; the optional second group keeps v0's sizes)."""
+        self.plan.append(("group_size", self.name, _qual(fn)))
+        if self.apply:
+            if _hooks.GROUP_SIZE:
+                raise ValueError(f"{self.name}: the group size is already set by {_hooks.GROUP_SIZE[0][0]!r}")
+            _hooks.GROUP_SIZE.append((self.name, fn))
+
+
+def _qual(fn) -> str:
+    return f"{getattr(fn, '__module__', '?')}.{getattr(fn, '__qualname__', repr(fn))}"
+
+
+def plan(switches) -> list:
+    """The install plan of a switch set (nothing is changed); part of GenConfig.config_hash."""
+    out: list = []
+    for name, params in normalize(switches):
+        REGISTRY[name].install(dict(params), Installer(name, None, False, out))
+    return out
+
+
+def install(switches, profile: str) -> list:
+    """Install the active switches for `profile` (configure() calls this after restore_v0 and resolve_profile)."""
+    out: list = []
+    for name, params in normalize(switches):
+        REGISTRY[name].install(dict(params), Installer(name, profile, True, out))
+    return out
+
+
+from tideforge.gen import ext  # noqa: E402,F401  (registers the switches in tideforge/gen/ext/)

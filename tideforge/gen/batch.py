@@ -1,7 +1,7 @@
 """Generator v0: _allocate and generate_batch (top-level API).
 
 Ported from third_party/tidemark_e21cbf0/tidemark/real/ft3_core.py L2319-L2398 (tidemark commit e21cbf0) by tools/port_gen_v0.py; do not edit by hand
-(edit and rerun the tool). Edits vs the source: imports only; the profile globals read / written as _state.NAME; generate_batch's `global` line is a comment.
+(edit and rerun the tool). Edits vs the source: imports only; the profile globals read / written as _state.NAME; generate_batch's `global` line is a comment; the hook points (`# [hook Hn]`, tideforge/gen/_hooks.py).
 Must stay bit-exact with ft3_core (tests/test_gen_parity.py, tests/test_gen_source.py).
 """
 # flake8: noqa
@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 
 from tideforge.gen import _state
+from tideforge.gen import _hooks
 from tideforge.gen.primitives import (  # noqa: F401
     PERIOD_BANK,
 )
@@ -69,6 +70,7 @@ def generate_batch(B, L, device, weights=None, apply_layers=True, profile="v1"):
     in the batch (which would otherwise correlate with position in a DDP shard).
     """
     # [port] `global` statement removed: these four names live in tideforge/gen/_state.py
+    _hooks.tick("batch")  # [hook tick]
     pr = GEN_PROFILES[profile]
     weights = weights or pr["weights"]
     _state._PERIOD_BANK_ACTIVE = pr.get("period_bank", PERIOD_BANK)
@@ -95,23 +97,26 @@ def generate_batch(B, L, device, weights=None, apply_layers=True, profile="v1"):
     is_count = torch.cat(cnt_f, dim=0)
     is_nonneg = torch.cat(nn_f, dim=0)
     allow_add = torch.cat(add_f, dim=0)
+    x, is_count, is_nonneg, allow_add = _hooks.run_batch("after_families", x, is_count, is_nonneg, allow_add, passthrough, device, pr, L)  # [hook H2]
 
     if apply_layers:
         x_raw, nn_raw = x, is_nonneg
-        x = _L_seasonality(x, allow_add, device)
-        x = _L_trend(x, allow_add, device)
-        x = _L_calendar(x, allow_add, device)
+        x = _hooks.layer("seasonality", _L_seasonality)(x, allow_add, device)  # [hook H1]
+        x = _hooks.layer("trend", _L_trend)(x, allow_add, device)  # [hook H1]
+        x = _hooks.layer("calendar", _L_calendar)(x, allow_add, device)  # [hook H1]
         if pr.get("breaks_p", 0.0) > 0:
-            x = _L_breaks(x, device, pr["breaks_p"])
-        x = _L_noise(x, is_count, device)
-        x, is_count, is_nonneg = _L_support(x, is_count, is_nonneg, device, pr["support_probs"])
-        x = _L_corruption(x, is_count, is_nonneg, device, pr["out_p"], pr["miss_p"], pr["quant_p"],
+            x = _hooks.layer("breaks", _L_breaks)(x, device, pr["breaks_p"])  # [hook H1]
+        x, is_count, is_nonneg, allow_add = _hooks.run_batch("after_structure", x, is_count, is_nonneg, allow_add, passthrough, device, pr, L)  # [hook H3]
+        x = _hooks.layer("noise", _L_noise)(x, is_count, device)  # [hook H1]
+        x, is_count, is_nonneg = _hooks.layer("support", _L_support)(x, is_count, is_nonneg, device, pr["support_probs"])  # [hook H1]
+        x = _hooks.layer("corruption", _L_corruption)(x, is_count, is_nonneg, device, pr["out_p"], pr["miss_p"], pr["quant_p"],  # [hook H1]
                           pr["quant_step"], pr["clean_p"])
         x = torch.where(passthrough, x_raw, x)
         is_nonneg = torch.where(passthrough.squeeze(-1), nn_raw, is_nonneg)
-        x = _L_scale(x, is_count, is_nonneg, device)
+        x = _hooks.layer("scale", _L_scale)(x, is_count, is_nonneg, device)  # [hook H1]
 
-    x = _finalize(x, pr["fix_degenerate"])
+    x = _hooks.layer("finalize", _finalize)(x, pr["fix_degenerate"])  # [hook H1]
+    x, is_count, is_nonneg, allow_add = _hooks.run_batch("final", x, is_count, is_nonneg, allow_add, passthrough, device, pr, L)  # [hook H4]
     return x[torch.randperm(x.shape[0], device=device)]
 
 

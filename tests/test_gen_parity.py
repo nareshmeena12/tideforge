@@ -1,7 +1,8 @@
 """E0.1: generator v0 (tideforge.gen) reproduces ft3_core's generator bit for bit.
 
 Both sides start from the same torch.manual_seed. Every case checks, for every output: torch.equal, dtype and device; and that the
-global RNG state after the call is identical (an extra or missing random draw fails even when the outputs happen to agree).
+global RNG state after the call is identical (an extra or missing random draw fails even when the outputs happen to agree);
+and that v0 never outputs NaN / inf (missing values may only come from a switch at final_blocks, H8).
 The ft3_core side is configured from the raw ft3 cfg dict (resolve_profile / set_group_options, as ft3 training does); the
 tideforge side from GenConfig.from_ft3_cfg(cfg) through tideforge.gen.configure, so the mapping to GenConfig is tested too.
 """
@@ -73,6 +74,8 @@ def same(ref_fn, port_fn, seed, device="cpu"):
         assert x.device == y.device, f"output {i}: device {x.device} vs {y.device}"
         assert x.shape == y.shape, f"output {i}: shape {tuple(x.shape)} vs {tuple(y.shape)}"
         assert torch.equal(x, y), f"output {i}: values differ (max abs diff {(x.double() - y.double()).abs().max().item()})"
+        if y.is_floating_point():
+            assert bool(torch.isfinite(y).all()), f"output {i}: v0 produced NaN / inf"
     for i, (x, y) in enumerate(zip(sa, sb)):
         assert torch.equal(x, y), f"RNG state {i} differs after the call: different random draws"
 

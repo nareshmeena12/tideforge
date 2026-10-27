@@ -8,7 +8,11 @@ Every ported line is copied verbatim from third_party/tidemark_e21cbf0/tidemark/
   * the four profile globals that generate_batch sets and other sections read (_PERIOD_BANK_ACTIVE, _PERIOD_EXT_SHARE,
     _TV_SEASON, _ONE_OFF_P) live in tideforge/gen/_state.py: on the lines listed in STATE_LINES a read or write of NAME
     becomes _state.NAME, and the `global` statement of generate_batch (L2352) becomes a comment;
-  * ROLE_TARGET, ROLE_PAST, ROLE_KNOWN (L503, the model section) are copied into groups.py.
+  * ROLE_TARGET, ROLE_PAST, ROLE_KNOWN (L503, the model section) are copied into groups.py;
+  * the hook points H1-H8 (tideforge/gen/_hooks.py): the lines in HOOK_INSERTS are inserted after the source line named, and the
+    lines in HOOK_WRAPS get their call wrapped (`_L_x(` -> `_hooks.layer("x", _L_x)(`; generate_blocks' return value ->
+    `_hooks.final_blocks(..., device)`). Every such line ends with `# [hook Hn]`. With no switch installed the hooks return
+    their input and draw nothing, so the modules stay bit-exact with ft3_core.
 The group options (GROUP_KIND_PROBS, _COV_*, _SECOND_GROUP_P) are read and written only inside the groups section, so they
 stay plain module globals of groups.py, as in the source. tests/test_gen_source.py re-derives the source from the modules.
 """
@@ -29,6 +33,23 @@ STATE_NAMES = ("_PERIOD_BANK_ACTIVE", "_PERIOD_EXT_SHARE", "_TV_SEASON", "_ONE_O
 STATE_LINES = (821, 824, 831, 1215, 1783, 1788, 2062, 2355, 2356, 2357, 2358)
 GLOBAL_LINE = 2352
 GLOBAL_COMMENT = "# [port] `global` statement removed: these four names live in tideforge/gen/_state.py"
+HOOK_MARK = "  # [hook {h}]"
+_RB = "x, is_count, is_nonneg, allow_add = _hooks.run_batch"
+_RB_ARGS = "x, is_count, is_nonneg, allow_add, passthrough, device, pr, L)"
+# source line -> (hook, lines inserted after it)
+HOOK_INSERTS = {
+    2352: ("tick", ['    _hooks.tick("batch")']),
+    2378: ("H2", [f'    {_RB}("after_families", {_RB_ARGS}']),
+    2386: ("H3", [f'        {_RB}("after_structure", {_RB_ARGS}']),
+    2395: ("H4", [f'    {_RB}("final", {_RB_ARGS}']),
+    2625: ("H5", ["        elif name in _hooks.GROUP_KINDS_EXT:", "            y, r = _hooks.group_kind(name, zk, ak, mk, sk, device)"]),
+    2649: ("H6", ["    g = _hooks.group_size(g, kind, is_group, V, device)"]),
+    2665: ("H7", ['    out, role, lgid = _hooks.run_groups("after_groups", out, role, lgid, device)']),
+    2672: ("tick", ['    _hooks.tick("blocks")']),
+}
+# source line -> layer name (H1), or "final_blocks" (H8)
+HOOK_WRAPS = {2382: "seasonality", 2383: "trend", 2384: "calendar", 2386: "breaks", 2387: "noise", 2388: "support",
+              2389: "corruption", 2393: "scale", 2395: "finalize", 2676: "final_blocks"}
 BEGIN = "# >>> ft3_core.py L{a}-L{b}"
 END = "# <<< ft3_core.py"
 
@@ -57,7 +78,20 @@ def ported_lines(src: list[str], a: int, b: int) -> list[str]:
             new = re.sub(r"(?<![\w.])(" + "|".join(STATE_NAMES) + r")\b", r"_state.\1", ln)
             assert new != ln, f"L{i}: no state name to rewrite: {ln!r}"
             ln = new
+        if i in HOOK_WRAPS:
+            name = HOOK_WRAPS[i]
+            if name == "final_blocks":
+                pre, expr = ln.split("return ", 1)
+                assert pre.strip() == "", ln
+                ln = f"{pre}return _hooks.final_blocks({expr}, device)" + HOOK_MARK.format(h="H8")
+            else:
+                fn = "_finalize" if name == "finalize" else f"_L_{name}"
+                assert ln.count(f"{fn}(") == 1, ln
+                ln = ln.replace(f"{fn}(", f'_hooks.layer("{name}", {fn})(') + HOOK_MARK.format(h="H1")
         out.append(ln)
+        if i in HOOK_INSERTS:
+            h, lines = HOOK_INSERTS[i]
+            out += [x + HOOK_MARK.format(h=h) for x in lines]
     return out
 
 
@@ -88,6 +122,8 @@ def build() -> dict[str, str]:
         uses_state = m != "_state" and any(f"_state.{n}" in code[m] for n in STATE_NAMES)
         if uses_state and m != "primitives":
             imports.append("from tideforge.gen import _state")
+        if "_hooks." in code[m]:
+            imports.append("from tideforge.gen import _hooks")
         for e in earlier:
             if e == "_state":
                 continue
@@ -104,6 +140,7 @@ def build() -> dict[str, str]:
                f"(edit and rerun the tool). Edits vs the source: imports only"
                + ("; the profile globals read / written as _state.NAME" if any(a <= l <= b for a, b in ranges for l in STATE_LINES) else "")
                + ("; generate_batch's `global` line is a comment" if any(a <= GLOBAL_LINE <= b for a, b in ranges) else "")
+               + ("; the hook points (`# [hook Hn]`, tideforge/gen/_hooks.py)" if "_hooks." in code[m] else "")
                + ".\nMust stay bit-exact with ft3_core (tests/test_gen_parity.py, tests/test_gen_source.py).\n\"\"\"")
         parts = [doc, "# flake8: noqa", *imports, ""]
         for a, b, ls in bodies[m]:

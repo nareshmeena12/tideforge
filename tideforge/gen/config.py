@@ -50,11 +50,12 @@ class GenConfig:
     # holdout (validation) stream
     val_corpus: str | None = "clean"
     val_group_prob: float = 0.7
-    # tideforge switches (tideforge/gen/switches.py); v0 has none
-    switches: tuple[tuple[str, object], ...] = ()
+    # tideforge switches (tideforge/gen/switches.py), normalized: sorted ((name, ((param, value), ...)), ...), every parameter
+    # resolved; v0 has none. Accepts {name: True | {param: value}} too.
+    switches: tuple[tuple[str, tuple], ...] = ()
 
     def __post_init__(self):
-        _switches.validate(dict(self.switches))
+        object.__setattr__(self, "switches", _switches.normalize(self.switches))
 
     @classmethod
     def from_ft3_cfg(cls, cfg: dict) -> "GenConfig":
@@ -83,8 +84,6 @@ class GenConfig:
     def with_changes(self, **kw) -> "GenConfig":
         if "gen_additions" in kw and isinstance(kw["gen_additions"], dict):
             kw["gen_additions"] = _additions(dict(dict(self.gen_additions), **kw["gen_additions"]))
-        if "switches" in kw and isinstance(kw["switches"], dict):
-            kw["switches"] = tuple(sorted(kw["switches"].items()))
         return replace(self, **kw)
 
     def diff(self, base: "GenConfig") -> dict:
@@ -100,7 +99,8 @@ class GenConfig:
         return out
 
     def config_hash(self) -> str:
-        s = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"), default=str)
+        """sha1 of every field (switch parameters included) and the switches' install plan (hook points, priorities, order)."""
+        s = json.dumps(dict(asdict(self), plan=_switches.plan(self.switches)), sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha1(s.encode("utf-8")).hexdigest()[:8]
 
     def run_id_fragment(self, base: "GenConfig") -> str:
@@ -109,6 +109,9 @@ class GenConfig:
         parts = []
         for k, v in d.items():
             name = k.split(".", 1)[1] if "." in k else k
+            if k.startswith("switches."):        # the name only; the parameters are in the hash
+                parts.append(name if v is not None else f"no{name}")
+                continue
             parts.append(name if v is True else f"no{name}" if v is False else f"{name}{v}")
         tag = "+".join(parts) if parts else "b0"
         return f"{self.version}-{tag}-{self.config_hash()}"
