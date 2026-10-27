@@ -3,9 +3,12 @@ against itself on CUDA in torch's default mode (1-2749 values differ by 1-10 ulp
 torch.use_deterministic_algorithms(True) + CUBLAS_WORKSPACE_CONFIG=:4096:8. The E0.1 GPU rule (owner) is therefore bit-exact
 parity of ft3_core and the port, both in deterministic mode (tests/conftest.py puts every gpu test in that mode).
 
-1. test_gpu_ft3_self_repro: ft3_core's generate_batch twice, same seed, in a fresh process, default vs deterministic mode.
-2. test_gpu_nondet_sources: in default mode, every family and layer of ft3_core run twice from the same input and RNG state;
-   prints which ones differ (the ops behind the default-mode differences). Reports only.
+1. test_gpu_ft3_self_repro: ft3_core's generate_batch twice, same seed, in a fresh process, default vs deterministic mode
+   (default mode is an expected failure, xfail strict: it documents ft3_core's own noise).
+2. test_gpu_nondet_sources: in default mode, every family, layer, group building and the full batch / blocks of ft3_core run
+   twice from the same input and RNG state; prints which ones differ. Reports only. 2026-10-27: only the aggregated family
+   differs (12,005 values at 256 x 1024; its scatter_add_, ft3_core L1394); every other family, every layer and group
+   building reproduce exactly.
 3. test_gpu_layer_diff: ft3_core vs the port, layer by layer, same input and RNG state, deterministic mode: names the first
    family / layer that differs if test_gpu_parity fails.
 Run: python -m pytest -q -s -rA -m gpu tests/test_gen_gpu.py tests/test_gen_parity.py tests/test_gen_switches.py
@@ -70,7 +73,10 @@ print("RESULT " + json.dumps(out))
 """
 
 
-@pytest.mark.parametrize("det", [False, True])
+@pytest.mark.parametrize("det", [
+    pytest.param(False, marks=pytest.mark.xfail(strict=True, reason="documents ft3_core's own run-to-run noise on CUDA in "
+                                                                     "torch's default mode (the aggregated family's scatter_add_)")),
+    True])
 def test_gpu_ft3_self_repro(det):
     env = {k: v for k, v in os.environ.items() if k != "CUBLAS_WORKSPACE_CONFIG"}
     if det:
@@ -171,6 +177,9 @@ for label, f in [("seasonality", lambda: C._L_seasonality(x, allow, dev)), ("tre
     twice("layer " + label, f)
 C.set_group_options(dict(C.CONFIG, cov_r3=True, second_group_p=0.5))
 twice("groups _multivariatize", lambda: C._multivariatize(x[:256].view(32, 8, L).clone(), 0.7, dev))
+for Lf in (256, 1024):
+    twice(f"full generate_batch L={{Lf}}", lambda: C.generate_batch(256, Lf, dev, profile=name))
+    twice(f"full generate_blocks L={{Lf}}", lambda: C.generate_blocks(32, 8, Lf, dev, profile=name, group_prob=0.7))
 print("RESULT " + json.dumps(out))
 """
 

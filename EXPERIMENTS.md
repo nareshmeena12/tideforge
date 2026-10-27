@@ -64,6 +64,11 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
   (tools/gen_throughput.py); if the cost is small training uses deterministic mode, otherwise the data are accepted as
   non-deterministic and E0.7's seed spread covers it. The owner decides from the numbers.
 
+- 2026-10-27 (owner, from E0.9's generator measurement): training runs the GENERATOR in deterministic mode (0.80-0.81x of
+  default-mode generator throughput), so B0 and switch runs see identical data apart from the switch; the MODEL stays in
+  torch's default mode and E0.7's seed spread covers model noise. T3 measures end-to-end training throughput in both modes
+  and this is revisited if the cost is above 10%.
+
 ## 4. Phase 1: diagnosis (no training; runs alongside Phase 0)
 
 | ID | What | Output |
@@ -243,7 +248,8 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 
 | ID | Date | Status | Result (one line) | Log |
 |---|---|---|---|---|
+| E0.9 | 2026-10-27 | running | generator: deterministic 1.32-1.44e8 vs default 1.64-1.77e8 points/s (0.80-0.81x); generator runs deterministic; training throughput in T3 | [E0.9](experiments/E0.9.md) |
 | D1 | 2026-10-27 | done | gap shaped like small models': 55% from covariate tasks (42% of tasks); worst 15 = load / price / retail; G1 stays first, order G1.3, G1.4, G1.5 | [D1](experiments/D1.md) |
 | E0.3 | 2026-10-27 | planned | | [E0.3](experiments/E0.3.md) |
 | E0.2 | 2026-10-27 | pass | gate pass in tidemark 2026-10-24: ON 43.84 / 0.6797 / 0.5712, hidden 42.08 / 0.6873 / 0.5752; wrapper smoke check pending | [E0.2](experiments/E0.2.md) |
-| E0.1 | 2026-10-27 | pass (CPU); GPU open | bit-exact on CPU incl. ft3_main's cfg; B0 = v0-b0-af75b1af; GPU differs by 1-2 ulp, diagnostics pending | [E0.1](experiments/E0.1.md) |
+| E0.1 | 2026-10-27 | pass | bit-exact on CPU and on GPU (deterministic mode) incl. ft3_main's cfg; B0 = v0-b0-af75b1af | [E0.1](experiments/E0.1.md) |
