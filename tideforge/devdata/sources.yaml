@@ -1,0 +1,368 @@
+# Dev-set sources (tideforge/devdata/schema.py describes every key). Batch 1 = the pipeline test (21 open sources, 13
+# domains), not dev-v1 (dev-v1 needs >= 15 domains).
+#
+# URLs and file layouts below are written from the providers' documentation as known on 2026-10-27 and have NOT been
+# fetched from the dev machine. Every entry lists in `confirm` what `ingest probe` must show before a full fetch; entries
+# are corrected from the probe output, never guessed further.
+
+batches:
+  batch1: [D053, D054, D057, D058, D074, D071, D003, D217, D038, D029, D078, D084, D176, D381, D181, D314, D320, D138,
+           D347, D297, D295]
+
+# ------------------------------------------------------------------------------------------------ weather and ocean
+D053:
+  slug: ghcn_daily
+  index:
+    url: https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt
+    read: {format: fwf, header: null, colspecs: [[0, 11], [12, 20], [21, 30], [31, 35], [36, 40], [41, 45]],
+           names: [station, lat, lon, element, first, last]}
+    filter: {element: [TMAX]}
+    where: "first <= 1995 and last >= 2025 and not station.str.startswith('SN')"
+    derive: {country: "station.str[:2]"}
+    id: station
+    strata: [country]
+  fetch:
+    url_template: https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/{series}.csv.gz
+    vars: {series: index}
+    probe_vars: {series: USW00094728}
+    rate_limit_s: 0.2
+  read: {format: csv, header: null, names: [station, date, element, value, mflag, qflag, sflag, obs_time],
+         dtype: {station: str, element: str, mflag: str, qflag: str, sflag: str}}
+  time: {col: date, format: "%Y%m%d"}
+  id: [station, element]
+  value: value
+  filter: {element: [TMAX, TMIN, PRCP], qflag: [null]}
+  missing: [-9999]
+  scale: 0.1
+  tasks: [{freq: D, how: mean}]
+  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "station.str[:2]"}}
+  exclude: {where: "not station.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather, data.gov.sg)"}
+  confirm: ["inventory column positions", "by_station CSV columns and units (tenths of degC / mm)"]
+
+D054:
+  slug: ghcn_hourly
+  index:
+    url: https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv
+    read: {format: csv}
+    id: GHCN_ID
+    where: "not GHCN_ID.str.startswith('SN')"
+    derive: {country: "GHCN_ID.str[:2]"}
+    strata: [country]
+  fetch:
+    url_template: https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{series}_por.psv
+    vars: {series: index}
+    probe_vars: {series: USW00094728}
+    rate_limit_s: 0.5
+  read: {format: csv, sep: "|", usecols: [Station_ID, Year, Month, Day, Hour, Minute, temperature, sea_level_pressure, wind_speed]}
+  time: {parts: {year: Year, month: Month, day: Day, hour: Hour, minute: Minute}, tz: UTC}
+  id: [Station_ID]
+  value: [temperature, sea_level_pressure, wind_speed]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "Station_ID.str[:2]"}}
+  exclude: {where: "not Station_ID.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather)"}
+  tz: UTC
+  confirm: ["station-list URL and its id column", "by-station PSV URL pattern and column names",
+            "timestamps are UTC (ISD lineage); the owner expects local time: check the documentation"]
+
+D057:
+  slug: ndbc
+  index:
+    url: https://www.ndbc.noaa.gov/data/stations/station_table.txt
+    read: {format: csv, sep: "|", comment: "#", header: null, names: [station, owner, ttype, hull, name, payload, location, tz, forecast, note]}
+    id: station
+    derive: {owner: "owner.str.strip()"}
+    strata: [owner]
+  fetch:
+    url_template: https://www.ndbc.noaa.gov/data/historical/stdmet/{series}h{year}.txt.gz
+    vars: {series: index, year: {range: [2016, 2024]}}
+    probe_vars: {series: "41001", year: 2023}
+    rate_limit_s: 0.2
+  read: {format: whitespace, skiprows: [1]}
+  time: {parts: {year: "#YY", month: MM, day: DD, hour: hh, minute: mm}}
+  id: [_var_series]
+  value: [WSPD, WVHT, PRES, ATMP, WTMP]
+  missing: [99.0, 999.0, 9999.0]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["station_table layout", "stdmet header '#YY MM DD hh mm ...' with a units row", "404 for station-years that do not exist"]
+
+D058:
+  slug: noaa_coops
+  index:
+    url: https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels
+    read: {format: json, record_path: [stations]}
+    id: id
+    strata: [state]
+  fetch:
+    url_template: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=hourly_height&application=tideforge&begin_date={year}0101&end_date={year}1231&datum=MSL&station={series}&time_zone=gmt&units=metric&format=csv"
+    vars: {series: index, year: {range: [2016, 2024]}}
+    probe_vars: {series: "9414290", year: 2023}
+    rate_limit_s: 0.5
+  read: {format: csv, strip_columns: true}
+  time: {col: "Date Time", format: "%Y-%m-%d %H:%M"}
+  id: [_var_series]
+  value: Water Level
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500, strata: [state]}
+  confirm: ["stations.json fields", "hourly_height CSV header ('Date Time', ' Water Level', ...) and the 1-year request limit"]
+
+# ------------------------------------------------------------------------------------------------ hydrology
+D074:
+  slug: usgs_nwis
+  index:
+    url_template: "https://waterservices.usgs.gov/nwis/site/?format=rdb&stateCd={state}&parameterCd=00060&siteType=ST&siteStatus=active&hasDataTypeCd=dv"
+    vars: {state: [al, az, ar, ca, co, ct, fl, ga, id, il, in, ia, ks, ky, la, me, md, ma, mi, mn, ms, mo, mt, ne, nv, nh, nj,
+                   nm, ny, nc, nd, oh, ok, or, pa, ri, sc, sd, tn, tx, ut, vt, va, wa, wv, wi, wy]}
+    read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1}
+    id: site_no
+    derive: {state: "_var_state"}
+    strata: [state]
+  fetch:
+    url_template: "https://waterservices.usgs.gov/nwis/dv/?format=rdb&sites={series}&parameterCd=00060&statCd=00003&startDT=1990-01-01"
+    vars: {series: index}
+    probe_vars: {series: "01646500"}
+    rate_limit_s: 0.3
+  read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1}
+  time: {col: datetime, format: "%Y-%m-%d"}
+  id: [site_no]
+  value: null
+  tasks: [{freq: D, how: mean}]
+  select: {max_series: 500, strata: [state]}
+  confirm: ["the legacy waterservices API still answers (USGS is moving to api.waterdata.usgs.gov)",
+            "the value column name of the dv RDB (e.g. '<ts_id>_00060_00003'): fill `value` from the probe"]
+  notes: "value is filled from the probe output (the dv column name carries a time-series id). Same split unit as CAMELS."
+
+D071:
+  slug: camels_us
+  loader: adapter:camels_us
+  index:
+    url: https://gdex.ucar.edu/dataset/camels/file/basin_timeseries_v1p2_metForcing_obsFlow.zip
+    id: series
+    strata: [huc]
+  fetch:
+    urls: [https://gdex.ucar.edu/dataset/camels/file/basin_timeseries_v1p2_metForcing_obsFlow.zip]
+  tasks: [{freq: D, how: mean}]
+  select: {max_series: 500, strata: [huc]}
+  confirm: ["the NCAR GDEX download URL (the catalog lists a Zenodo record)", "zip member layout (usgs_streamflow/<huc>/...)"]
+
+# ------------------------------------------------------------------------------------------------ energy
+D003:
+  slug: eia930
+  fetch:
+    url_template: https://www.eia.gov/electricity/gridmonitor/sixMonthFiles/EIA930_BALANCE_{year}_{half}.csv
+    try_without_key: true      # owner 2026-10-27: test the bulk files without a key first; else auth env EIA_API_KEY
+    vars: {year: {range: [2019, 2025]}, half: [Jan_Jun, Jul_Dec]}
+    rate_limit_s: 1.0
+  read: {format: csv, thousands: ",", usecols: [Balancing Authority, UTC Time at End of Hour, Demand (MW)]}
+  time: {col: UTC Time at End of Hour, format: "%m/%d/%Y %I:%M:%S %p", tz: UTC}
+  id: [Balancing Authority]
+  value: Demand (MW)
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  exclude: {where: "`Balancing Authority` != 'ERCO'", rule: "drop ERCOT: fev has ercot tasks (D008 is excluded for the same reason)"}
+  confirm: ["the bulk six-month files need no API key (else auth: {env: EIA_API_KEY, param: api_key} and the API route)",
+            "column names and the UTC time format"]
+
+D217:
+  slug: ons_brazil
+  fetch:
+    url_template: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_{month}.csv
+    vars: {month: {months: ["2022-01", "2024-12"], fmt: "%Y_%m"}}
+    rate_limit_s: 0.5
+  read: {format: csv, sep: ";", usecols: [din_instante, nom_usina, val_geracao]}
+  time: {col: din_instante, format: "%Y-%m-%d %H:%M:%S"}
+  id: [nom_usina]
+  value: val_geracao
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  tz: America/Sao_Paulo
+  confirm: ["dataset path and file naming on the ONS open-data bucket", "column names", "din_instante is Brasilia time"]
+
+D038:
+  slug: pvdaq
+  loader: adapter:pending
+  fetch:
+    urls: ["https://oedi-data-lake.s3.amazonaws.com/?list-type=2&prefix=pvdaq/parquet/"]
+  tasks: [{freq: 15min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the OEDI bucket layout (systems list, per-system parquet partitions, column names): adapter written from the probe"]
+
+D029:
+  slug: ausgrid_solar
+  loader: adapter:ausgrid
+  fetch:
+    urls: ["https://www.ausgrid.com.au/Industry/Our-Research/Data-to-share/Solar-home-electricity-data"]
+  read: {skiprows: 1}
+  tasks: [{freq: 30min, how: mean}]
+  select: {max_series: 500}
+  tz: Australia/Sydney
+  confirm: ["the three yearly zip URLs listed on the 'Solar home electricity data' page (replace urls with them)",
+            "local standard time or with daylight saving", "date format"]
+
+# ------------------------------------------------------------------------------------------------ air
+D078:
+  slug: epa_aqs
+  fetch:
+    url_template: https://aqs.epa.gov/aqsweb/airdata/hourly_{param}_{year}.zip
+    vars: {param: ["44201", "88101", "42602"], year: {range: [2019, 2024]}}
+    rate_limit_s: 1.0
+  read: {format: csv, usecols: [State Code, County Code, Site Num, Parameter Code, POC, Date GMT, Time GMT, Sample Measurement],
+         dtype: {State Code: str, County Code: str, Site Num: str, Parameter Code: str, POC: str}}
+  time: {cols: [Date GMT, Time GMT], format: "%Y-%m-%d %H:%M", tz: UTC}
+  id: [State Code, County Code, Site Num, Parameter Code, POC]
+  value: Sample Measurement
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500, strata: [State Code]}
+  confirm: ["file naming hourly_<param>_<year>.zip", "column names"]
+
+D084:
+  slug: eea_aq
+  loader: adapter:pending
+  fetch:
+    urls: ["https://eeadmz1-downloads-api-appservice.azurewebsites.net/ParquetFile/urls"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the EEA download service (POST with country / pollutant / dataset): adapter written from the probe"]
+
+# ------------------------------------------------------------------------------------------------ mobility
+D176:
+  slug: citibike
+  fetch:
+    url_template: https://s3.amazonaws.com/tripdata/{month}-citibike-tripdata.zip
+    vars: {month: {months: ["2024-01", "2024-12"], fmt: "%Y%m"}}
+    rate_limit_s: 1.0
+  read: {format: csv, usecols: [started_at, start_station_id], dtype: {start_station_id: str}}
+  time: {col: started_at, format: "ISO8601"}
+  id: [start_station_id]
+  events: {how: count}
+  tasks: [{freq: h, how: count}, {freq: D, how: count}]
+  select: {max_series: 500}
+  tz: America/New_York
+  confirm: ["monthly file naming (changed over the years)", "a zip may hold several CSVs"]
+
+D381:
+  slug: paris_bikes
+  fetch:
+    urls: ["https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/comptage-velo-donnees-compteurs/exports/csv?delimiter=%3B"]
+  read: {format: csv, sep: ";", usecols: [Identifiant du compteur, Comptage horaire, Date et heure de comptage]}
+  time: {col: Date et heure de comptage, has_offset: true}
+  id: [Identifiant du compteur]
+  value: Comptage horaire
+  tasks: [{freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the export covers only the last 13 months: add the yearly archives (comptage-velo-historique) from the probe"]
+
+D181:
+  slug: mta_ridership
+  fetch:
+    urls: ["https://data.ny.gov/resource/wujg-7c2s.csv?$select=date_trunc_ymd(transit_timestamp)%20as%20day,station_complex_id,sum(ridership)%20as%20riders&$group=day,station_complex_id&$limit=5000000"]
+    rate_limit_s: 1.0
+  read: {format: csv, dtype: {station_complex_id: str}}
+  time: {col: day}
+  id: [station_complex_id]
+  value: riders
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  tz: America/New_York
+  confirm: ["dataset id wujg-7c2s (subway hourly ridership) and the SoQL aggregation"]
+
+# ------------------------------------------------------------------------------------------------ cloud
+D314:
+  slug: huawei_serverless
+  fetch:
+    url_template: https://raw.githubusercontent.com/sir-lab/data-release/main/requests_minute/day_{day}.csv
+    vars: {day: ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13"]}
+  read: {format: csv, melt: {id_vars: [time], var_name: function}}
+  time: {col: time, unit: s}
+  id: [function]
+  value: value
+  tasks: [{freq: min, how: sum}, {freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["repository path and file names", "wide layout (one column per function) and the time column unit"]
+  notes: "replaces D311 (Azure Functions 2021): that trace is a .rar archive, which needs a tool we have not approved"
+
+D320:
+  slug: backblaze
+  fetch:
+    url_template: https://f001.backblazeb2.com/file/Backblaze-Hard-Drive-Data/data_Q{q}_{year}.zip
+    vars: {q: [1, 2, 3, 4], year: {range: [2022, 2024]}}
+    rate_limit_s: 2.0
+  read: {format: csv, usecols: [date, model]}
+  time: {col: date, format: "%Y-%m-%d"}
+  id: [model]
+  events: {how: count}
+  tasks: [{freq: D, how: count}]
+  select: {max_series: 500}
+  confirm: ["quarterly zip naming", "series = drives in service per model per day (fleet size); failures could be a second series"]
+
+# ------------------------------------------------------------------------------------------------ web
+D138:
+  slug: wikimedia_pageviews
+  index:
+    url_template: https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/all-access/2023/01/all-days
+    vars: {project: [en.wikipedia]}
+    headers: {User-Agent: "tideforge-research/0.1 (time-series dev set; contact: repository owner)"}
+    read: {format: json, record_path: [items, 0, articles]}
+    id: article
+    derive: {project: "_var_project"}
+    where: "not article.str.contains(':') and article != 'Main_Page'"
+  fetch:
+    url_template: https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/{project}/all-access/user/{series}/daily/20230101/20260930
+    vars: {series: index, project: [en.wikipedia]}
+    headers: {User-Agent: "tideforge-research/0.1 (time-series dev set; contact: repository owner)"}
+    probe_vars: {series: Albert_Einstein, project: en.wikipedia}
+    rate_limit_s: 0.1
+  read: {format: json, record_path: [items]}
+  time: {col: timestamp, format: "%Y%m%d%H"}
+  id: [project, article]
+  value: views
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["top-articles JSON layout (items[0].articles)", "per-article JSON fields (project, article, timestamp, views)"]
+  notes: "fresh pull (2023-2026): the 2015-2017 Kaggle / Monash Wikipedia data is in benchmarks and pre-training corpora"
+
+# ------------------------------------------------------------------------------------------------ retail
+D347:
+  slug: iowa_liquor
+  fetch:
+    urls: ["https://data.iowa.gov/resource/m3tr-qhgy.csv?$select=date_trunc_ymd(date)%20as%20day,county,sum(sale_dollars)%20as%20sales&$group=day,county&$limit=5000000"]
+    rate_limit_s: 1.0
+  read: {format: csv}
+  time: {col: day}
+  id: [county]
+  value: sales
+  tasks: [{freq: D, how: sum}, {freq: W, how: sum}]
+  select: {max_series: 500}
+  confirm: ["dataset id m3tr-qhgy and column names (date, county, sale_dollars)"]
+
+# ------------------------------------------------------------------------------------------------ health
+D297:
+  slug: eurostat_weekly_deaths
+  loader: adapter:eurostat_tsv
+  fetch:
+    urls: ["https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/demo_r_mwk3_ts/?format=TSV&compressed=true"]
+  read: {keep: {sex: T}}
+  tasks: [{freq: W, how: sum}]
+  select: {max_series: 500, strata: [country]}
+  confirm: ["TSV layout (first column 'freq,sex,unit,geo\\TIME_PERIOD', weekly columns)"]
+
+D295:
+  slug: infodengue
+  index:
+    url: https://servicodados.ibge.gov.br/api/v1/localidades/municipios
+    read: {format: json, normalize: true}
+    id: id
+    derive: {uf: "`microrregiao.mesorregiao.UF.sigla`"}
+    strata: [uf]
+  fetch:
+    url_template: "https://info.dengue.mat.br/api/alertcity?geocode={series}&disease=dengue&format=csv&ew_start=1&ew_end=53&ey_start=2012&ey_end=2025"
+    vars: {series: index}
+    probe_vars: {series: "3304557"}
+    rate_limit_s: 0.5
+  read: {format: csv}
+  time: {col: data_iniSE}
+  id: [_var_series]
+  value: casos
+  tasks: [{freq: W, how: sum}]
+  select: {max_series: 500}
+  confirm: ["IBGE municipality JSON fields", "InfoDengue CSV columns (data_iniSE, casos)"]
