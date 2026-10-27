@@ -1,0 +1,44 @@
+ba,city,state
+PJM,Philadelphia,PA
+PJM,Chicago,IL
+PJM,Washington,DC
+PJM,Baltimore,MD
+PJM,Columbus,OH
+MISO,Detroit,MI
+MISO,Minneapolis,MN
+MISO,Indianapolis,IN
+MISO,St. Louis,MO
+MISO,New Orleans,LA
+SWPP,Oklahoma City,OK
+SWPP,Kansas City,MO
+SWPP,Omaha,NE
+SWPP,Tulsa,OK
+SWPP,Wichita,KS
+CISO,San Francisco,CA
+CISO,San Jose,CA
+CISO,San Diego,CA
+CISO,Sacramento,CA
+CISO,Fresno,CA
+NYIS,New York,NY
+NYIS,Buffalo,NY
+NYIS,Rochester,NY
+NYIS,Albany,NY
+ISNE,Boston,MA
+ISNE,Hartford,CT
+ISNE,Providence,RI
+ISNE,Worcester,MA
+SOCO,Atlanta,GA
+SOCO,Birmingham,AL
+SOCO,Montgomery,AL
+SOCO,Columbus,GA
+TVA,Nashville,TN
+TVA,Memphis,TN
+TVA,Knoxville,TN
+TVA,Chattanooga,TN
+FPL,Miami,FL
+FPL,Fort Lauderdale,FL
+FPL,West Palm Beach,FL
+DUK,Charlotte,NC
+DUK,Greensboro,NC
+DUK,Winston-Salem,NC
+DUK,Greenville,SC

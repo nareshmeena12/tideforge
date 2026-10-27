@@ -1,0 +1,52 @@
+# Covariate tasks (DATA_COLLECTION.md step 7): a target series joined with real covariates, written in the fev convention
+# (target column + known_dynamic / past_dynamic columns). Everything is aligned in UTC.
+#
+# role: known = available over the forecast horizon; past = history only. oracle: true marks a known covariate whose future
+# values are the realised observations (e.g. observed temperature standing in for a forecast). G1.2 tests exactly that
+# difference, so every weather covariate here is known + oracle. Calendar flags are truly known (oracle: false).
+#
+# A task belongs to its target dataset's split unit (catalog/split_v1.csv). Covariate stations are fetched for the task
+# (covariate_tasks fetch), whether or not they are in the GHCN-Hourly dev sample.
+
+eia_load_temperature:
+  target: {source: D003, freq: h}
+  join: population_weighted_weather
+  cities: catalog/eia_ba_cities.csv          # the 3-5 largest cities of each balancing area (judgement; see the file)
+  station_source: D054                        # GHCN-Hourly, UTC
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  max_km: 50
+  min_weight: 0.5                             # NaN where cities with data hold < 50% of the population weight
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+  notes: "ERCO is excluded (fev ercot). Coordinates and populations come from the Census Gazetteer and population estimates
+          files given on the command line (source and vintage recorded in meta.json)."
+
+camels_flow_forcing:
+  target: {source: D071, freq: D}
+  join: camels_forcing
+  covariates:
+    prcp: {role: known, oracle: true}
+    tmax: {role: known, oracle: true}
+    tmin: {role: known, oracle: true}
+    srad: {role: known, oracle: true}
+  notes: "basin-mean Daymet forcing from the same CAMELS release"
+
+iowa_liquor_holidays:
+  target: {source: D347, freq: D}
+  join: calendar
+  tz: America/Chicago
+  covariates:
+    holiday: {country: US, subdiv: IA, role: known, oracle: false}
+
+paris_bikes_weather:
+  target: {source: D381, freq: h}
+  join: point_weather
+  point: {lat: 48.8566, lon: 2.3522}          # Paris centre
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Europe/Paris
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: FR, role: known, oracle: false}

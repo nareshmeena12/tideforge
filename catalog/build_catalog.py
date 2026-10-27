@@ -45,7 +45,7 @@ r("SERL Observatory (UK households, electricity+gas)", "Buildings-heat", "househ
 r("Irish CER smart meter trial", "Buildings-heat", "household-load;tariff-trial;multi-seasonal", "30min", "ISSDA application", "ISSDA terms", "https://arxiv.org/pdf/1802.04117", "yes", "clean?", "Listed in a smart-meter data review; access needs an application")
 r("Pecan Street Dataport", "Buildings-heat", "household-load;appliance-level;solar-homes", "1min/15min", "free for academics, registration", "Pecan Street terms", "https://arxiv.org/pdf/1802.04117", "yes", "clean?", "Restricted access")
 r("UMass Smart* microgrid", "Buildings-heat", "household-load;1-min", "1min", "direct download", "check", "https://arxiv.org/pdf/1802.04117", "yes", "clean?", "")
-r("Ausgrid solar home dataset", "Buildings-heat", "household-load;rooftop-PV;multi-seasonal", "30min", "direct download", "CC BY", "https://arxiv.org/pdf/1802.04117", "yes", "clean?", "Listed in smart-meter review; URL on ausgrid.com.au to confirm")
+r("Ausgrid solar home dataset", "Buildings-heat", "household-load;rooftop-PV;multi-seasonal", "30min", "direct download", "CC BY", "https://www.ausgrid.com.au/Industry/Our-Research/Data-to-share/Solar-home-electricity-data", "no", "clean?", "Listed in smart-meter review; URL on ausgrid.com.au to confirm")
 r("Energi Data Service (Denmark): consumption and prices", "Buildings-heat", "multi-seasonal;district-heating-possible", "H", "API (free)", "CC BY 4.0", "https://www.energidataservice.dk/", "no", "clean?", "I did not confirm a district heating series here, check the catalogue")
 
 # ---------------- Energy fuels / oil and gas ----------------
