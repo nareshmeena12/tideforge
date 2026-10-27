@@ -329,6 +329,7 @@ def access_class(a):
     a = a.lower()
     if any(k in a for k in ["credential", "dua", "ukds", "secure"]): return "restricted"
     if any(k in a for k in ["scrap", "pdf"]): return "scrape"
+    if "application" in a: return "application"      # an application to the data holder (2026-10-27)
     if any(k in a for k in ["key", "token", "registration", "gated", "request", "login", "rate-limited", "torrent"]): return "registration"
     return "open"
 
