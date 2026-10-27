@@ -64,7 +64,9 @@ tests for the real track and the Perlmutter scripts. Rules:
 - Import it by putting `third_party/tidemark_e21cbf0` on `sys.path` (`import tidemark.real.ft3_core as C`). ft3_core
   runs nothing on import.
 - `reference/` is untracked (gitignored) and READ-ONLY. It holds:
-  - `reference/tidemark/`: a full clone of the tidemark repo, for reading only: how Perlmutter jobs are generated
+  - `reference/tidemark/`: a full clone of the tidemark repo (added 2026-10-27 at commit e21cbf0, the same commit as
+    `third_party/tidemark_e21cbf0`), for reading only. Its own `CLAUDE.md`, `TIDEMARK_PLAN.txt` and `LEAN_PLAN.md`
+    describe the tidemark attention study; they do NOT apply to tideforge. Use the clone to see how Perlmutter jobs are generated
     (`tidemark/pretrain/slurm.py` writes the .sbatch files), submitted, scored and resumed (`scripts/perlmutter/`,
     `pretrain/stage_a.py`, `stage_b.py`, `submit_b.py`, `eval/score_twins.py`), and tidemark's own CLAUDE.md conventions.
   - the owner's local-only sources: `tide_v5_ft3.py`, `tide_v5_pretrain_1T.py`, `time_fev_eval.py`, and the 5M scripts
@@ -91,10 +93,12 @@ tests for the real track and the Perlmutter scripts. Rules:
 
 ## Inputs still needed from the owner
 
-1. ft3_main's `cfg` (for E0.1).
+1. ft3_main's `cfg` as `configs/ft3_main_cfg.json` (for E0.1).
 2. The 5M scripts `ab5m_cpm_vs_dhf.py` and `eval_ab5m_time_fev.py` (they define the 5M recipe; not in tidemark's repo).
 3. Paths on Perlmutter: ft3_main.pt, the evaluation root, the persistent data directory for the dev set.
 4. Wall time of an `ab5m_cpm` 100B run (replaces the throughput estimate).
+5. The local-only sources for `reference/`: `tide_v5_ft3.py`, `tide_v5_pretrain_1T.py`, `time_fev_eval.py` (not in
+   tidemark's git, so not in the clone). Only needed if a question cannot be answered from `third_party/`.
 
 ## Layout
 
@@ -105,8 +109,12 @@ tideforge/                package (ported and new code)
   devdata/                dev-set sources, loaders, ingest, audit, covariate tasks, split, build
   diagnose/               fixable error, repair attribution, feature rules, coverage map, realism classifier
   train/                  5M recipe, run configs, launchers
-  eval/                   dev scorer, fev / TIME wrappers (groups mode), LOOKS logging
-third_party/tidemark_e21cbf0/   frozen copy of tidemark (read-only)
+  eval/                   dev scorer, fev / TIME wrappers (groups mode), LOOKS logging, NaN variants and audit
+configs/                  run inputs that are small and not secret (ft3_main_cfg.json from the owner)
+scripts/perlmutter/       bash: env.sh and the launchers (scoring, audits); training launchers are generated (see above)
+third_party/tidemark_e21cbf0/   frozen, importable copy of the needed tidemark modules (read-only)
+reference/                untracked, read-only: full tidemark clone + owner's local-only sources (never imported)
+.claude/settings.json     blocks edits to third_party/ and reference/
 catalog/                  dataset catalog, exclusions, benchmark lists, catalog builders, verify_urls.py
 tools/                    one-off analysis scripts (generator audit, fev covariate split)
 experiments/              one log per experiment + TEMPLATE.md

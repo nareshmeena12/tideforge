@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/third_party/**)",
+      "Write(/third_party/**)",
+      "Edit(/reference/**)",
+      "Write(/reference/**)"
+    ]
+  }
+}

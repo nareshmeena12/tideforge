@@ -8,4 +8,8 @@ on a benchmark-free real dev set (~1B points, ~340 datasets) with a 5M softmax m
 - Overview report: [docs/report/landscape.pdf](docs/report/landscape.pdf)
 - Working rules (for people and for Claude Code): [CLAUDE.md](CLAUDE.md)
 
-Code copied from the tidemark repo lives, unedited, in `third_party/tidemark_e21cbf0/`.
+Code copied from the tidemark repo lives, unedited, in `third_party/tidemark_e21cbf0/` (importable, pinned at commit
+e21cbf0). A full clone of tidemark can sit in `reference/tidemark/` for reading; `reference/` is gitignored and never
+imported:
+
+    git clone https://github.com/nareshmeena12/tidemark reference/tidemark
