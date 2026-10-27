@@ -94,6 +94,12 @@ This cloud session cannot reach most data hosts (only GitHub is allowed), so dow
   `tools/time_horizons.py`). A dev version needs >= 15 domains; batch 1 is the pipeline test, not dev-v1. The manifest
   (counts and sha256 only) is committed under `catalog/manifests/`.
 
+**Decisions 2026-10-27 (owner, horizons):** TIME's sub-daily rows are used as written; D, W, M, Q, B and Y use tideforge's
+own convention (catalog/horizons_extra.csv: D 30 / 90 / 180, W 13 / 26 / 52, M 12 / 18 / 24, Q 4 / 8, B 20 / 60 / 120,
+Y 4 / 6), not TIME's (its daily row comes from one dataset). A term is used for a series only if the series has >= 3 x that
+horizon of history; skipped terms are counted in the build report. Step 5's length rule follows: a series is kept if it
+can serve the shortest term (3 x the shortest horizon + 64 points), no longer 3 x the longest.
+
 ## 4. Order of collection
 
 v1 = the ~120 highest-yield open sources (expected 70-80% of the points); v2 = the rest. Start with sources that give

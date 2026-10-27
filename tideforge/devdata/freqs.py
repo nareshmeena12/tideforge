@@ -3,8 +3,10 @@ TIME (owner decision 2026-10-27: a convention, not selection on TIME results).
 
 TIME sets the prediction length per dataset and term. tools/time_horizons.py (run where the TIME repo is, on Perlmutter) reads
 those settings and writes catalog/time_horizons.csv: per canonical frequency and term, the most common prediction length over
-TIME's datasets (ties: the smaller), with the source noted. A frequency TIME does not have is added by hand to
-catalog/horizons_extra.csv (freq, term, prediction_length, source) with the owner's OK; horizons() raises until it is there.
+TIME's datasets (ties: the smaller), with the source noted. catalog/horizons_extra.csv (freq, term, prediction_length,
+source) holds tideforge's own convention for the frequencies where TIME's rows are not used (D, from one dataset only) or
+missing (W, M, Q, B, Y); its rows replace TIME's for those frequencies. A term is used for a series only if the series has
+>= 3 x that horizon of history.
 """
 from __future__ import annotations
 
@@ -58,13 +60,14 @@ def seasonality(freq: str) -> int:
 
 @lru_cache(maxsize=None)
 def table() -> pd.DataFrame:
-    parts = []
-    for p in (TIME_HORIZONS, HORIZONS_EXTRA):
-        if p.exists():
-            parts.append(pd.read_csv(p, dtype={"freq": str, "term": str}))
-    if not parts:
+    """TIME's rows, except for the frequencies in horizons_extra.csv, whose rows replace TIME's entirely (owner 2026-10-27:
+    TIME's sub-daily rows as written; D, W, M, Q, B, Y from tideforge's own convention)."""
+    if not TIME_HORIZONS.exists():
         raise FileNotFoundError(f"{TIME_HORIZONS} is missing: run tools/time_horizons.py on Perlmutter (see its docstring)")
-    t = pd.concat(parts, ignore_index=True)
+    t = pd.read_csv(TIME_HORIZONS, dtype={"freq": str, "term": str})
+    if HORIZONS_EXTRA.exists():
+        x = pd.read_csv(HORIZONS_EXTRA, dtype={"freq": str, "term": str})
+        t = pd.concat([t[~t["freq"].isin(set(x["freq"]))], x], ignore_index=True)
     dup = t[t.duplicated(["freq", "term"], keep=False)]
     if not dup.empty:
         raise ValueError(f"horizon defined twice: {dup[['freq', 'term']].values.tolist()}")
@@ -72,16 +75,23 @@ def table() -> pd.DataFrame:
 
 
 def horizons(freq: str) -> dict[str, int]:
-    """{'short': H, 'medium': H, 'long': H} for a frequency; raises if the table does not have it."""
+    """{term: H} for a frequency (the terms it has, in short / medium / long order); raises if it has none."""
     k = canonical(freq)
     t = table()
     rows = t[t["freq"] == k]
-    if set(rows["term"]) != set(TERMS):
-        raise KeyError(f"no complete horizon row for frequency {k!r} (have {sorted(set(t['freq']))}); add it to "
-                       f"{HORIZONS_EXTRA.name} with the owner's OK")
-    return {r["term"]: int(r["prediction_length"]) for _, r in rows.iterrows()}
+    if rows.empty:
+        raise KeyError(f"no horizon for frequency {k!r} (have {sorted(set(t['freq']))}); add it to {HORIZONS_EXTRA.name} "
+                       f"with the owner's OK")
+    d = {r["term"]: int(r["prediction_length"]) for _, r in rows.iterrows()}
+    return {term: d[term] for term in TERMS if term in d}
+
+
+def eligible(n_obs: int, H: int) -> bool:
+    """A term is used for a series only if its history is >= 3 x the horizon (owner 2026-10-27)."""
+    return n_obs >= 3 * H
 
 
 def min_length(freq: str) -> int:
-    """DATA_COLLECTION.md step 5: a series needs 3 x the longest horizon + 64 points."""
-    return 3 * max(horizons(freq).values()) + 64
+    """Ingest keeps a series if it can serve at least the shortest term: 3 x the shortest horizon + 64 points. (Was 3 x the
+    longest + 64 before terms became per-series, 2026-10-27; longer terms are skipped per series at build time.)"""
+    return 3 * min(horizons(freq).values()) + 64

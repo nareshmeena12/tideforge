@@ -3,7 +3,9 @@
     python -m tideforge.devdata.build --staging $TF_DATA/staging --out $TF_DATA/dev --version dev-v1
     python -m tideforge.devdata.build ... --version batch1-test --pipeline-test      # fewer than 15 domains allowed
 
-- Task = (dataset, frequency, term); horizons from freqs.horizons (TIME's convention). Per series and term: the last
+- Task = (dataset, frequency, term); horizons from freqs.horizons (TIME's sub-daily rows + tideforge's convention). A term is
+  used for a series only if its history is >= 3 x the horizon; the skips are counted per dataset, frequency and term in the
+  manifest (term_skips). Per series and term: the last
   N_WINDOWS rolling windows (window j: target = the H points ending j*H before the end, context = everything before; the
   context needs >= max(64, H) points and the target >= 50% observed values).
 - Weights, per role (tuning / locked) separately: every dataset equal, no domain above DOMAIN_CAP of the weight (water-filling:
@@ -31,7 +33,7 @@ import pandas as pd
 
 from tideforge.devdata import split as S
 from tideforge.devdata.catalog import CAT, REPO
-from tideforge.devdata.freqs import HORIZONS_EXTRA, TERMS, TIME_HORIZONS, horizons
+from tideforge.devdata.freqs import HORIZONS_EXTRA, TIME_HORIZONS, eligible, horizons
 from tideforge.devdata.ingest import sha256_file
 from tideforge.devdata.schema import SOURCES
 
@@ -72,14 +74,19 @@ def series_windows(v: np.ndarray, H: int) -> list[int]:
     return out
 
 
-def task_windows(df: pd.DataFrame, freq: str, target: str = "value") -> pd.DataFrame:
+def task_windows(df: pd.DataFrame, freq: str, target: str = "value", skips: dict | None = None) -> pd.DataFrame:
+    """Windows of every series and term. A term is skipped for a series whose history (its length) is < 3 x the horizon;
+    skips[term] counts them."""
     rows = []
     hz = horizons(freq)
     for sid, g in df.groupby("series_id"):
         v = g.sort_values("timestamp")[target].to_numpy(dtype=float)
         ts = g.sort_values("timestamp")["timestamp"].to_numpy()
-        for term in TERMS:
-            H = hz[term]
+        for term, H in hz.items():
+            if not eligible(len(v), H):
+                if skips is not None:
+                    skips[term] = skips.get(term, 0) + 1
+                continue
             for j, c in enumerate(series_windows(v, H)):
                 rows.append(dict(series_id=sid, term=term, H=H, window=j, cutoff=int(c), cutoff_time=ts[c], n=len(v)))
     return pd.DataFrame(rows)
@@ -116,7 +123,7 @@ def build(staging: Path, out: Path, version: str, pipeline_test: bool = False, s
     metas = [m for m in metas if not m.get("covariate_only") and any(t["n_series"] for t in m["tasks"].values())]
     if not metas:
         raise RuntimeError(f"no staged datasets under {staging}")
-    wins, datasets = [], []
+    wins, datasets, skipped = [], [], {}
     for m in metas:
         d = m["dataset_id"]
         sp = split.loc[d]
@@ -126,7 +133,9 @@ def build(staging: Path, out: Path, version: str, pipeline_test: bool = False, s
             src = staging / m["slug"] / f"{key}.parquet"
             if sha256_file(src) != t["sha256"]:
                 raise RuntimeError(f"{src} changed since ingest (sha256 differs from meta.json)")
-            w = task_windows(pd.read_parquet(src), key)
+            sk: dict = {}
+            w = task_windows(pd.read_parquet(src), key, skips=sk)
+            skipped.setdefault(d, {})[key] = sk
             wins.append(w.assign(dataset_id=d, slug=m["slug"], freq=key, domain=m["domain"], unit=sp["unit_id"], role=sp["role"]))
         datasets.append(dict(dataset_id=d, slug=m["slug"], domain=m["domain"], unit=sp["unit_id"], role=sp["role"],
                              licence=m["licence"], tasks={k: {x: t[x] for x in ("n_series", "n_points", "nan_share", "sha256")}
@@ -180,7 +189,7 @@ def build(staging: Path, out: Path, version: str, pipeline_test: bool = False, s
                git=git_head(), split_sha256=sha256_file(S.SPLIT_V1), sources_sha256=sha256_file(SOURCES),
                horizons_sha256={p.name: sha256_file(p) for p in (TIME_HORIZONS, HORIZONS_EXTRA) if p.exists()},
                rules=dict(n_windows=N_WINDOWS, domain_cap=DOMAIN_CAP, min_domains=MIN_DOMAINS, sizes=SIZES),
-               n_domains=len(domains), domains=domains, weights=weights, sets=sets, datasets=datasets,
+               n_domains=len(domains), domains=domains, term_skips=skipped, weights=weights, sets=sets, datasets=datasets,
                covariate_tasks=sorted({c["task"].iloc[0] for c in cov}) if cov else [],
                totals=dict(datasets=len(datasets), series=int(sum(t["n_series"] for x in datasets for t in x["tasks"].values())),
                            points=int(sum(t["n_points"] for x in datasets for t in x["tasks"].values())),
