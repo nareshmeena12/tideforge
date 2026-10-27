@@ -20,6 +20,8 @@ PROBE, VERSION, SEED, N_PER_CELL = "P9", 1, 909, 256
 L, H = 1024, 64
 CELLS = ("lotka_volterra", "forced_sir", "van_der_pol", "control")
 NOISE = 0.02
+# Measured (v1, n = 24-48, 2026-10-27): naive / oracle sql 3.7-13.1 (lotka_volterra 4.0-4.9, forced_sir 12.2-13.1,
+# van_der_pol 4.3-4.7, control 3.7-3.8).
 THRESHOLDS = dict(naive_vs_oracle_min=1.5)
 
 

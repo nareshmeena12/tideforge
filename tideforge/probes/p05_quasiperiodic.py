@@ -18,6 +18,7 @@ PROBE, VERSION, SEED, N_PER_CELL = "P5", 1, 505, 256
 LENGTHS = (1024, 4096)
 H = 64
 CELLS = ("am", "fm", "beats", "control")
+# Measured (v1, n = 48, 2026-10-27): naive / oracle sql 1.66-3.10 (am 2.13-2.18, fm 1.93-1.98, beats 3.04-3.10, control 1.66-1.79).
 THRESHOLDS = dict(naive_vs_oracle_min=1.5)
 
 
