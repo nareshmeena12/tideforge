@@ -6,6 +6,7 @@ results file in the same format (one row per task, columns as produced by fev's 
 Usage (from the repo root):
     git clone --depth 1 https://github.com/autogluon/fev third_party_ext/fev        # not committed
     python tools/fev_cov_split.py --fev third_party_ext/fev --ours path/to/ft3_main_fev.csv --name ft3_main
+    python tools/fev_cov_split.py --fev $TM_EVAL/fev --ours $TF_REF/scores_long.csv --arm ft3mainon --name ft3_main_on         --out $TF_ROOT/d1/fev_rel_errors.csv                                    # a tidemark board (Perlmutter)
     python tools/fev_cov_split.py --fev third_party_ext/fev                         # published models only
 
 Writes docs/report/data/fev_rel_errors.csv (per-task relative error vs Seasonal Naive, all models) and prints, per model:
@@ -22,7 +23,9 @@ import pandas as pd
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--fev", required=True, help="path to a clone of github.com/autogluon/fev")
-ap.add_argument("--ours", default=None, help="your fev results csv (same format as the published files)")
+ap.add_argument("--ours", default=None, help="your fev results csv (same format as the published files), or a tidemark "
+                "board scores_long.csv (columns model, arm, seed, benchmark, metric, task, window, err) with --arm")
+ap.add_argument("--arm", default=None, help="with a scores_long.csv: the arm to take (ft3mainon = groups ON, ft3main = hidden)")
 ap.add_argument("--name", default="ours", help="model_name to give your results")
 ap.add_argument("--leader", default="TimeRSI-1.5")
 ap.add_argument("--out", default="docs/report/data/fev_rel_errors.csv")
@@ -34,6 +37,22 @@ files = glob.glob(str(Path(a.fev) / "benchmarks" / "fev_bench" / "results" / "*.
 df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
 if a.ours:
     o = pd.read_csv(a.ours)
+    if "arm" in o.columns:
+        # scores_long.csv: one test_error per fev task; the task identity columns are copied from a published model's
+        # row of the same task_name (fev's pivot needs them)
+        if not a.arm:
+            raise SystemExit("--arm is required with a scores_long.csv (e.g. ft3mainon)")
+        o = o[(o["arm"] == a.arm) & (o["benchmark"] == "fev") & (o["metric"] == "test_error")]
+        o = o.groupby("task", as_index=False)["err"].mean()                     # one seed per arm here; mean if several
+        tmpl = df[df.model_name == df.model_name.iloc[0]].drop_duplicates("task_name").set_index("task_name")
+        missing = sorted(set(o["task"]) - set(tmpl.index))
+        if missing:
+            print(f"{len(missing)} of our tasks have no published row (left out): {missing[:10]}")
+        o = o[o["task"].isin(tmpl.index)]
+        rows = tmpl.loc[o["task"]].reset_index()
+        rows["test_error"] = o["err"].to_numpy()
+        o = rows
+        print(f"{a.ours}: arm {a.arm}, {len(o)} fev tasks")
     o["model_name"] = a.name
     df = pd.concat([df, o], ignore_index=True)
 
