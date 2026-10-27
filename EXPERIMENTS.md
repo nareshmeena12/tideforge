@@ -58,6 +58,12 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
   from ft2_main, so B0 copies ft3's mix only, not ft2's history: experiments compare against B0, and B0 is never described as
   "ft3_main's training data".
 
+- 2026-10-27 (owner): the E0.1 GPU rule is bit-exact parity of ft3_core and the port, both with
+  torch.use_deterministic_algorithms(True) and CUBLAS_WORKSPACE_CONFIG=:4096:8 (ft3_core itself is not reproducible on CUDA in
+  torch's default mode). E0.9 also measures generator throughput in deterministic vs default mode on GPU
+  (tools/gen_throughput.py); if the cost is small training uses deterministic mode, otherwise the data are accepted as
+  non-deterministic and E0.7's seed spread covers it. The owner decides from the numbers.
+
 ## 4. Phase 1: diagnosis (no training; runs alongside Phase 0)
 
 | ID | What | Output |

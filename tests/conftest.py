@@ -1,7 +1,11 @@
 """Puts the repo root and the pinned tidemark copy on sys.path; skips `gpu` tests without CUDA and `slow` tests without
---runslow."""
+--runslow. GPU tests run with torch.use_deterministic_algorithms(True) and CUBLAS_WORKSPACE_CONFIG=:4096:8 (the E0.1 GPU
+rule, owner 2026-10-27): the variable is set here, before anything creates a cuBLAS handle."""
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 import pytest
 import torch
@@ -25,3 +29,17 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(gpu)
         if "slow" in item.keywords and not config.getoption("--runslow"):
             item.add_marker(slow)
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_on_gpu(request):
+    """GPU tests run in deterministic mode; everything else as torch's default."""
+    if request.node.get_closest_marker("gpu") is None:
+        yield
+        return
+    before = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        yield
+    finally:
+        torch.use_deterministic_algorithms(before)

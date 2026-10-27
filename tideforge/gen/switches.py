@@ -15,8 +15,10 @@ post-processing switch leaves every global draw of v0 unchanged: the on output i
     H4, H7, H8 and overrides of noise and later layers are exact on every device.
     Measured on CPU 2026-10-27 (STRESS config + breaks, 512 x 1024, test_post p = 0.5): H3 (after_structure) left the global
     RNG state equal to v0's; H2 (after_families) did not (the noise layer's poisson draws changed).
-    CUDA: not measured yet; tests/test_gen_switches.py::test_gpu_h2_h3_keep_the_other_draws (GPU parity job) decides it,
-    and its result is recorded here.
+    Measured on CUDA 2026-10-27 (Perlmutter A100, torch 2.13.0+cu130, torch's default mode):
+    test_gpu_h2_h3_keep_the_other_draws passed for both H2 and H3: the CPU and CUDA RNG states after the call equal v0's and
+    at least 40% of the rows are bit-identical (p = 0.5), so on CUDA the value-changing hooks before the noise layer leave
+    the other global draws unchanged. (GPU tests now run in deterministic mode; the next GPU run repeats it there.)
 Hooks at the same point run by (priority, switch name); the defaults are _hooks.PRIORITY: structure 100 (breaks) <
 observation 200 (rounding, censoring) < gaps 300 (always last). The install plan (with priorities) goes into the config hash.
 """

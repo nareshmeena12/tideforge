@@ -1,12 +1,14 @@
-"""GPU diagnostics for E0.1 (Perlmutter, 2026-10-27: test_gpu_parity failed with 1-2 float32 ulp differences).
+"""GPU diagnostics for E0.1. Result of 2026-10-27 (Perlmutter A100, torch 2.13.0+cu130): ft3_core is NOT reproducible
+against itself on CUDA in torch's default mode (1-2749 values differ by 1-10 ulp per length) and IS bit-reproducible with
+torch.use_deterministic_algorithms(True) + CUBLAS_WORKSPACE_CONFIG=:4096:8. The E0.1 GPU rule (owner) is therefore bit-exact
+parity of ft3_core and the port, both in deterministic mode (tests/conftest.py puts every gpu test in that mode).
 
-1. test_gpu_ft3_self_repro: is ft3_core's own generate_batch reproducible on CUDA (same seed, run twice)? Run in a fresh
-   process with and without torch.use_deterministic_algorithms(True) + CUBLAS_WORKSPACE_CONFIG=:4096:8. Prints one line per L.
-2. test_gpu_layer_diff: ft3_core vs the port, layer by layer, each layer fed the SAME input and started from the SAME RNG
-   state on both sides; reports the first family / layer whose output differs (needed if 1 shows ft3_core IS reproducible).
-3. test_gpu_parity_ulp4: the tolerant GPU rule (used if 1 shows ft3_core is NOT reproducible against itself): discrete outputs
-   exact (NaN positions, integer-valued rows, roles, group ids), RNG state after the call exact, float values within 4 ulp.
-Run: python -m pytest -q -s -m gpu tests/test_gen_gpu.py
+1. test_gpu_ft3_self_repro: ft3_core's generate_batch twice, same seed, in a fresh process, default vs deterministic mode.
+2. test_gpu_nondet_sources: in default mode, every family and layer of ft3_core run twice from the same input and RNG state;
+   prints which ones differ (the ops behind the default-mode differences). Reports only.
+3. test_gpu_layer_diff: ft3_core vs the port, layer by layer, same input and RNG state, deterministic mode: names the first
+   family / layer that differs if test_gpu_parity fails.
+Run: python -m pytest -q -s -rA -m gpu tests/test_gen_gpu.py tests/test_gen_parity.py tests/test_gen_switches.py
 """
 import json
 import os
@@ -19,7 +21,6 @@ import torch
 
 import tidemark.real.ft3_core as C
 import tideforge.gen as G
-from tideforge.gen import batch as GB
 from tideforge.gen import layers as GL
 from tideforge.gen.config import GenConfig
 
@@ -71,7 +72,7 @@ print("RESULT " + json.dumps(out))
 
 @pytest.mark.parametrize("det", [False, True])
 def test_gpu_ft3_self_repro(det):
-    env = dict(os.environ)
+    env = {k: v for k, v in os.environ.items() if k != "CUBLAS_WORKSPACE_CONFIG"}
     if det:
         env["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
     code = SELF.format(repo=str(REPO), tp=str(REPO / "third_party" / "tidemark_e21cbf0"), det=det, buckets=BUCKETS, B=B)
@@ -126,36 +127,60 @@ def test_gpu_layer_diff():
                  ("scale", lambda m, x: m._L_scale(x, cnt, nn, dev)), ("finalize", lambda m, x: m._finalize(x, pr["fix_degenerate"]))]
         for label, f in steps:
             x = both(f"layer {label} L={L}", lambda: f(C, x), lambda: f(GL, x))[0]
-    del GB
     for label, worst in report:
         print(f"{label:40s} max diff (ulp or count) {worst}")
     first = next(((lab, w) for lab, w in report if w), None)
     assert first is None, f"first difference: {first}"
 
 
-@pytest.mark.parametrize("L", BUCKETS)
-def test_gpu_parity_ulp4(L):
-    """The tolerant rule (documented in experiments/E0.1.md if ft3_core is not reproducible against itself)."""
-    dev = torch.device("cuda")
-    cfg_path = REPO / "configs" / "ft3_main_cfg.json"
-    cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else dict(C.CONFIG)
-    gc = GenConfig.from_ft3_cfg(cfg)
-    for seed in (0, 1, 2):
-        C.set_group_options(cfg)
-        name = C.resolve_profile(cfg)
-        torch.manual_seed(seed)
-        a = C.generate_blocks(B // 8, 8, L, dev, profile=name, group_prob=gc.group_prob)
-        sa = (torch.get_rng_state(), torch.cuda.get_rng_state())
-        assert G.configure(gc) == name
-        torch.manual_seed(seed)
-        b = G.generate_blocks(B // 8, 8, L, dev, profile=name, group_prob=gc.group_prob)
-        sb = (torch.get_rng_state(), torch.cuda.get_rng_state())
-        assert all(torch.equal(x, y) for x, y in zip(sa, sb)), "RNG state differs after the call"
-        assert torch.equal(a[1], b[1]) and torch.equal(a[2], b[2]), "roles / group ids differ"
-        xa, xb = a[0], b[0]
-        assert torch.equal(torch.isnan(xa), torch.isnan(xb)), "NaN positions differ"
-        integral = (xa == xa.round()).flatten(2).all(2)
-        assert torch.equal(xa[integral], xb[integral]), "integer-valued series differ"
-        u = int(ulp_dist(xa, xb).max())
-        print(f"L={L} seed={seed}: max ulp {u}, differing values {int((xa != xb).sum())} of {xa.numel()}")
-        assert u <= 4, f"max ulp {u} > 4"
+NONDET = r"""
+import json, sys, torch
+sys.path[:0] = [{repo!r}, {tp!r}]
+import tidemark.real.ft3_core as C
+torch.use_deterministic_algorithms(False)
+C.set_group_options(None)
+name = C.resolve_profile(dict(C.CONFIG, gen_additions=dict(C.CONFIG["gen_additions"], sarima=True, bursty=True)))
+pr = C.GEN_PROFILES[name]
+C._PERIOD_BANK_ACTIVE = pr.get("period_bank", C.PERIOD_BANK)
+C._PERIOD_EXT_SHARE = pr.get("period_ext_share", None)
+dev = torch.device("cuda")
+out = {{}}
+
+def twice(label, f):
+    st = (torch.get_rng_state(), torch.cuda.get_rng_state())
+    a = f()
+    torch.set_rng_state(st[0]); torch.cuda.set_rng_state(st[1])
+    b = f()
+    a = a[0] if isinstance(a, tuple) else a
+    b = b[0] if isinstance(b, tuple) else b
+    out[label] = int((a != b).sum()) if a.shape == b.shape else -1
+
+L = 1024
+torch.manual_seed(0)
+for fam in C.FAMILIES:
+    twice("family " + fam, lambda: C.FAMILIES[fam][0](256, L, dev))
+x = C.generate_batch(256, L, dev, apply_layers=False, profile=name)
+n = x.shape[0]
+allow, cnt, nn = (torch.rand(n, device=dev) < p for p in (0.8, 0.1, 0.3))
+for label, f in [("seasonality", lambda: C._L_seasonality(x, allow, dev)), ("trend", lambda: C._L_trend(x, allow, dev)),
+                 ("calendar", lambda: C._L_calendar(x, allow, dev)), ("breaks", lambda: C._L_breaks(x, dev, 0.2)),
+                 ("noise", lambda: C._L_noise(x, cnt, dev)), ("support", lambda: C._L_support(x, cnt, nn, dev, pr["support_probs"])),
+                 ("corruption", lambda: C._L_corruption(x, cnt, nn, dev, pr["out_p"], pr["miss_p"], pr["quant_p"],
+                                                        pr["quant_step"], pr["clean_p"])),
+                 ("scale", lambda: C._L_scale(x, cnt, nn, dev)), ("finalize", lambda: C._finalize(x, pr["fix_degenerate"]))]:
+    twice("layer " + label, f)
+C.set_group_options(dict(C.CONFIG, cov_r3=True, second_group_p=0.5))
+twice("groups _multivariatize", lambda: C._multivariatize(x[:256].view(32, 8, L).clone(), 0.7, dev))
+print("RESULT " + json.dumps(out))
+"""
+
+
+def test_gpu_nondet_sources():
+    """Which families / layers of ft3_core differ between two identical runs in torch's DEFAULT mode (reports only)."""
+    env = {k: v for k, v in os.environ.items() if k != "CUBLAS_WORKSPACE_CONFIG"}
+    code = NONDET.format(repo=str(REPO), tp=str(REPO / "third_party" / "tidemark_e21cbf0"))
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stderr[-2000:]
+    res = json.loads(r.stdout.split("RESULT ", 1)[1])
+    for k, v in res.items():
+        print(f"default-mode run-to-run differences: {k:40s} {v}")
