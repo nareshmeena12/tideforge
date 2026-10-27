@@ -1,0 +1,24 @@
+id,name,domain,reason
+D007,AEMO NEM price and demand (VIC1 etc.),Energy-load,TIME OpenElectricity_NEM uses the same NEM regional data
+D008,ERCOT hourly load by weather zone,Energy-load,fev has ercot tasks
+D018,UCI ElectricityLoadDiagrams (370 clients),Energy-load,GIFT-Eval electricity
+D019,GEFCom2012/2014/2017 load,Energy-load,In fev (gefcom) and LOTSA
+D037,World Bank Pink Sheet commodity prices,Agriculture-commodities,TIME Global_Price (FRED quarterly energy/metal/agri commodity prices; same commodities and period)
+D065,Jena Climate (Max Planck),Weather-climate,GIFT-Eval jena_weather
+D080,UCI Air Quality (Italy sensors),Air-quality,fev uci_air_quality
+D081,KDD Cup 2018 air quality (Beijing/London),Air-quality,GIFT-Eval kdd_cup_2018
+D089,WHO FluNet global influenza,Epidemics-health,TIME has a Global_Influenza/W dataset; treat this as overlapping
+D093,JHU CSSE COVID-19 time series,Epidemics-health,Source of GIFT-Eval covid_deaths
+D094,UK coronavirus dashboard (nations),Epidemics-health,fev uk_covid_nation
+D099,US births (CDC/GIFT),Epidemics-health,GIFT-Eval us_births
+D100,Hospital admissions (Monash),Epidemics-health,In Chronos and GIFT-Eval
+D123,Bitbrains grid workload traces,Cloud-servers,GIFT-Eval bitbrains_fast_storage / rnd
+D146,M5 Forecasting (Walmart),Retail-sales,In fev and LOTSA
+D147,Corporacion Favorita grocery sales,Retail-sales,fev favorita tasks
+D148,Rossmann store sales,Retail-sales,fev rossmann tasks
+D149,Walmart store sales (Kaggle),Retail-sales,fev walmart
+D152,UCI Online Retail II,Retail-sales,TIME Online_Retail_2_UCI
+D157,Recruit restaurant visitors,Retail-sales,GIFT-Eval restaurant
+D158,Car parts (intermittent demand),Retail-sales,GIFT-Eval car_parts
+D175,Federal Reserve H.15 interest rates,Macro-finance,"TIME US_Term_Structure (FRED Kim-Wright forward rates/term premia, derived from the same Treasury curve)"
+D186,Shenzhen taxi / Loop Seattle / METR-LA,Transport-mobility,In GIFT-Eval or LOTSA

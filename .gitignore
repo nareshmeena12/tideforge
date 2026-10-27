@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Data, runs and checkpoints (never committed)
+data/
+datasets/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+wandb/
+*.parquet
+*.arrow
+*.npy
+
+# Secrets
+.env
+*.token
+
+# Local-only reference sources
+reference/
+
+# LaTeX build files
+docs/report/*.aux
+docs/report/*.log
+docs/report/*.out
+docs/report/*.toc

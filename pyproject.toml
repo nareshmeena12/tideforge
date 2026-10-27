@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tideforge"
+version = "0.0.1"
+description = "Data and generator lab for the Fluxion-Tide time-series foundation model"
+requires-python = ">=3.10"
+dependencies = [
+  "torch",
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "pyyaml",
+  "scipy",
+  "holidays",
+]
+
+[project.optional-dependencies]
+eval = ["fev", "gluonts", "huggingface_hub", "matplotlib"]  # timebench: install from the TIME repo
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["tideforge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

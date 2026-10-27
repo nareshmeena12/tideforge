@@ -1,0 +1,122 @@
+"""Measure what ft3_main's synthetic generator actually produces (CPU, ~minutes).
+Usage (from the repo root): python tools/gen_audit.py [--yearly 0|1] [--n 4096]
+Imports tidemark.real.ft3_core (definitions only; nothing runs on import)."""
+import argparse, math, collections, json
+import numpy as np, torch
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "third_party" / "tidemark_e21cbf0"))
+import tidemark.real.ft3_core as G
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--yearly", type=int, default=1)
+ap.add_argument("--oneoff", type=int, default=0)
+ap.add_argument("--n", type=int, default=4096)
+a = ap.parse_args()
+torch.manual_seed(0)
+
+cfg = dict(G.CONFIG)
+cfg["gen_additions"] = dict(cfg["gen_additions"], yearly=bool(a.yearly), oneoff=bool(a.oneoff))
+prof = G.resolve_profile(cfg)
+W = G.GEN_PROFILES[prof]["weights"]
+tot = sum(W.values())
+print("profile", prof, "additions", {k: v for k, v in cfg["gen_additions"].items() if v})
+print("family shares (% of series):")
+for k, v in sorted(W.items(), key=lambda x: -x[1]):
+    print(f"   {k:18s} {100*v/tot:5.1f}")
+
+def feats(x):
+    x = x.astype(np.float64); L = len(x); t = np.arange(L)
+    f = {}
+    sd = x.std()
+    f["flat"] = sd < 1e-9 * (abs(x).mean() + 1)
+    if f["flat"]:
+        return f
+    d = np.diff(x)
+    f["zero_frac"] = float(np.mean(x == 0))
+    f["integer"] = bool(np.all(np.abs(x - np.round(x)) < 1e-6))
+    # trend: R^2 of linear fit
+    A = np.vstack([t, np.ones(L)]).T
+    coef, *_ = np.linalg.lstsq(A, x, rcond=None)
+    r = x - A @ coef
+    f["trend_r2"] = 1 - r.var() / x.var()
+    # seasonality: ACF of linearly detrended series, best lag in [2, L/3]
+    rr = r - r.mean(); den = (rr * rr).sum() + 1e-12
+    F = np.fft.rfft(rr, n=2 * L); ac = np.fft.irfft(F * np.conj(F))[:L] / den
+    hi = max(3, L // 3)
+    lag = int(np.argmax(ac[2:hi])) + 2
+    f["acf_peak"] = float(ac[lag]); f["period"] = lag
+    # local maximum check (a real cycle, not a slow decay)
+    f["seasonal"] = bool(ac[lag] > 0.5 and ac[lag] > ac[max(lag - 1, 1)] and ac[lag] >= ac[min(lag + 1, L - 1)])
+    f["cycles"] = L / lag
+    # spectral slope of the periodogram (log-log), persistence
+    P = np.abs(np.fft.rfft(rr)) ** 2
+    fr = np.fft.rfftfreq(L)[1:]; P = P[1:]
+    ok = P > 0
+    f["spec_slope"] = float(np.polyfit(np.log(fr[ok]), np.log(P[ok]), 1)[0]) if ok.sum() > 5 else np.nan
+    # roughness, jumps, tails, heteroskedasticity
+    f["rough"] = float(d.std() / sd)
+    mad = np.median(np.abs(d - np.median(d))) + 1e-12
+    f["n_jumps"] = int(np.sum(np.abs(d) > 8 * 1.4826 * mad)) if mad > 1e-9 else 0
+    k = ((d - d.mean()) ** 4).mean() / (d.var() ** 2 + 1e-30)
+    f["kurt_diff"] = float(k)
+    h = L // 2
+    f["var_ratio"] = float(np.log((x[h:].std() + 1e-12) / (x[:h].std() + 1e-12)))
+    # exact repetition at the detected lag
+    f["exact_repeat"] = bool(np.mean(np.abs(x[lag:] - x[:-lag])) < 1e-3 * sd)
+    return f
+
+rows = []
+for L in (128, 512, 2048, 8192):
+    n = a.n if L <= 2048 else a.n // 4
+    x = G.generate_batch(n, L, "cpu", profile=prof).numpy()
+    for s in x:
+        f = feats(s); f["L"] = L; rows.append(f)
+
+def share(sel, key, fn=lambda v: v):
+    v = [fn(r[key]) for r in sel if key in r]
+    return 100 * np.mean(v) if v else float("nan")
+
+print("\nPER LENGTH (all numbers % of series unless noted)")
+hdr = ["L", "flat", "seasonal", "per<=1/8L", "exact_rep", "trend_r2>.5", "jumps>=1", "zero>20%", "integer", "kurt>10", "slope<-2", "var_change>2x"]
+print(" | ".join(hdr))
+for L in (128, 512, 2048, 8192):
+    s = [r for r in rows if r["L"] == L]
+    ns = [r for r in s if not r["flat"]]
+    seas = [r for r in ns if r["seasonal"]]
+    out = [L, share(s, "flat"), share(ns, "seasonal"),
+           share(seas, "cycles", lambda c: c >= 8), share(ns, "exact_repeat"),
+           share(ns, "trend_r2", lambda v: v > 0.5), share(ns, "n_jumps", lambda v: v >= 1),
+           share(ns, "zero_frac", lambda v: v > 0.2), share(ns, "integer"),
+           share(ns, "kurt_diff", lambda v: v > 10), share(ns, "spec_slope", lambda v: v < -2),
+           share(ns, "var_ratio", lambda v: abs(v) > math.log(2))]
+    print(" | ".join(f"{v:.0f}" if isinstance(v, float) else str(v) for v in out))
+
+print("\nDETECTED PERIODS among seasonal series (top 15, L=2048):")
+c = collections.Counter(r["period"] for r in rows if r["L"] == 2048 and not r["flat"] and r["seasonal"])
+tot_s = sum(c.values())
+bank = set(G.PERIOD_BANK_EXT)
+print("  ", [(p, round(100 * k / tot_s, 1)) for p, k in c.most_common(15)])
+print(f"   share at a bank period (+-1): {100*sum(k for p,k in c.items() if any(abs(p-b)<=1 for b in bank))/tot_s:.0f}%")
+print(f"   share with period > 1/3 of what fits (<4 cycles): {100*sum(k for p,k in c.items() if 2048/p<4)/tot_s:.0f}%")
+
+# groups / covariates
+G.set_group_options(dict(cfg, cov_r3=True))
+x, role, lgid = G.generate_blocks(512, 8, 512, "cpu", profile=prof, group_prob=0.7)
+role = role.numpy(); lgid = lgid.numpy()
+n_lanes = role.size
+in_group = np.zeros_like(role, bool)
+for i in range(role.shape[0]):
+    ids, cnt = np.unique(lgid[i], return_counts=True)
+    big = ids[cnt > 1]
+    in_group[i] = np.isin(lgid[i], big)
+tgt_with_known = 0; tgt_with_past = 0
+for i in range(role.shape[0]):
+    for gid in np.unique(lgid[i][in_group[i]]):
+        m = lgid[i] == gid
+        r = role[i][m]
+        if (r == G.ROLE_KNOWN).any(): tgt_with_known += (r == G.ROLE_TARGET).sum()
+        if (r == G.ROLE_PAST).any(): tgt_with_past += (r == G.ROLE_TARGET).sum()
+print(f"\nGROUPS (V=8, group_prob 0.7, cov_r3): lanes in a related group {100*in_group.mean():.0f}%,"
+      f" targets with KNOWN covariates {100*tgt_with_known/n_lanes:.1f}% of lanes,"
+      f" with PAST covariates {100*tgt_with_past/n_lanes:.1f}%")

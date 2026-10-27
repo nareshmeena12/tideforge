@@ -1,0 +1,127 @@
+benchmark,dataset,original_source
+TIME,Australia_Solar,"PVOutput, 3 Australian stations"
+TIME,Auto_Production_SF,FRED seasonal factors
+TIME,CPHL,IMOS
+TIME,Coastal_T_S,IMOS
+TIME,Commodity_Import,FRED historical US imports
+TIME,Commodity_Production,FRED historical US production
+TIME,Crypto,FRED BTC/ETH/LTC/BCH
+TIME,ECDC_COVID,ECDC hospital occupancy
+TIME,EWELD_Load,"Liu et al. 2023, 10 users"
+TIME,Finland_Traffic,Digitraffic
+TIME,Global_Influenza,"WHO FluNet, 15 countries"
+TIME,Global_Price,FRED quarterly commodity prices
+TIME,Housing_Inventory,FRED (Realtor.com)
+TIME,JOLTS,FRED/BLS
+TIME,Job_Claims,FRED
+TIME,MetroPT-3,UCI MetroPT-3
+TIME,NE_China_Wind,Zhang et al. 2025 (reanalysis-style grid)
+TIME,Oil_Price,FRED daily crude and refined products
+TIME,Online_Retail_2_UCI,UCI Online Retail II
+TIME,OpenElectricity_NEM,"OpenElectricity, Jan-May 2025"
+TIME,Port_Activity,IMF PortWatch
+TIME,SG_Carpark,data.gov.sg
+TIME,SG_PM25,"data.gov.sg, 5 regions"
+TIME,SG_Weather,"data.gov.sg, 6 stations"
+TIME,Smart_Manufacturing,competition (simulated)
+TIME,Supply_Chain_Customer,competition (simulated)
+TIME,Supply_Chain_Location,competition (simulated)
+TIME,US_Labor,FRED
+TIME,US_Term_Structure,FRED Kim-Wright
+TIME,Uncertainty_1M,FRED JLN/LMN
+TIME,Vehicle_Sales,FRED
+TIME,Vehicle_Supply,FRED
+TIME,WUI_Global,FRED World Uncertainty Index
+TIME,Water_Quality_Darwin,IMOS
+TIME,azure2019_D,Azure 2019 VM CPU (Woo et al. 2023)
+TIME,azure2019_I,Azure 2019 VM CPU
+TIME,azure2019_U,Azure 2019 VM CPU
+TIME,current_velocity,IMOS
+TIME,epf_electricity_price,Lago et al. 2021 EPF
+fev-bench,ETT,
+fev-bench,LOOP_SEATTLE,
+fev-bench,M_DENSE,
+fev-bench,SZ_TAXI,
+fev-bench,australian_tourism,
+fev-bench,bizitobs_l2c,
+fev-bench,boomlet_1062,
+fev-bench,boomlet_1209,
+fev-bench,boomlet_1225,
+fev-bench,boomlet_1230,
+fev-bench,boomlet_1282,
+fev-bench,boomlet_1487,
+fev-bench,boomlet_1631,
+fev-bench,boomlet_1676,
+fev-bench,boomlet_1855,
+fev-bench,boomlet_1975,
+fev-bench,boomlet_2187,
+fev-bench,boomlet_285,
+fev-bench,boomlet_619,
+fev-bench,boomlet_772,
+fev-bench,boomlet_963,
+fev-bench,ecdc_ili,
+fev-bench,entsoe,
+fev-bench,epf_be,
+fev-bench,epf_de,
+fev-bench,epf_fr,
+fev-bench,epf_np,
+fev-bench,epf_pjm,
+fev-bench,ercot,
+fev-bench,favorita_stores,
+fev-bench,favorita_transactions,
+fev-bench,fred_md_2025,
+fev-bench,fred_qd_2025,
+fev-bench,gvar,
+fev-bench,hermes,
+fev-bench,hierarchical_sales,
+fev-bench,hospital,
+fev-bench,hospital_admissions,
+fev-bench,jena_weather,
+fev-bench,kdd_cup_2022,
+fev-bench,m5,
+fev-bench,proenfo_gfc12,
+fev-bench,proenfo_gfc14,
+fev-bench,proenfo_gfc17,
+fev-bench,redset,
+fev-bench,restaurant,
+fev-bench,rohlik_orders,
+fev-bench,rohlik_sales,
+fev-bench,rossmann,
+fev-bench,solar,
+fev-bench,solar_with_weather,
+fev-bench,uci_air_quality,
+fev-bench,uk_covid_nation,
+fev-bench,uk_covid_utla,
+fev-bench,us_consumption,
+fev-bench,walmart,
+fev-bench,world_co2_emissions,
+fev-bench,world_life_expectancy,
+fev-bench,world_tourism,
+GIFT-Eval test,bitbrains_fast_storage,
+GIFT-Eval test,bitbrains_rnd,
+GIFT-Eval test,bizitobs_application,
+GIFT-Eval test,bizitobs_service,
+GIFT-Eval test,bizitobs_l2c,
+GIFT-Eval test,car_parts,
+GIFT-Eval test,covid_deaths,
+GIFT-Eval test,electricity,
+GIFT-Eval test,ett1,
+GIFT-Eval test,ett2,
+GIFT-Eval test,hierarchical_sales,
+GIFT-Eval test,hospital,
+GIFT-Eval test,jena_weather,
+GIFT-Eval test,kdd_cup_2018,
+GIFT-Eval test,LOOP_SEATTLE,
+GIFT-Eval test,M_DENSE,
+GIFT-Eval test,SZ_TAXI,
+GIFT-Eval test,m4_yearly,
+GIFT-Eval test,m4_quarterly,
+GIFT-Eval test,m4_monthly,
+GIFT-Eval test,m4_weekly,
+GIFT-Eval test,m4_daily,
+GIFT-Eval test,m4_hourly,
+GIFT-Eval test,restaurant,
+GIFT-Eval test,saugeenday,
+GIFT-Eval test,solar,
+GIFT-Eval test,temperature_rain,
+GIFT-Eval test,us_births,
