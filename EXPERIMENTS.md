@@ -51,6 +51,9 @@ Status of this file: plan agreed on 2026-10-27. Each experiment gets its own log
 | E0.9 | Throughput: points/s per GPU at 5M, and whether generation is the bottleneck; same for each new family as it lands. | numbers recorded |
 | E0.10 | Inference-only covariate tricks on ft3_main: categorical target encoding, covariate ordering. | record the change |
 
+2026-10-27 (owner confirmed): the E0.2 gate is six numbers: groups ON fev 43.78, TIME MASE 0.680 / CRPS 0.571; groups OFF
+fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in score_groups.GATE.
+
 ## 4. Phase 1: diagnosis (no training; runs alongside Phase 0)
 
 | ID | What | Output |
