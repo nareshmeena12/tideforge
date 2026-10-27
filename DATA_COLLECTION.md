@@ -100,6 +100,21 @@ Y 4 / 6), not TIME's (its daily row comes from one dataset). A term is used for 
 horizon of history; skipped terms are counted in the build report. Step 5's length rule follows: a series is kept if it
 can serve the shortest term (3 x the shortest horizon + 64 points), no longer 3 x the longest.
 
+**Decisions 2026-10-27 (owner, scoring; `tideforge/eval/devscore.py`, `devmetrics.py`, `naive_time.py`):**
+- Metrics and aggregation as TIME (zqiao11/TIME c633e23): per window MASE and CRPS from timebench's
+  `compute_per_window_metrics_from_quantiles`, called directly; per (dataset, term) the mean over windows (NaN ignored)
+  divided by seasonal naive's mean for the same pair; per dataset the geometric mean over its terms; overall the weighted
+  geometric mean with the manifest weights (domain cap included). Slices and the bootstrap use the same pair ratios.
+- The baseline is SeasonalNaiveTIME: statsforecast's SeasonalNaive band (level 20 / 40 / 60 / 80) with the 9 quantiles read
+  straight off the band. TIME draws 100 unseeded samples from that band and takes their quantiles; we drop that step on
+  purpose (it makes the baseline random), so our naive's CRPS differs slightly from TIME-Output's. statsforecast is a
+  test-only extra (`test-sf`) used to check the band; it is never in the core install.
+- Two headline numbers: the main dev score (`--set fast` ~15k / `full` ~75k windows) and the dev-covariate score
+  (covtasks, groups ON, with its ON-vs-hidden gain; G1 is judged on these), plus a combined score at equal weight per main
+  dataset / covariate task. No change to build.py for this.
+- E0.5's rank correlation (dev vs fev / TIME, Spearman and Kendall with bootstrap CIs over models) is a sanity check, never a
+  gate.
+
 ## 4. Order of collection
 
 v1 = the ~120 highest-yield open sources (expected 70-80% of the points); v2 = the rest. Start with sources that give

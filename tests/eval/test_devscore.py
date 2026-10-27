@@ -1,0 +1,110 @@
+"""Dev scorer end to end on a tiny frozen version: identical rebuilds, the naive baseline scores exactly 1, the locked role
+needs the flag (and adds a LOOKS row), compare refuses different versions and reports the unknown noise floor."""
+import json
+
+import pandas as pd
+import pytest
+
+from tideforge.devdata import ingest
+from tideforge.eval import devscore as D
+from tideforge.eval import public_models
+
+from .conftest import build_version
+
+LOOKS = "# Looks\n\n| Date | Experiment | Checkpoint | Benchmark | Why this look | Result |\n|---|---|---|---|---|---|\n| | | | | | |\n"
+
+
+def _score(devroot, out, *extra, model="naive_time"):
+    return D.main(["score", "--dev", str(devroot), "--version", "toy-v1", "--model", model, "--out", str(out), *extra])
+
+
+def test_windows_rebuild_identically(tmp_path, monkeypatch, horizons):
+    a = build_version(tmp_path, monkeypatch, sub="a")
+    b = build_version(tmp_path, monkeypatch, sub="b")
+    for f in ("tuning_fast.parquet", "tuning_score.parquet", "locked_fast.parquet", "covtasks_windows.parquet"):
+        assert ingest.sha256_file(a / "toy-v1" / f) == ingest.sha256_file(b / "toy-v1" / f), f
+    ma, mb = (json.loads((r / "toy-v1" / "manifest.json").read_text()) for r in (a, b))
+    assert ma["sets"] == mb["sets"]
+
+
+def test_naive_scores_exactly_one(devroot, tmp_path, tb):
+    assert _score(devroot, tmp_path / "runs") == 0
+    run, win = D.load_run(tmp_path / "runs" / "toy-v1" / "tuning_fast" / "naive_time")
+    o = run["scores"]["main"]["overall"]
+    assert o["MASE"] == [1.0, 1.0, 1.0] and o["CRPS"] == [1.0, 1.0, 1.0] and o["datasets"] == 3
+    assert all(s["MASE"] == 1.0 for s in run["scores"]["main"]["slices"])
+    assert set(win["hist"]) <= {"1-64", "65-512", "513-2048", "2049+"}
+
+
+def test_cov_set_on_and_hidden(devroot, tmp_path, tb):
+    assert _score(devroot, tmp_path / "runs", "--cov", model="naive") == 0
+    run, win = D.load_run(tmp_path / "runs" / "toy-v1" / "tuning_cov" / "naive")
+    assert set(win["mode"]) == {"on", "hidden"} and set(win["cov"]) == {"yes"}
+    assert run["on_vs_hidden"]["ratio"] == pytest.approx(1.0)        # naive ignores covariates
+
+
+def test_combined_weights(devroot, tmp_path, tb):
+    _score(devroot, tmp_path / "runs")
+    _score(devroot, tmp_path / "runs", "--cov")
+    r = tmp_path / "runs" / "toy-v1"
+    mr, mw = D.load_run(r / "tuning_fast" / "naive_time")
+    cr, cw = D.load_run(r / "tuning_cov" / "naive_time")
+    c = D.combined(mr, mw, cr, cw)
+    assert c["datasets"] == 4 and c["MASE"][0] == pytest.approx(1.0)
+
+
+def test_locked_refuses_without_the_flag(devroot, tmp_path):
+    with pytest.raises(SystemExit, match="--locked"):
+        _score(devroot, tmp_path / "runs", "--role", "locked")
+    with pytest.raises(SystemExit, match="--why"):
+        _score(devroot, tmp_path / "runs", "--role", "locked", "--locked")
+
+
+def test_locked_adds_a_looks_row(devroot, tmp_path, tb):
+    lf = tmp_path / "LOOKS.md"
+    lf.write_text(LOOKS)
+    assert _score(devroot, tmp_path / "runs", "--role", "locked", "--locked", "--experiment", "E0.5", "--why", "w",
+                  "--looks-file", str(lf)) == 0
+    rows = [ln for ln in lf.read_text().splitlines() if "dev locked toy-v1" in ln]
+    assert len(rows) == 1 and "naive_time (main)" in rows[0]
+
+
+def test_compare_and_rule5(devroot, tmp_path, tb, capsys):
+    _score(devroot, tmp_path / "runs")
+    _score(devroot, tmp_path / "runs", model="naive")
+    r = tmp_path / "runs" / "toy-v1" / "tuning_fast"
+    assert D.main(["compare", "--a", str(r / "naive"), "--b", str(r / "naive_time"), "--noise", str(tmp_path / "none.json"),
+                   "--slice", "domain=Hydrology"]) == 0
+    out = capsys.readouterr().out
+    assert D.NOISE_UNKNOWN in out and "(2) own slice domain=Hydrology" in out and "(3)" in out
+    noise = tmp_path / "e07.json"
+    noise.write_text(json.dumps({"MASE": 0.5}))
+    D.main(["compare", "--a", str(r / "naive"), "--b", str(r / "naive_time"), "--noise", str(noise)])
+    assert "vs seed noise 0.5000" in capsys.readouterr().out
+    run = json.loads((r / "naive" / "run.json").read_text())
+    run["version"] = "other"
+    (r / "naive" / "run.json").write_text(json.dumps(run))
+    with pytest.raises(SystemExit, match="different dev versions"):
+        D.main(["compare", "--a", str(r / "naive"), "--b", str(r / "naive_time")])
+
+
+def test_set_sha_is_checked(devroot, tmp_path):
+    p = devroot / "toy-v1" / "tuning_fast.parquet"
+    pd.read_parquet(p).head(1).to_parquet(p, index=False)
+    with pytest.raises(RuntimeError, match="sha256"):
+        _score(devroot, tmp_path / "runs")
+
+
+def test_rank_corr():
+    dev = {f"m{i}": float(i) for i in range(8)}
+    c = D.rank_corr(dev, dict(dev))
+    assert c["models"] == 8 and c["spearman"][0] == pytest.approx(1.0) and c["kendall"][0] == pytest.approx(1.0)
+    c = D.rank_corr(dev, {k: -v for k, v in dev.items()})
+    assert c["spearman"][0] == pytest.approx(-1.0)
+
+
+def test_public_registry_is_stubs():
+    assert {"chronos2", "timesfm25", "toto2_4m", "timestral5m"} <= set(public_models.REGISTRY)
+    m = D.make_model("chronos2", device="cpu")
+    with pytest.raises(NotImplementedError, match="owner's OK"):
+        m.predict_cell(None)

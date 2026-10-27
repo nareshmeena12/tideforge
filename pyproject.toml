@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 eval = ["fev", "gluonts", "huggingface_hub", "matplotlib"]  # timebench: install from the TIME repo
 dev = ["pytest"]
+test-sf = ["statsforecast"]  # test-only: checks naive_time against statsforecast (owner 2026-10-27); never core
 
 [tool.setuptools.packages.find]
 include = ["tideforge*"]
