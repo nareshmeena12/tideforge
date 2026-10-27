@@ -76,6 +76,8 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
 | D6 | Realism classifier: small model telling real from synthetic windows; inspect what it uses. | what the generator gets wrong |
 
 D1-D6 can reorder Phase 2. Record any reordering in this file with the date and the reason.
+- 2026-10-27 (owner, from D1): G1 stays first; its scenarios in the order G1.3 load, G1.4 price, G1.5 retail (the worst
+  covariate tasks are load, price and retail).
 
 ---
 
@@ -241,6 +243,7 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 
 | ID | Date | Status | Result (one line) | Log |
 |---|---|---|---|---|
+| D1 | 2026-10-27 | done | gap shaped like small models': 55% from covariate tasks (42% of tasks); worst 15 = load / price / retail; G1 stays first, order G1.3, G1.4, G1.5 | [D1](experiments/D1.md) |
 | E0.3 | 2026-10-27 | planned | | [E0.3](experiments/E0.3.md) |
 | E0.2 | 2026-10-27 | pass | gate pass in tidemark 2026-10-24: ON 43.84 / 0.6797 / 0.5712, hidden 42.08 / 0.6873 / 0.5752; wrapper smoke check pending | [E0.2](experiments/E0.2.md) |
 | E0.1 | 2026-10-27 | pass (CPU); GPU open | bit-exact on CPU incl. ft3_main's cfg; B0 = v0-b0-af75b1af; GPU differs by 1-2 ulp, diagnostics pending | [E0.1](experiments/E0.1.md) |

@@ -6,7 +6,9 @@ results file in the same format (one row per task, columns as produced by fev's 
 Usage (from the repo root):
     git clone --depth 1 https://github.com/autogluon/fev third_party_ext/fev        # not committed
     python tools/fev_cov_split.py --fev third_party_ext/fev --ours path/to/ft3_main_fev.csv --name ft3_main
-    python tools/fev_cov_split.py --fev $TM_EVAL/fev --ours $TF_REF/scores_long.csv --arm ft3mainon --name ft3_main_on         --out $TF_ROOT/d1/fev_rel_errors.csv                                    # a tidemark board (Perlmutter)
+    git clone --depth 1 https://github.com/autogluon/fev $TF_ROOT/ext/fev            # Perlmutter: the fev git clone
+    python tools/fev_cov_split.py --fev $TF_ROOT/ext/fev --ours $TF_REF/scores_long.csv --arm ft3mainon \\
+        --name ft3_main_on --out $TF_ROOT/d1/rel_on.csv                         # a tidemark board's scores_long.csv
     python tools/fev_cov_split.py --fev third_party_ext/fev                         # published models only
 
 Writes docs/report/data/fev_rel_errors.csv (per-task relative error vs Seasonal Naive, all models) and prints, per model:
@@ -44,7 +46,9 @@ if a.ours:
             raise SystemExit("--arm is required with a scores_long.csv (e.g. ft3mainon)")
         o = o[(o["arm"] == a.arm) & (o["benchmark"] == "fev") & (o["metric"] == "test_error")]
         o = o.groupby("task", as_index=False)["err"].mean()                     # one seed per arm here; mean if several
-        tmpl = df[df.model_name == df.model_name.iloc[0]].drop_duplicates("task_name").set_index("task_name")
+        # each task's identity row from any published model that has it (no single model has every task: e.g. AutoARIMA
+        # lacks the four 15T tasks, which dropped our run on 2026-10-27)
+        tmpl = df.drop_duplicates("task_name").set_index("task_name")
         missing = sorted(set(o["task"]) - set(tmpl.index))
         if missing:
             print(f"{len(missing)} of our tasks have no published row (left out): {missing[:10]}")
