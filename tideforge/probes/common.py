@@ -51,6 +51,10 @@ class Cell:
     def H(self) -> int:
         return int(self.arrays["future"].shape[-1])
 
+    def seasons(self) -> np.ndarray:
+        """(n,) season per series: arrays["season"] where the period varies by series, else S for all."""
+        return self.arrays["season"].astype(int) if "season" in self.arrays else np.full(self.n, int(self.S))
+
     def targets(self, view: str = "main") -> np.ndarray:
         return self.arrays["targets"] if view == "main" else self.arrays[f"view_{view}"]
 

@@ -72,7 +72,7 @@ class Naive(Model):
     def predict_cell(self, cell, mode="main", view="main"):
         T = cell.targets(view).astype(np.float64)
         n, k, L = T.shape
-        H, S = cell.H, max(1, min(int(cell.S), L // 2))
+        H = cell.H
         x = T.reshape(n * k, L).copy()
         for r in x:                                           # carry the last value forward over NaN
             ok = np.isfinite(r)
@@ -83,13 +83,17 @@ class Naive(Model):
             np.maximum.accumulate(idx, out=idx)
             r[:] = r[idx]
             r[:np.argmax(ok)] = r[np.argmax(ok)]
-        last = x[:, L - S:]
-        rep = np.tile(last, (1, -(-H // S)))[:, :H]
-        d = x[:, S:] - x[:, :-S]
-        rq = np.quantile(d, Q9, axis=1).T                    # (n*k, 9)
-        steps = np.sqrt(np.ceil(np.arange(1, H + 1) / S))
-        q = rep[:, None, :] + rq[:, :, None] * steps[None, None, :]
-        return np.sort(q, axis=1).reshape(n, k, 9, H)
+        seasons = np.repeat(cell.seasons(), k)
+        q = np.empty((n * k, 9, H))
+        for s in np.unique(seasons):
+            rows = seasons == s
+            S = max(1, min(int(s), L - 1))
+            xs = x[rows]
+            rep = np.tile(xs[:, L - S:], (1, -(-H // S)))[:, :H]
+            rq = np.quantile(xs[:, S:] - xs[:, :-S], Q9, axis=1).T                 # (rows, 9)
+            steps = np.sqrt(np.ceil(np.arange(1, H + 1) / S))
+            q[rows] = rep[:, None, :] + rq[:, :, None] * steps[None, None, :]
+        return np.sort(q.reshape(n, k, 9, H), axis=2)
 
 
 class M5(Model):
@@ -129,15 +133,16 @@ class Ft3(Model):
             fill = self.S_.fill_season                        # looked up inside the variant (it may be swapped)
             if mode == "on":
                 groups = []
-                for tg, cov in _items(cell, mode, view):
-                    groups.append(dict(targets=[fill(np.asarray(t, np.float64)[-self.max_ctx:], cell.S) for t in tg],
+                for (tg, cov), s in zip(_items(cell, mode, view), cell.seasons()):
+                    groups.append(dict(targets=[fill(np.asarray(t, np.float64)[-self.max_ctx:], int(s)) for t in tg],
                                        past=[np.asarray(p, np.float64)[-self.max_ctx:] for p in cov["past"]],
                                        known=[(np.asarray(c, np.float64)[-self.max_ctx:], np.asarray(f, np.float64))
                                               for c, f in cov["known"]]))
                 res = self.C.forecast_groups(self.model, groups, H, self.device, max_ctx=self.max_ctx)
                 q = np.stack([np.asarray(r[1], np.float64) for r in res])          # (n, k, 9, H)
             else:
-                ys = [fill(np.asarray(t, np.float64)[-self.max_ctx:], cell.S) for tg in cell.targets(view) for t in tg]
+                ys = [fill(np.asarray(t, np.float64)[-self.max_ctx:], int(s))
+                      for tg, s in zip(cell.targets(view), cell.seasons()) for t in tg]
                 _, q = self.C.forecast_left_padded(self.model, ys, H, self.device, max_ctx=self.max_ctx,
                                                    batch_size=self.batch)
                 q = np.asarray(q, np.float64).reshape(n, k, 9, H)

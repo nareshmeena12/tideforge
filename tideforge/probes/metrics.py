@@ -93,14 +93,26 @@ def unpaired(a: Metric, b: Metric, n_boot: int = N_BOOT, seed: int = BOOT_SEED) 
 
 
 # ---------------------------------------------------------------------------------------------------- per-series pieces
-def scale_seasonal(ctx: np.ndarray, S: int) -> np.ndarray:
-    """(n, k, L) -> (n, k): mean |y_t - y_{t-S}| over the context (NaN-aware), floored."""
-    S = max(1, min(int(S), ctx.shape[-1] - 1))
-    d = np.abs(ctx[..., S:] - ctx[..., :-S])
-    s = np.nanmean(d, axis=-1)
-    alt = np.nanmean(np.abs(ctx - np.nanmean(ctx, -1, keepdims=True)), -1)
-    s = np.where(np.isfinite(s) & (s > 0), s, alt)
-    return np.maximum(np.nan_to_num(s, nan=1.0), 1e-8)
+def scale_seasonal(ctx: np.ndarray, S) -> np.ndarray:
+    """(n, k, L) -> (n, k): mean |y_t - y_{t-S}| over the context (NaN-aware), floored. S: int or (n,) per series."""
+    n, k, L = ctx.shape
+    Ss = np.broadcast_to(np.asarray(S, int), (n,))
+    out = np.empty((n, k))
+    for s in np.unique(Ss):
+        rows = Ss == s
+        s_ = max(1, min(int(s), L - 1))
+        c = ctx[rows]
+        with np.errstate(invalid="ignore"):
+            d = np.nanmean(np.abs(c[..., s_:] - c[..., :-s_]), axis=-1)
+            alt = np.nanmean(np.abs(c - np.nanmean(c, -1, keepdims=True)), -1)
+        out[rows] = np.where(np.isfinite(d) & (d > 0), d, alt)
+    return np.maximum(np.nan_to_num(out, nan=1.0), 1e-8)
+
+
+def vs_oracle(q, cell, scale, mode="main", view="main", mask=None) -> "Metric":
+    """sum sql(model) / sum sql(oracle) over series (1 = as good as the oracle), paired by item."""
+    y = cell.arrays["future"]
+    return ratio("sql_vs_oracle", sql(q, y, scale, mask), sql(cell.arrays["oracle_q"], y, scale, mask), mode, view)
 
 
 def scale_abs(ctx: np.ndarray) -> np.ndarray:
