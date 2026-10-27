@@ -26,3 +26,7 @@ include = ["tideforge*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "gpu: needs CUDA (skipped locally; run on Perlmutter)",
+  "slow: minutes on CPU; run with --runslow",
+]
