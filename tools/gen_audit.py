@@ -1,26 +1,40 @@
-"""Measure what ft3_main's synthetic generator actually produces (CPU, ~minutes).
-Usage (from the repo root): python tools/gen_audit.py [--yearly 0|1] [--n 4096]
-Imports tidemark.real.ft3_core (definitions only; nothing runs on import)."""
+"""Measure what a generator config actually produces (CPU, ~minutes): family shares, per-length shape statistics, detected
+periods, covariate-group shares. Works for B0 and for any switch set.
+
+Usage (from the repo root):
+    python tools/gen_audit.py --base b0                                   # B0 (needs configs/ft3_main_cfg.json)
+    python tools/gen_audit.py --exp G4.1                                  # an experiment config
+    python tools/gen_audit.py --base b0 --switch NAME --param k=v --set gen_additions.breaks=true
+    python tools/gen_audit.py --base defaults --set gen_additions.yearly=true --set cov_r3=true
+        # = the earlier measurement in docs/notes/GENERATOR_GAPS.md (CONFIG defaults + yearly, cov_r3 for the group part)
+Everything goes through tideforge.gen (bit-exact with ft3_core when no switch is on); torch seed 0, switch seed 0.
+"""
 import argparse, math, collections, json
 import numpy as np, torch
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "third_party" / "tidemark_e21cbf0"))
-import tidemark.real.ft3_core as G
+REPO = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(REPO), str(REPO / "third_party" / "tidemark_e21cbf0")]
+import tideforge.gen as G
+from tideforge.expcfg import gc_from_cli
+from tideforge.gen.primitives import PERIOD_BANK_EXT
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--yearly", type=int, default=1)
-ap.add_argument("--oneoff", type=int, default=0)
+ap.add_argument("--exp")
+ap.add_argument("--base", default="b0", choices=["b0", "defaults"])
+ap.add_argument("--switch", action="append", default=[])
+ap.add_argument("--param", action="append", default=[])
+ap.add_argument("--set", dest="set_", action="append", default=[])
 ap.add_argument("--n", type=int, default=4096)
 a = ap.parse_args()
+base, gc, label = gc_from_cli(a.base, a.exp, a.switch, a.param, a.set_)
+prof = G.configure(gc)
 torch.manual_seed(0)
 
-cfg = dict(G.CONFIG)
-cfg["gen_additions"] = dict(cfg["gen_additions"], yearly=bool(a.yearly), oneoff=bool(a.oneoff))
-prof = G.resolve_profile(cfg)
 W = G.GEN_PROFILES[prof]["weights"]
 tot = sum(W.values())
-print("profile", prof, "additions", {k: v for k, v in cfg["gen_additions"].items() if v})
+print("config", label, "| profile", prof, "| additions", {k: v for k, v in gc.gen_additions if v},
+      "| switches", {k: dict(v) for k, v in gc.switches})
 print("family shares (% of series):")
 for k, v in sorted(W.items(), key=lambda x: -x[1]):
     print(f"   {k:18s} {100*v/tot:5.1f}")
@@ -95,14 +109,18 @@ for L in (128, 512, 2048, 8192):
 print("\nDETECTED PERIODS among seasonal series (top 15, L=2048):")
 c = collections.Counter(r["period"] for r in rows if r["L"] == 2048 and not r["flat"] and r["seasonal"])
 tot_s = sum(c.values())
-bank = set(G.PERIOD_BANK_EXT)
+bank = set(PERIOD_BANK_EXT)
 print("  ", [(p, round(100 * k / tot_s, 1)) for p, k in c.most_common(15)])
 print(f"   share at a bank period (+-1): {100*sum(k for p,k in c.items() if any(abs(p-b)<=1 for b in bank))/tot_s:.0f}%")
 print(f"   share with period > 1/3 of what fits (<4 cycles): {100*sum(k for p,k in c.items() if 2048/p<4)/tot_s:.0f}%")
 
-# groups / covariates
-G.set_group_options(dict(cfg, cov_r3=True))
-x, role, lgid = G.generate_blocks(512, 8, 512, "cpu", profile=prof, group_prob=0.7)
+# groups / covariates (the config's own group settings)
+V, gp = gc.group_lanes, gc.group_prob
+if V < 2 or gp <= 0:
+    print(f"\nGROUPS: none in this config (group_lanes {V}, group_prob {gp})")
+    sys.exit(0)
+x, role, lgid = G.generate_blocks(512, V, 512, "cpu", profile=prof, group_prob=gp)
+nan_share = float(torch.isnan(x).float().mean())
 role = role.numpy(); lgid = lgid.numpy()
 n_lanes = role.size
 in_group = np.zeros_like(role, bool)
@@ -117,6 +135,6 @@ for i in range(role.shape[0]):
         r = role[i][m]
         if (r == G.ROLE_KNOWN).any(): tgt_with_known += (r == G.ROLE_TARGET).sum()
         if (r == G.ROLE_PAST).any(): tgt_with_past += (r == G.ROLE_TARGET).sum()
-print(f"\nGROUPS (V=8, group_prob 0.7, cov_r3): lanes in a related group {100*in_group.mean():.0f}%,"
+print(f"\nGROUPS (V={V}, group_prob {gp}, cov_r3 {gc.cov_r3}): lanes in a related group {100*in_group.mean():.0f}%,"
       f" targets with KNOWN covariates {100*tgt_with_known/n_lanes:.1f}% of lanes,"
-      f" with PAST covariates {100*tgt_with_past/n_lanes:.1f}%")
+      f" with PAST covariates {100*tgt_with_past/n_lanes:.1f}%; NaN share {100*nan_share:.2f}%")

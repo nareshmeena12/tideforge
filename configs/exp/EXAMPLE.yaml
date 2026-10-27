@@ -1,0 +1,10 @@
+# Example experiment config, made from the test switch test_post (tideforge/gen/ext/dummy.py). Not a real experiment.
+# Real configs use base: b0 (needs configs/ft3_main_cfg.json); the example uses defaults so it loads before the cfg exists.
+id: EXAMPLE
+base: defaults
+gen:
+  cov_dominant_p: 0.0
+switches:
+  test_post: {p: 0.25, shift: 1.0}
+seeds: [0]
+notes: shifts a random quarter of the blocks by 1 at final_blocks (H8), drawing only from its own generator
