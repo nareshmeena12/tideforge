@@ -80,6 +80,20 @@ This cloud session cannot reach most data hosts (only GitHub is allowed), so dow
    rolling windows per series. From these, sample the score set (~75k windows, equal weight per dataset) and the fast
    subset (~15k windows).
 
+**Decisions 2026-10-27 (owner):**
+- Step 8: the split unit is a group (`catalog/split_groups.csv`: same provider and network, or copies), not a dataset. The
+  whole catalog is split at once (`catalog/split_v1.csv`, committed); afterwards rows are only appended.
+  `catalog/aggregator_rules.csv` lists which sub-series an aggregator drops when the source is ingested directly (proposed
+  with the split; enforced by `sources.yaml` validation).
+- Step 6, value level: two stages. Candidates from hashes of coarse z-score codes (0.25-sd bins, clipped at +-4) in two
+  codings shifted by half a bin; verification by Pearson r > 0.999 on the raw 64 points, after aggregation where the
+  frequencies differ. Flag at >= 3 verified windows; the dev-vs-dev check stays.
+- Step 7: weather-driven covariates are marked known + oracle in the task metadata (G1.2 tests that difference). EIA load
+  uses a population-weighted mean of 3-5 stations near each balancing area's largest cities; everything is aligned in UTC.
+- Step 9: horizons follow TIME's frequency -> horizon convention (`catalog/time_horizons.csv`, written by
+  `tools/time_horizons.py`). A dev version needs >= 15 domains; batch 1 is the pipeline test, not dev-v1. The manifest
+  (counts and sha256 only) is committed under `catalog/manifests/`.
+
 ## 4. Order of collection
 
 v1 = the ~120 highest-yield open sources (expected 70-80% of the points); v2 = the rest. Start with sources that give

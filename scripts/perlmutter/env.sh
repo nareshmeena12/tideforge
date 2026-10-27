@@ -11,6 +11,7 @@ export TF_ROOT="${TF_ROOT:-$SCRATCH/tideforge}"          # tideforge outputs: ev
 export TM_EVAL="${TM_EVAL:-FILL_IN}"
 export FT3_MAIN_CKPT="${FT3_MAIN_CKPT:-FILL_IN}"         # absolute path of ft3_main.pt
 export NERSC_ACCOUNT="${NERSC_ACCOUNT:-FILL_IN}"         # for salloc / sbatch --account (GPU allocations end in _g)
+export TF_DATA="${TF_DATA:-FILL_IN}"                     # persistent dev-set data (CFS, not $SCRATCH: scratch is purged)
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=8
 export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1            # compute nodes: never touch the network

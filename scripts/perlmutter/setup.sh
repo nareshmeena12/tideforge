@@ -66,10 +66,11 @@ tf_check_no_token "$TF_REPO"
 source "$TF_REPO/scripts/perlmutter/env.sh"
 mkdir -p "$TF_ROOT/logs"
 pip install --user -q --no-deps -e "$TF_REPO"
-pip install --user -q pytest
+pip install --user -q pytest holidays
 python - <<'PY'
 import importlib
-missing = [m for m in ("torch", "numpy", "pandas", "scipy", "yaml", "fev", "datasets", "gluonts", "toolz", "dotenv", "huggingface_hub")
+missing = [m for m in ("torch", "numpy", "pandas", "scipy", "yaml", "holidays", "fev", "datasets", "gluonts", "toolz", "dotenv",
+                       "huggingface_hub")
            if importlib.util.find_spec(m) is None]
 print("missing:", missing if missing else "none")
 if missing:
