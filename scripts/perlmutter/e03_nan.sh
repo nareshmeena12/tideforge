@@ -6,7 +6,8 @@
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh audit [--smoke]      # CPU only; writes R/eval/nan_audit.csv
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # 2 GPUs: one variant per GPU, both modes
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh table                # after E0.2 and both variants are done
-#   (add --dry-run to any of them to print the commands)
+#   (add --dry-run to any of them to print the commands; score --with-baseline also scores the baseline, one GPU per variant)
+#   Batch job instead of salloc: sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch (tideforge/slurm.py)
 # Tags: ft3mainnfdel_s0 / ft3mainnfdelon_s0, ft3mainnfmask_s0 / ft3mainnfmaskon_s0 (the variant is in the name). Resumable.
 # Note: ft3_main never saw single masked points in training, so nofill_mask shows the size of the deletion effect for this model,
 # not whether masking helps a model trained with masks (G6).
@@ -15,10 +16,11 @@ source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 source "$TF_REPO/scripts/perlmutter/_evalroot.sh"
 CMD="${1:-}"
 [ $# -gt 0 ] && shift
-SMOKE=""; DRY=0
+SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask"
 for a in "$@"; do case "$a" in
     --smoke) SMOKE="--smoke";;
     --dry-run) DRY=1;;
+    --with-baseline) VARIANTS="baseline nofill_delete nofill_mask";;   # E0.2's full scoring did not run in this root
     *) echo "unknown option $a"; exit 2;;
 esac; done
 tf_require TM_EVAL FT3_MAIN_CKPT || exit 2
@@ -35,7 +37,7 @@ audit)
     ;;
 score)
     if [ "$DRY" -eq 1 ]; then
-        for v in nofill_delete nofill_mask; do
+        for v in $VARIANTS; do
             echo "DRY RUN: python -m tideforge.eval.score score --root $R --ckpt ft3main=$FT3_MAIN_CKPT --variant $v --modes on,off $SMOKE"
         done
         exit 0
@@ -43,10 +45,11 @@ score)
     [ -f "$FT3_MAIN_CKPT" ] || { echo "missing checkpoint $FT3_MAIN_CKPT"; exit 2; }
     tf_link_eval || exit 2
     NGPU=$(nvidia-smi -L | wc -l)
-    [ "$NGPU" -ge 2 ] || { echo "need 2 GPUs (salloc ... --gpus 2), found $NGPU"; exit 2; }
+    NV=$(echo $VARIANTS | wc -w)
+    [ "$NGPU" -ge "$NV" ] || { echo "need $NV GPUs (one per variant), found $NGPU"; exit 2; }
     git -C "$TF_REPO" log --oneline -1
     pids=(); g=0
-    for v in nofill_delete nofill_mask; do
+    for v in $VARIANTS; do
         LOG="$TF_ROOT/logs/e03_${v}${SMOKE:+_smoke}.log"
         echo "$(date) GPU $g: variant $v -> $LOG"
         CUDA_VISIBLE_DEVICES=$g python -m tideforge.eval.score score --root "$R" --ckpt "ft3main=$FT3_MAIN_CKPT" --variant "$v" \

@@ -204,3 +204,17 @@ def test_time_term_counts():
     c = nan_audit.time_term_counts(inputs, 12, 8192, S.fill_season)
     assert c["n_windows"] == 2 and c["n_series"] == 3 and c["nan_leading"] == 15 and c["nan_interior"] == 24
     assert c["nan_after_fill"] == 0 and c["past_cov_nan"] == 0
+
+
+def test_fev_cov_detail_and_report():
+    task = SimpleNamespace(seasonality=2, target_columns=["t"], iter_windows=lambda: iter([FakeWindow()]))
+    c = nan_audit.fev_task_counts(task, 8192, S.fill_season, G.encode_column)
+    assert (c["past_cov_lead"], c["past_cov_inner"], c["past_cov_allnan_series"]) == (0, 1, 0)
+    assert (c["known_ctx_lead"], c["known_ctx_inner"]) == (0, 1) and c["known_fut_allnan_series"] == 0
+    assert c["cov_nan_columns"] == "p(past): 1; k(known ctx): 1; k(known future): 1"
+    import pandas as pd
+    df = pd.DataFrame([dict(benchmark="fev", task="gvar", **{k: v for k, v in c.items()}),
+                       dict(benchmark="fev", task="x", **dict(c, nan_after_fill=0, all_nan_series=2))])
+    df.loc[0, ["nan_after_fill", "all_nan_series"]] = [30820, 230]
+    r = nan_audit.report(df)
+    assert "gvar" in r and "all-NaN series in tasks with no NaN after fill: x (2)" in r and "totals: past 2 of 16" in r
