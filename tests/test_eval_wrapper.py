@@ -87,3 +87,19 @@ def test_board_summary():
     r = s.iloc[0]
     assert r["tasks"] == 2 and abs(r["ratio"] - (0.9 * 1.1) ** 0.5) < 1e-12 and r["share_better"] == 0.5
     assert r["ci_lo"] <= r["ratio"] <= r["ci_hi"]
+
+
+
+def test_compare_board_summary_writes_looks(tmp_path):
+    cols = "model,arm,seed,benchmark,metric,task,window,err\n"
+    root = tmp_path / "R"
+    (root / "eval" / "board").mkdir(parents=True)
+    (root / "eval" / "board" / "scores_long.csv").write_text(cols + "x,ft3maincmaskon,0,fev,test_error,t1,all,0.5\n")
+    ref = tmp_path / "ref.csv"
+    ref.write_text(cols + "x,ft3mainon,0,fev,test_error,t1,all,0.4\n")
+    lf = tmp_path / "LOOKS.md"
+    lf.write_text(LOOKS_TEMPLATE)
+    assert score.main(["compare-board", "--root", str(root), "--name", "ft3maincmask", "--ref", str(ref), "--summary", "--looks",
+                       "--experiment", "E0.3", "--why", "w", "--looks-file", str(lf)]) == 0
+    body = lf.read_text()
+    assert "ft3maincmask (groups ON, vs ft3main)" in body and "test_error ratio vs baseline 1.2500" in body

@@ -139,8 +139,21 @@ def cmd_compare_board(a) -> int:
         print(f"no common (arm, benchmark, metric, task, window) between {ours} and {a.ref}")
         return 1
     if a.summary:
+        s = board_summary(j)
         print(f"{a.name} vs {a.ref_name} ({a.ref}); ratio < 1 = {a.name} better")
-        print(board_summary(j).to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+        print(s.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+        if a.looks:
+            if not (a.experiment and a.why):
+                raise SystemExit("--looks needs --experiment and --why")
+            rows = []
+            for (arm, b), g in s.groupby(["arm", "benchmark"]):
+                mode = "groups ON" if arm.endswith("on") else "groups OFF"
+                res = "; ".join(f"{r.metric} ratio vs baseline {r.ratio:.4f} [{r.ci_lo:.4f}, {r.ci_hi:.4f}], {r.tasks} tasks"
+                                for r in g.itertuples())
+                rows.append(looks.format_row(experiment=a.experiment, checkpoint=f"{a.name} ({mode}, vs {a.ref_name})",
+                                             benchmark="fev-bench" if b == "fev" else "TIME", why=a.why, result=res))
+            added = looks.append_looks(rows, a.looks_file)
+            print(f"{len(added)} row(s) added to {a.looks_file}:", *added, sep="\n")
         return 0
     print(j.to_string(index=False, float_format=lambda v: f"{v:.6g}"))
     print(f"\n{len(j)} task rows compared; max relative difference {j['rel_diff'].max():.3g}; "

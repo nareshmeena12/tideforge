@@ -183,10 +183,15 @@ D038:
   slug: pvdaq
   loader: adapter:pending
   fetch:
-    urls: ["https://oedi-data-lake.s3.amazonaws.com/?list-type=2&prefix=pvdaq/parquet/"]
+    urls: ["https://oedi-data-lake.s3.amazonaws.com/?list-type=2&prefix=pvdaq/parquet/pvdata/&delimiter=/"]
   tasks: [{freq: 15min, how: mean}]
   select: {max_series: 500}
-  confirm: ["the OEDI bucket layout (systems list, per-system parquet partitions, column names): adapter written from the probe"]
+  confirm: ["the measurement columns of a pvdata file (schema one-liner in the notes)"]
+  notes: "OEDI layout (2026-10-27): pvdaq/parquet/{inverters, meters, metrics, modules, mount, other-instruments, pvdata,
+          site, system}/. Measurements are pvdata/system_id=<id>/year=<y>/month=<m>/day=<d>/system_<id>__date_<y>_<mm>_<dd>
+          .snappy.000.parquet: ONE small file per system per day (hundreds of thousands of requests for 500 systems), so
+          PVDAQ is out of the batch-1 fetch; batch 2 takes a subset (e.g. 50 systems x 2 years) once the columns are known.
+          metrics/metrics__system_<id>__part000.parquet is the metadata table (system_id, metric_id, sensor_name, ...)."
 
 D029:
   slug: ausgrid_solar
@@ -265,17 +270,17 @@ D181:
     urls: ["https://data.ny.gov/api/views/ak4z-sape/rows.csv?accessType=DOWNLOAD"]
     timeout_s: 1800
   read: {format: csv}
-  time: {col: month}
+  time: {col: month, format: "%m/%d/%Y"}
   id: [station_complex_id]
   value: ridership
   tasks: [{freq: M, how: sum}]
   select: {max_series: 500}
-  confirm: ["the column names of ak4z-sape (month, station_complex_id, ridership are guesses), and whether rows are split
-            further (fare class): if so add the split column to a sum"]
+  confirm: []
   notes: "MTA Subway Station Monthly Ridership, beginning February 2017 (data.ny.gov ak4z-sape), a plain export. The hourly
           dataset wujg-7c2s timed out even for one month of server-side aggregation (probes 2026-10-27), and there is no
           daily station-level dataset (daily data is systemwide only), so the dev set takes the monthly station series
-          (~110 months each)."
+          (~110 months each). Probe 3: columns month (MM/DD/YYYY), station_complex_id, station_complex, borough,
+          ridership, transfers, latitude, longitude; one row per station complex and month."
 
 # ------------------------------------------------------------------------------------------------ cloud
 D314:
@@ -385,8 +390,7 @@ D295:
   value: casos
   tasks: [{freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["the csv path in kelvins/Municipios-Brasileiros (csv/municipios.csv) and its header codigo_ibge, nome, latitude,
-            longitude, capital, codigo_uf"]
+  confirm: []
   notes: "probe 2026-10-27: CSV columns data_iniSE, SE, casos_est, casos, ..., tempmin, umidmax, umidmed, umidmin, ...
           tempmed, tempmax, ... (weekly, newest first); the weather columns feed the covariate task infodengue_weather.
           Municipality list: a static copy, kelvins/Municipios-Brasileiros (MIT licence; 5,570 municipalities with IBGE

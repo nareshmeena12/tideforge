@@ -4,15 +4,15 @@
 #SBATCH -C gpu
 #SBATCH -q shared
 #SBATCH -N 1
-#SBATCH --gpus=2
-#SBATCH -c 64
+#SBATCH --gpus=3
+#SBATCH -c 96
 #SBATCH -t 06:00:00
 #SBATCH -J e03_score
 #SBATCH -o %x-%j.out
 #SBATCH --signal=B:USR1@120
 #SBATCH --requeue
 #SBATCH --open-mode=append
-# E0.3: score ft3_main under nofill_delete and nofill_mask (groups ON + OFF), then the table vs tidemark's board.
+# E0.3: ft3_main under nofill_delete, nofill_mask (ON + OFF) and cov_mask (ON), then the table vs tidemark's board.
 set -u
 source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 echo "$(date) job $SLURM_JOB_ID on $(hostname), restart count ${SLURM_RESTART_COUNT:-0}"

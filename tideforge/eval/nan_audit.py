@@ -192,10 +192,10 @@ def report(df) -> str:
     ok = df[df["error"].isna()] if "error" in df else df
     out = []
     f = ok[ok["nan_after_fill"] > 0]
-    out.append("NaN after fill, by task (all-NaN target series and the values they hold):")
+    out.append("NaN after fill, by task, next to its all-NaN target series (and the task's totals, all series):")
     for _, r in f.iterrows():
         out.append(f"  {r['benchmark']:5s} {r['task']:40s} NaN after fill {int(r['nan_after_fill']):>9d}  all-NaN series "
-                   f"{int(r['all_nan_series']):>5d}  (series {int(r['n_series'])}, values {int(r['n_values'])})")
+                   f"{int(r['all_nan_series']):>5d}  (task totals: {int(r['n_series'])} series, {int(r['n_values'])} values)")
     other = ok[(ok["all_nan_series"] > 0) & (ok["nan_after_fill"] == 0)]
     if len(other):
         out.append("  all-NaN series in tasks with no NaN after fill: " +

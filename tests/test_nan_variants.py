@@ -218,3 +218,52 @@ def test_fev_cov_detail_and_report():
     df.loc[0, ["nan_after_fill", "all_nan_series"]] = [30820, 230]
     r = nan_audit.report(df)
     assert "gvar" in r and "all-NaN series in tasks with no NaN after fill: x (2)" in r and "totals: past 2 of 16" in r
+
+
+# ---------------------------------------------------------------------------------------------------- cov_mask
+def _cov_groups(n=3, T=150, H=20, gaps=False, seed=4):
+    rng = np.random.default_rng(seed)
+    out = []
+    for i in range(n):
+        y = np.cumsum(rng.normal(size=T)).astype(np.float64)
+        k = rng.normal(size=T + H)
+        p = rng.normal(size=T)
+        if gaps:
+            k[30:90] = np.nan                     # a long missing stretch in the known history (as in favorita)
+            k[T + 5:T + 9] = np.nan               # and in the known future
+            p[100:110] = np.nan
+        out.append(dict(targets=[y], past=[p], known=[(k[:T], k[T:])]))
+    return out
+
+
+def test_covmask_copy_equals_forecast_groups_without_nan():
+    from tideforge.eval.nan_variants import forecast_groups_covmask
+    m = tiny_model()
+    g = _cov_groups()
+    a = C.forecast_groups(m, g, 20, DEV, max_ctx=256)
+    b = forecast_groups_covmask(m, g, 20, DEV, max_ctx=256)
+    assert all(np.array_equal(x[1], y[1]) for x, y in zip(a, b))
+
+
+def test_cov_mask_changes_only_covariate_gaps():
+    m = tiny_model()
+    clean, gappy_ = _cov_groups(), _cov_groups(gaps=True)
+    base_clean = C.forecast_groups(m, clean, 20, DEV, max_ctx=256)
+    base_gap = C.forecast_groups(m, gappy_, 20, DEV, max_ctx=256)
+    fill_before = S.fill_season
+    with use_variant("cov_mask"):
+        assert S.fill_season is fill_before                                 # targets: baseline fill
+        cm_clean = C.forecast_groups(m, clean, 20, DEV, max_ctx=256)
+        cm_gap = C.forecast_groups(m, gappy_, 20, DEV, max_ctx=256)
+    assert all(np.array_equal(x[1], y[1]) for x, y in zip(base_clean, cm_clean))
+    assert not all(np.array_equal(x[1], y[1]) for x, y in zip(base_gap, cm_gap))
+    assert variant_of("ft3maincmask") == "cov_mask" and variant_of("ft3maincmaskon_s0") == "cov_mask"
+
+
+def test_cov_mask_restores_on_exception():
+    before = (C._lane_array, C.forecast_groups, S.fill_season)
+    with pytest.raises(RuntimeError):
+        with use_variant("cov_mask"):
+            assert C.forecast_groups is not before[1]
+            raise RuntimeError("x")
+    assert (C._lane_array, C.forecast_groups, S.fill_season) == before

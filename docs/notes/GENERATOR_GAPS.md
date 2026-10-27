@@ -46,7 +46,11 @@ oneoff on; breaks, tv_season, sarima, bursty off; cov_r3 on; cov_small_group_p, 
 3. Few-cycle / seen-once history: long_cycle at ~15% on the calendar engine, mostly in contexts of 2048+. Band 2049+: 0.520 vs Chronos-2 0.479.
 4. Structural breaks: the `breaks` switch is off; turn it on at 0.2 with late breaks.
 5. Quasi-periodic cycles: `tv_season` is off; add AM/FM, beats and cycles of irregular length.
-6. True missing values: training forward-fills gaps instead of masking them. Inference bug: `forecast_left_padded` deletes NaNs (`y = y[np.isfinite(y)]`), which shifts the phase.
+6. True missing values (2026-10-27, E0.3 audit: real known covariates often have long missing stretches: 22% of fev's
+   known-covariate history values are NaN, up to 46-91% in the retail tasks; groups ON forward-fills them today). G6 should
+   also generate covariate lanes with gaps, marked unobserved, not only gaps in targets; G1's covariate scenarios inherit
+   it.
+   Earlier note: training forward-fills gaps instead of masking them. Inference bug: `forecast_left_padded` deletes NaNs (`y = y[np.isfinite(y)]`), which shifts the phase.
 7. Counts, intermittency, product life cycles, stockouts.
 8. Hierarchies.
 9. ODE dynamics.

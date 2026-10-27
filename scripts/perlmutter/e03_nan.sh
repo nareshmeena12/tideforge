@@ -4,7 +4,8 @@
 #
 #   salloc --nodes 1 --qos interactive --time 04:00:00 --constraint gpu --gpus 2 --account=$NERSC_ACCOUNT
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh audit [--smoke]      # CPU only; writes R/eval/nan_audit.csv
-#   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # 2 GPUs: one variant per GPU, both modes
+#   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # 3 GPUs: one variant per GPU
+#     (nofill_delete / nofill_mask: groups ON and OFF; cov_mask: groups ON only, OFF has no covariates)
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh table                # after E0.2 and both variants are done
 #   (add --dry-run to any of them to print the commands)
 #   Batch job instead of salloc: sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch (tideforge/slurm.py)
@@ -16,7 +17,10 @@ source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 source "$TF_REPO/scripts/perlmutter/_evalroot.sh"
 CMD="${1:-}"
 [ $# -gt 0 ] && shift
-SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask"   # the baseline is tidemark's board (see table)
+SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask cov_mask"   # the baseline is tidemark's board (see table)
+modes_of() { [ "$1" = cov_mask ] && echo on || echo on,off; }
+# cov_mask: fev only (TIME has no covariates: the audit found 0 covariate NaN there, so the variant cannot change it)
+extra_of() { [ "$1" = cov_mask ] && echo --skip-time || echo; }
 for a in "$@"; do case "$a" in
     --smoke) SMOKE="--smoke";;
     --dry-run) DRY=1;;
@@ -37,7 +41,7 @@ audit)
 score)
     if [ "$DRY" -eq 1 ]; then
         for v in $VARIANTS; do
-            echo "DRY RUN: python -m tideforge.eval.score score --root $R --ckpt ft3main=$FT3_MAIN_CKPT --variant $v --modes on,off $SMOKE"
+            echo "DRY RUN: python -m tideforge.eval.score score --root $R --ckpt ft3main=$FT3_MAIN_CKPT --variant $v --modes $(modes_of $v) $(extra_of $v) $SMOKE"
         done
         exit 0
     fi
@@ -52,7 +56,7 @@ score)
         LOG="$TF_ROOT/logs/e03_${v}${SMOKE:+_smoke}.log"
         echo "$(date) GPU $g: variant $v -> $LOG"
         CUDA_VISIBLE_DEVICES=$g python -m tideforge.eval.score score --root "$R" --ckpt "ft3main=$FT3_MAIN_CKPT" --variant "$v" \
-            --modes on,off $SMOKE > "$LOG" 2>&1 &
+            --modes "$(modes_of "$v")" $(extra_of "$v") $SMOKE > "$LOG" 2>&1 &
         pids+=($!); g=$((g + 1))
     done
     rc=0
@@ -69,7 +73,7 @@ table)
          --looks --experiment E0.3 --why "Phase 0: NaN deletion vs masking at inference (no training)")
     if [ "$DRY" -eq 1 ]; then
         echo "DRY RUN: ${RUN[*]}"
-        for v in ft3mainnfdel ft3mainnfmask; do
+        for v in ft3mainnfdel ft3mainnfmask ft3maincmask; do
             echo "DRY RUN: python -m tideforge.eval.score compare-board --root $R --name $v --ref $TF_REF/scores_long.csv --summary"
         done
         exit 0
@@ -78,8 +82,14 @@ table)
     [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "BOARDS FAILED"; exit 1; }
     "${RUN[@]}" 2>&1 | tee -a "$TF_ROOT/logs/e03_table.log"
     [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "TABLE FAILED"; exit 1; }
+    # cov_mask (fev, groups ON only) is not in the two-mode table; its comparison and LOOKS row come from compare-board
+    python -m tideforge.eval.score compare-board --root "$R" --name ft3maincmask --ref "$TF_REF/scores_long.csv" --summary \
+        --looks --experiment E0.3 --why "Phase 0: covariate NaN unobserved instead of forward-filled (cov_mask)" 2>&1 \
+        | tee -a "$TF_ROOT/logs/e03_table.log"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED for ft3maincmask"; exit 1; }
     for v in ft3mainnfdel ft3mainnfmask; do
-        python -m tideforge.eval.score compare-board --root "$R" --name "$v" --ref "$TF_REF/scores_long.csv" --summary 2>&1             | tee -a "$TF_ROOT/logs/e03_table.log"
+        python -m tideforge.eval.score compare-board --root "$R" --name "$v" --ref "$TF_REF/scores_long.csv" --summary 2>&1 \
+            | tee -a "$TF_ROOT/logs/e03_table.log"
         [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED for $v"; exit 1; }
     done
     ;;
