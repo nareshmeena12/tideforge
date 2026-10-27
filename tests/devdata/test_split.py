@@ -23,10 +23,18 @@ def test_groups_share_one_role():
         assert df.loc[ids, "role"].nunique() == 1, g
 
 
-def test_every_fourth_unit_per_domain_is_locked():
+def test_locked_quota_per_domain():
+    assert [split.locked_quota(n) for n in (1, 2, 3, 4, 5, 6, 7, 10)] == [0, 1, 1, 1, 1, 2, 2, 3]
     u = split.load().drop_duplicates("unit_id")
     for d, g in u.groupby("unit_domain"):
-        assert (g["role"] == "locked").sum() == len(g) // 4, d
+        locked = g[g["role"] == "locked"]
+        assert len(locked) == split.locked_quota(len(g)), d
+        assert sorted(locked["position"]) == list(range(len(locked))), d       # the first units in hash order
+
+
+def test_report_lists_tuning_only_domains():
+    r = split.report(split.load())
+    assert "Tuning-only domains (one unit): Physics-reference, Utilities-waste, Utilities-water." in r
 
 
 def test_extend_only_appends():

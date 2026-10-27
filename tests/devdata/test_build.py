@@ -53,15 +53,15 @@ def test_build_pipeline_test(tmp_path, horizons, monkeypatch):
     monkeypatch.setattr(B, "MANIFESTS", tmp_path / "manifests")
     staging = tmp_path / "staging"
     _stage(staging, "D053", "ghcn_daily", "Weather-climate")          # tuning in split_v1
-    _stage(staging, "D029", "ausgrid_solar", "Buildings-heat")        # tuning
+    _stage(staging, "D071", "camels_us", "Hydrology")                 # tuning
     _stage(staging, "D347", "iowa_liquor", "Retail-sales")            # locked
     with pytest.raises(ValueError, match="domains"):
         B.build(staging, tmp_path / "dev", "dev-v1", say=lambda *a: None)
     man = B.build(staging, tmp_path / "dev", "batch1-test", pipeline_test=True, say=lambda *a: None)
     assert man["n_domains"] == 3 and set(man["weights"]) == {"tuning", "locked"}
-    assert man["weights"]["tuning"]["datasets"] == {"D053": 0.5, "D029": 0.5}
+    assert man["weights"]["tuning"]["datasets"] == {"D053": 0.5, "D071": 0.5}
     s = pd.read_parquet(tmp_path / "dev" / "batch1-test" / "tuning_score.parquet")
-    assert s.groupby("dataset_id")["weight"].sum().round(9).to_dict() == {"D029": 0.5, "D053": 0.5}
+    assert s.groupby("dataset_id")["weight"].sum().round(9).to_dict() == {"D053": 0.5, "D071": 0.5}
     assert (tmp_path / "manifests" / "batch1-test.json").exists()
     assert (tmp_path / "dev" / "batch1-test" / "data" / "ghcn_daily" / "h.parquet").exists()
     with pytest.raises(FileExistsError):
