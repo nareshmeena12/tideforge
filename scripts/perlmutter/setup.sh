@@ -78,4 +78,4 @@ if missing:
 PY
 python -m pytest -q
 git -C "$TF_REPO" log --oneline -1
-echo "SETUP OK. GPU parity (on a GPU node): python -m pytest -q -m gpu tests/test_gen_parity.py"
+echo "SETUP OK. GPU parity (on a GPU node): python -m pytest -q -m gpu tests/test_gen_parity.py tests/test_gen_switches.py"

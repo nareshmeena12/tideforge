@@ -13,6 +13,10 @@ post-processing switch leaves every global draw of v0 unchanged: the on output i
   * value-dependent draws: on CPU torch.poisson consumes a value-dependent number of draws, so a hook or override that changes
     values BEFORE _L_noise / _L_support (H2, H3, overrides of seasonality ... breaks) can shift later global draws on CPU.
     H4, H7, H8 and overrides of noise and later layers are exact on every device.
+    Measured on CPU 2026-10-27 (STRESS config + breaks, 512 x 1024, test_post p = 0.5): H3 (after_structure) left the global
+    RNG state equal to v0's; H2 (after_families) did not (the noise layer's poisson draws changed).
+    CUDA: not measured yet; tests/test_gen_switches.py::test_gpu_h2_h3_keep_the_other_draws (GPU parity job) decides it,
+    and its result is recorded here.
 Hooks at the same point run by (priority, switch name); the defaults are _hooks.PRIORITY: structure 100 (breaks) <
 observation 200 (rounding, censoring) < gaps 300 (always last). The install plan (with priorities) goes into the config hash.
 """

@@ -297,3 +297,28 @@ def test_worker_process_reproduces_the_parent(tmp_path):
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert_same(mine, torch.load(out))
+
+
+# ---------------------------------------------------------------------------------------------------- GPU (Perlmutter)
+@pytest.mark.gpu
+@pytest.mark.parametrize("point", ["after_families", "after_structure"])
+def test_gpu_h2_h3_keep_the_other_draws(point):
+    """On CUDA, does a value-changing hook before the noise / support layers (torch.poisson) leave the other global draws
+    unchanged? If so, the rows the switch did not touch are bit-identical and the CUDA RNG state matches v0's. The result
+    is recorded in tideforge/gen/switches.py (on CPU it does not hold: poisson's draw count depends on the values)."""
+    dev = torch.device("cuda")
+    gc = STRESS_GC.with_changes(gen_additions={"breaks": True})
+
+    def run_on(g):
+        name = G.configure(g)
+        torch.manual_seed(11)
+        x = G.generate_batch(512, 1024, dev, profile=name)
+        return x, torch.cuda.get_rng_state(dev), torch.get_rng_state()
+
+    off, c_off, s_off = run_on(gc)
+    on, c_on, s_on = run_on(gc.with_changes(switches={"test_post": {"point": point, "p": 0.5}}))
+    assert torch.equal(c_off, c_on) and torch.equal(s_off, s_on), "the global RNG streams differ after the call"
+    same = (on.unsqueeze(1) == off.unsqueeze(0)).all(-1).any(1)            # rows of `on` found unchanged in `off`
+    # about half the rows are untouched (p = 0.5) and must be found unchanged; touched rows can also come out unchanged,
+    # because _L_support standardises each row and removes a constant shift
+    assert same.float().mean().item() >= 0.4, f"only {same.float().mean().item():.2f} of the rows unchanged"
