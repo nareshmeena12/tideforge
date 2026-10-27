@@ -2,7 +2,7 @@
 per observation, a burn-in so each series sits on its attractor), observed with Gaussian noise of 2% of the series' sd.
     lotka_volterra  prey of dx = a x - b x y, dy = d x y - g y (a, g 0.8-1.2; b 0.3-0.6; d 0.2-0.4); dt 0.15
     forced_sir      I(t) x 1e4 of a seasonally forced SIR with births (beta = beta0 (1 + 0.2 cos(2 pi t / 52)), beta0 8-12,
-                    gamma 1, mu 1/260; weekly steps), recurrent epidemics
+                    gamma 1, mu 1/260; weekly steps, 1000 weeks of burn-in), recurrent epidemics
     van_der_pol     x of x'' - mu (1 - x^2) x' + x = 0, mu 0.5-3; dt 0.15
     control         a sine with period 40-60 and the same relative noise
 The oracle knows the state: oracle_q = the true future + the observation noise quantiles. The naive season of each series is
@@ -61,7 +61,7 @@ def trajectories(name: str, rng, n: int, T: int) -> np.ndarray:
             s, i = z[:, :1], z[:, 1:]
             return np.concatenate([mu - beta * s * i - mu * s, beta * s * i - (gam + mu) * i], 1)
         z0 = np.concatenate([rng.uniform(0.08, 0.12, (n, 1)), rng.uniform(1e-4, 1e-3, (n, 1))], 1)
-        return rk4(f, z0, 0.0, 1.0, T + 2000, sub=20)[:, 2000:, 1] * 1e4
+        return rk4(f, z0, 0.0, 1.0, T + 1000, sub=10)[:, 1000:, 1] * 1e4
     P = rng.uniform(40, 60, (n, 1))
     return np.sin(2 * np.pi * np.arange(T)[None, :] / P + rng.uniform(0, 2 * np.pi, (n, 1)))
 
