@@ -54,6 +54,10 @@ Status of this file: plan agreed on 2026-10-27. Each experiment gets its own log
 2026-10-27 (owner confirmed): the E0.2 gate is six numbers: groups ON fev 43.78, TIME MASE 0.680 / CRPS 0.571; groups OFF
 fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in score_groups.GATE.
 
+- 2026-10-27 (owner): B0 = ft3_main's generator mix (configs/ft3_main_cfg.json, `v0-b0-af75b1af`). ft3_main was fine-tuned
+  from ft2_main, so B0 copies ft3's mix only, not ft2's history: experiments compare against B0, and B0 is never described as
+  "ft3_main's training data".
+
 ## 4. Phase 1: diagnosis (no training; runs alongside Phase 0)
 
 | ID | What | Output |
@@ -233,4 +237,4 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 |---|---|---|---|---|
 | E0.3 | 2026-10-27 | planned | | [E0.3](experiments/E0.3.md) |
 | E0.2 | 2026-10-27 | planned | | [E0.2](experiments/E0.2.md) |
-| E0.1 | 2026-10-27 | planned | | [E0.1](experiments/E0.1.md) |
+| E0.1 | 2026-10-27 | pass (CPU); GPU open | bit-exact on CPU incl. ft3_main's cfg; B0 = v0-b0-af75b1af; GPU differs by 1-2 ulp, diagnostics pending | [E0.1](experiments/E0.1.md) |
