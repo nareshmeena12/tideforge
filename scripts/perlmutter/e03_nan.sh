@@ -57,6 +57,7 @@ score)
     for p in "${pids[@]}"; do wait "$p" || rc=1; done
     [ "$rc" -eq 0 ] || { echo "a variant run FAILED: see $TF_ROOT/logs/e03_*.log"; exit 1; }
     python -m tideforge.eval.score board --root "$R" $SMOKE | tail -n 60
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "BOARDS FAILED"; exit 1; }
     echo "E0.3 SCORING DONE${SMOKE:+ (SMOKE)}"
     ;;
 table)

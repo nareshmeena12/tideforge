@@ -5,10 +5,15 @@ R="$TF_ROOT/eval_t0"
 tf_link_eval() {
     [ -d "$TM_EVAL/data" ] || { echo "no $TM_EVAL/data: TM_EVAL must be tidemark's fetched eval folder (score_twins fetch)"; return 2; }
     [ -f "$TM_EVAL/fev_naive.csv" ] || { echo "no $TM_EVAL/fev_naive.csv: run tidemark's seasonal-naive step first (score_twins naive)"; return 2; }
-    mkdir -p "$R/eval" "$TF_ROOT/logs"
+    mkdir -p "$R/eval" "$R/eval_smoke" "$TF_ROOT/logs"
     local x
     for x in data hf fev_naive.csv fev_naive_parts; do
         if [ -e "$TM_EVAL/$x" ]; then ln -sfn "$TM_EVAL/$x" "$R/eval/$x"; fi
+    done
+    # --smoke writes its outputs to eval_smoke and reads the seasonal-naive cache from there too (score_twins Paths.out),
+    # so the cache is linked there as well (data and hf are always read from eval/)
+    for x in fev_naive.csv fev_naive_parts; do
+        if [ -e "$TM_EVAL/$x" ]; then ln -sfn "$TM_EVAL/$x" "$R/eval_smoke/$x"; fi
     done
     return 0
 }

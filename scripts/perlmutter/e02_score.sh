@@ -44,19 +44,25 @@ echo "$(date) [1] scoring" | tee -a "$LOG"
 [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "SCORING FAILED"; exit 1; }
 echo "$(date) [2] boards" | tee -a "$LOG"
 "${BOARD[@]}" 2>&1 | tee -a "$LOG" | tail -n 60
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "BOARDS FAILED (see $LOG)"; exit 1; }
+BOARD_DIR="$R/$([ -n "$SMOKE" ] && echo eval_smoke || echo eval)/board"
+[ -f "$BOARD_DIR/scores_long.csv" ] || { echo "BOARDS FAILED: $BOARD_DIR/scores_long.csv was not written"; exit 1; }
 if [ -n "$SMOKE" ]; then
     # E0.2 was reproduced in tidemark on 2026-10-24 (gate pass); the smoke run checks tideforge's wrapper task by task
     # against that board.
     echo "$(date) [2b] per-task comparison with tidemark's board ($TF_REF/scores_long.csv)" | tee -a "$LOG"
     python -m tideforge.eval.score compare-board --root "$R" --smoke --ref "$TF_REF/scores_long.csv" 2>&1 | tee -a "$LOG"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED"; exit 1; }
     echo "SMOKE DONE"
     exit 0
 fi
 echo "$(date) [3] table + gate + LOOKS rows" | tee -a "$LOG"
 "${TABLE[@]}" 2>&1 | tee -a "$LOG"
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "TABLE FAILED"; exit 1; }
 if [ -f "$FEV_LOG" ]; then
     echo "$(date) [4] per-task comparison with the Colab log" | tee -a "$LOG"
     "${COMPARE[@]}" 2>&1 | tee -a "$LOG"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-LOG FAILED"; exit 1; }
 else
     echo "(no $FEV_LOG: set FEV_LOG to the Colab per-task log for the per-task comparison)"
 fi
