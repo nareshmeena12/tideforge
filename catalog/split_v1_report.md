@@ -38,3 +38,5 @@ Overall: 81 of 316 units locked (25.6%); 98 of 367 datasets (26.7%).
 | Web-attention | 10 | 3 | 30% | 15 | 3 |
 
 Tuning-only domains (one unit): Physics-reference, Utilities-waste, Utilities-water.
+
+By dataset the locked share can be lopsided where a large group falls in the locked set (2026-10-27: Physiology 8 of 15, Macro-finance 5 of 10). Accepted by the owner: the domain cap applies when scoring, so this changes weights, not leakage.

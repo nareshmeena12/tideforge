@@ -138,6 +138,9 @@ def report(df: pd.DataFrame) -> str:
         lines.append(f"| {d} | {len(g)} | {nl} | {nl / len(g):.0%} | {len(dd)} | {int((dd['role'] == 'locked').sum())} |")
     solo = sorted(d for d, g in u.groupby("unit_domain") if len(g) == 1)
     lines += ["", f"Tuning-only domains (one unit): {', '.join(solo) if solo else 'none'}."]
+    lines += ["", "By dataset the locked share can be lopsided where a large group falls in the locked set (2026-10-27: Physiology "
+              "8 of 15, Macro-finance 5 of 10). Accepted by the owner: the domain cap applies when scoring, so this changes "
+              "weights, not leakage."]
     return "\n".join(lines) + "\n"
 
 
