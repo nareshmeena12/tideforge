@@ -17,8 +17,8 @@ from tideforge.devdata.loaders.adapters import ausgrid, camels_us, eurostat_tsv
 
 
 # ---------------------------------------------------------------------------------------------------- schema
-def test_repo_sources_validate_except_the_pending_value():
-    assert schema.validate_all() == ["D074: value or events is required"]
+def test_repo_sources_validate():
+    assert schema.validate_all() == []
 
 
 def _src(**kw):

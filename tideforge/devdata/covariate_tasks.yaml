@@ -59,5 +59,7 @@ infodengue_weather:
     umidmax: {role: known, oracle: true}
     umidmed: {role: known, oracle: true}
     umidmin: {role: known, oracle: true}
-  notes: "the weather columns of the same InfoDengue CSVs (weekly means per municipality, observed). Further columns after
-          umidmin (tempmed / tempmax?) were cut off in the probe; add them once seen."
+    tempmed: {role: known, oracle: true}
+    tempmax: {role: known, oracle: true}
+  notes: "the weather columns of the same InfoDengue CSVs (weekly means per municipality, observed); full header seen in
+          probe 2 (2026-10-27)"

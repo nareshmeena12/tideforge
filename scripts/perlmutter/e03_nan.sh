@@ -6,7 +6,7 @@
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh audit [--smoke]      # CPU only; writes R/eval/nan_audit.csv
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh score [--smoke]      # 2 GPUs: one variant per GPU, both modes
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e03_nan.sh table                # after E0.2 and both variants are done
-#   (add --dry-run to any of them to print the commands; score --with-baseline also scores the baseline, one GPU per variant)
+#   (add --dry-run to any of them to print the commands)
 #   Batch job instead of salloc: sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch (tideforge/slurm.py)
 # Tags: ft3mainnfdel_s0 / ft3mainnfdelon_s0, ft3mainnfmask_s0 / ft3mainnfmaskon_s0 (the variant is in the name). Resumable.
 # Note: ft3_main never saw single masked points in training, so nofill_mask shows the size of the deletion effect for this model,
@@ -16,11 +16,10 @@ source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 source "$TF_REPO/scripts/perlmutter/_evalroot.sh"
 CMD="${1:-}"
 [ $# -gt 0 ] && shift
-SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask"
+SMOKE=""; DRY=0; VARIANTS="nofill_delete nofill_mask"   # the baseline is tidemark's board (see table)
 for a in "$@"; do case "$a" in
     --smoke) SMOKE="--smoke";;
     --dry-run) DRY=1;;
-    --with-baseline) VARIANTS="baseline nofill_delete nofill_mask";;   # E0.2's full scoring did not run in this root
     *) echo "unknown option $a"; exit 2;;
 esac; done
 tf_require TM_EVAL FT3_MAIN_CKPT || exit 2
@@ -64,11 +63,25 @@ score)
     echo "E0.3 SCORING DONE${SMOKE:+ (SMOKE)}"
     ;;
 table)
-    RUN=(python -m tideforge.eval.score table --root "$R" --names ft3mainbase,ft3mainnfdel,ft3mainnfmask --base ft3mainbase
+    # The baseline is tidemark's board of 2026-10-24 ($TF_REF/scores_long.csv): E0.2's smoke run showed tideforge's wrapper
+    # reproduces it exactly (max relative difference 0), so the baseline is not scored again here.
+    RUN=(python -m tideforge.eval.score table --root "$R" --names ft3mainnfdel,ft3mainnfmask --base ft3mainnfdel
          --looks --experiment E0.3 --why "Phase 0: NaN deletion vs masking at inference (no training)")
-    if [ "$DRY" -eq 1 ]; then echo "DRY RUN: ${RUN[*]}"; exit 0; fi
+    if [ "$DRY" -eq 1 ]; then
+        echo "DRY RUN: ${RUN[*]}"
+        for v in ft3mainnfdel ft3mainnfmask; do
+            echo "DRY RUN: python -m tideforge.eval.score compare-board --root $R --name $v --ref $TF_REF/scores_long.csv --summary"
+        done
+        exit 0
+    fi
     python -m tideforge.eval.score board --root "$R" | tail -n 5
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "BOARDS FAILED"; exit 1; }
     "${RUN[@]}" 2>&1 | tee -a "$TF_ROOT/logs/e03_table.log"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "TABLE FAILED"; exit 1; }
+    for v in ft3mainnfdel ft3mainnfmask; do
+        python -m tideforge.eval.score compare-board --root "$R" --name "$v" --ref "$TF_REF/scores_long.csv" --summary 2>&1             | tee -a "$TF_ROOT/logs/e03_table.log"
+        [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED for $v"; exit 1; }
+    done
     ;;
 *) echo "usage: e03_nan.sh audit|score|table [--smoke] [--dry-run]"; exit 2;;
 esac

@@ -81,8 +81,8 @@ def test_same_source_task(tmp_path):
     url = F.file_list(src.fetch, ["3304557"])[0][0]
     f = raw / src.slug / "files" / F.local_name(url)
     f.parent.mkdir(parents=True)
-    f.write_text("data_iniSE,casos,tempmin,umidmax,umidmed,umidmin\n2025-12-28,215,25.4,84.8,69.0,51.6\n"
-                 "2025-12-21,144,23.2,87.5,65.5,42.3\n")
+    f.write_text("data_iniSE,casos,tempmin,umidmax,umidmed,umidmin,tempmed,tempmax\n"
+                 "2025-12-28,215,25.4,84.8,69.0,51.6,28.6,32.8\n2025-12-21,144,23.2,87.5,65.5,42.3,28.0,33.3\n")
     d = staging / src.slug
     d.mkdir(parents=True)
     w = pd.date_range("2025-12-21", periods=2, freq="W")

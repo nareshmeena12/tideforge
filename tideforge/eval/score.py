@@ -114,6 +114,23 @@ def compare_board(ours, ref, name: str = "ft3mainbase", ref_name: str = "ft3main
     return j.sort_values("rel_diff", ascending=False)
 
 
+def board_summary(j, n_boot: int = 1000, seed: int = 0):
+    """Per (arm, benchmark, metric): geometric-mean ratio err_ours / err_ref over tasks with a 95% bootstrap CI over tasks,
+    and the share of tasks where ours is lower (better). Ratio < 1 = ours better."""
+    import numpy as np
+    import pandas as pd
+    rows = []
+    rng = np.random.default_rng(seed)
+    for (arm, b, m), g in j.groupby(["arm", "benchmark", "metric"]):
+        lr = np.log(g["err_ours"].clip(lower=1e-12).to_numpy() / g["err_ref"].clip(lower=1e-12).to_numpy())
+        idx = rng.integers(0, len(lr), size=(n_boot, len(lr)))
+        bs = np.exp(lr[idx].mean(1))
+        rows.append(dict(arm=arm, benchmark=b, metric=m, tasks=len(lr), ratio=float(np.exp(lr.mean())),
+                         ci_lo=float(np.percentile(bs, 2.5)), ci_hi=float(np.percentile(bs, 97.5)),
+                         share_better=float((lr < 0).mean())))
+    return pd.DataFrame(rows)
+
+
 def cmd_compare_board(a) -> int:
     from pathlib import Path
     ours = Path(a.root) / ("eval_smoke" if a.smoke else "eval") / "board" / "scores_long.csv"
@@ -121,6 +138,10 @@ def cmd_compare_board(a) -> int:
     if j.empty:
         print(f"no common (arm, benchmark, metric, task, window) between {ours} and {a.ref}")
         return 1
+    if a.summary:
+        print(f"{a.name} vs {a.ref_name} ({a.ref}); ratio < 1 = {a.name} better")
+        print(board_summary(j).to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+        return 0
     print(j.to_string(index=False, float_format=lambda v: f"{v:.6g}"))
     print(f"\n{len(j)} task rows compared; max relative difference {j['rel_diff'].max():.3g}; "
           f"rows with |rel diff| > 1e-4: {int((j['rel_diff'] > 1e-4).sum())}")
@@ -150,6 +171,7 @@ def main(argv=None) -> int:
     ap.add_argument("--log", default="reference/fev_log_ft3.txt")
     ap.add_argument("--ref", default=None, help="compare-board: the reference scores_long.csv")
     ap.add_argument("--ref-name", default="ft3main", help="compare-board: the reference's checkpoint name")
+    ap.add_argument("--summary", action="store_true", help="compare-board: geometric-mean ratio per mode / benchmark / metric")
     a = ap.parse_args(argv)
     if a.cmd == "score":
         if not a.ckpt:

@@ -77,3 +77,13 @@ def test_compare_board(tmp_path):
     j = score.compare_board(tmp_path / "ours.csv", tmp_path / "ref.csv")
     assert len(j) == 2 and j.iloc[0]["task"] == "d/short" and abs(j.iloc[0]["abs_diff"] - 0.01) < 1e-12
     assert j.iloc[1]["abs_diff"] == 0
+
+
+def test_board_summary():
+    import pandas as pd
+    j = pd.DataFrame(dict(arm="ft3main", benchmark="time", metric="MASE", task=["a", "b"], window="all",
+                          err_ours=[0.9, 1.1], err_ref=[1.0, 1.0]))
+    s = score.board_summary(j)
+    r = s.iloc[0]
+    assert r["tasks"] == 2 and abs(r["ratio"] - (0.9 * 1.1) ** 0.5) < 1e-12 and r["share_better"] == 0.5
+    assert r["ci_lo"] <= r["ratio"] <= r["ci_hi"]

@@ -117,6 +117,30 @@ many series under the caps:
 Some of these are in Chronos / LOTSA pre-training corpora (flagged `pretrain` in the catalog). They are fine for testing
 our synthetic-only model, but reference models have seen them, so comparisons with those models on them are biased.
 
+**Decision 2026-10-27 (owner): size target.** At least 200 datasets across 15+ domains, the caps unchanged (500 series and the
+last 16k points per series), landing around 1B points. Diversity of datasets matters more than points: the score weights
+datasets equally and caps domains, so a new domain or a new dataset in a thin domain is worth more than another large source
+in a full one. Batches are planned domain-first: thin domains before deep ones.
+
+**Batch 2 plan (domain-first; open access, not in batch 1; ids from dataset_catalog_v2.csv, counted datasets in the domain in
+brackets).** Batch 1 covers 11 domains (Weather-climate, Hydrology, Energy-load, Energy-gen, Buildings-heat, Air-quality,
+Transport-mobility, Cloud-servers, Web-attention, Retail-sales, Epidemics-health). Batch 2 starts with
+the domains batch 1 does not touch, thinnest first, 1-3 sources each:
+- Utilities-water [1]: D251 BWDF 2024. Utilities-waste [1]: D252 NYC DSNY tonnage. Physics-reference [1]: D279 Santa Fe.
+- Government-stats [3]: D210 India data.gov.in. Telecom-network [5]: D144 Telecom Italia, D326 Abilene / GEANT,
+  D328 5G throughput (UCC). Crypto-markets [5]: D170 Binance (mixed: no BTC / ETH / LTC / BCH), D174 FI-2010.
+- Public-services [6]: D340 311 requests, D342 data.police.uk, D343 SF Fire calls. Housing-realestate [8]: D163 UK HPI,
+  D162 Zillow, D360 NYC property sales. EV-parking [8]: D047 Korean EV charging, D049 UK AC chargers, D052 Melbourne parking.
+- Agriculture-commodities [9]: D374 WFP food prices, D355 Hass avocado, D376 USDA AMS. Ecology [9]: D283 NOAA fisheries
+  landings, D286 Breeding Bird Survey, D290 beehive monitoring. Events-entertainment [10]: D334 Seattle library checkouts,
+  D330 Steam player counts, D200 theme park waits. Biology-growth [10]: D110 muGrowthDB, D289 BioDare2 circadian.
+- Macro-finance [11]: D169 Fama-French, D371 US Treasury DTS. Space-geo [12]: D068 USGS earthquake counts, D275 NGL GNSS,
+  D272 INTERMAGNET. Oil-gas-fuels [14]: D229 France fuel prices, D230 Italy fuel prices, D034 North Dakota wells.
+  Aviation-tourism [15]: D188 TSA checkpoint volumes, D336 NPS visits, D339 Eurocontrol traffic. Physiology [15]: D103
+  CGMacros, D104 BIG IDEAs glycemic. Industrial-PHM [21]: D202 C-MAPSS, D391 3W Petrobras, D394 steel energy (UCI).
+That is about 45 sources in 19 new domains (30 with batch 1). Each still goes through probe -> fetch -> ingest -> audit; the
+split groups and aggregator rules apply (e.g. D374 sits with D375 FPMA; D202 with N-CMAPSS).
+
 ## 5. Effort (estimate)
 
 A simple CSV source takes 30-60 minutes to configure and check; odd sources take longer. ~340 sources is several weeks of

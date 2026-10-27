@@ -1,4 +1,4 @@
-# Dev-set sources (tideforge/devdata/schema.py describes every key). Batch 1 = the pipeline test (21 open sources, 13
+# Dev-set sources (tideforge/devdata/schema.py describes every key). Batch 1 = the pipeline test (21 open sources, 11
 # domains), not dev-v1 (dev-v1 needs >= 15 domains).
 #
 # URLs and file layouts below are written from the providers' documentation as known on 2026-10-27 and have NOT been
@@ -53,15 +53,15 @@ D054:
     vars: {series: index}
     probe_vars: {series: USW00094728}
     rate_limit_s: 0.5
-  read: {format: csv, sep: "|", usecols: [STATION, DATE, temperature], dtype: {STATION: str}}
+  read: {format: csv, sep: "|", usecols: [STATION, DATE, temperature, dew_point_temperature], dtype: {STATION: str}}
   time: {col: DATE, format: "ISO8601", tz: UTC}
   id: [STATION]
-  value: [temperature]
+  value: [temperature, dew_point_temperature]
   tasks: [{freq: h, how: mean}]
   select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "STATION.str[:2]"}}
   exclude: {where: "not STATION.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather)"}
   tz: UTC
-  confirm: ["the names of further value columns (pressure, wind) beyond the 200 characters the probe showed"]
+  confirm: ["the pressure / wind column names (probe 2 showed temperature and dew_point_temperature; later names were cut)"]
   notes: "probe 2026-10-27: columns STATION, DATE (ISO), Year..Minute, temperature (degC); NYC's first record is 05:00 =
           local midnight EST, so DATE is UTC"
 
@@ -123,14 +123,16 @@ D074:
     vars: {series: index}
     probe_vars: {series: "01646500"}
     rate_limit_s: 0.3
-  read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1}
+  read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1, rename_regex: {"_00060_00003$": flow}}
   time: {col: datetime, format: "%Y-%m-%d"}
   id: [site_no]
-  value: null
+  value: flow
   tasks: [{freq: D, how: mean}]
   select: {max_series: 500, strata: [state]}
-  confirm: ["the value column name of the dv RDB (e.g. '<ts_id>_00060_00003'): the probe now prints the lines after the comments"]
-  notes: "probe 2026-10-27: the legacy waterservices API answers (site list and dv). Same split unit as CAMELS."
+  confirm: []
+  notes: "probes 2026-10-27: the legacy waterservices API answers; dv RDB columns agency_cd, site_no, datetime,
+          <ts_id>_00060_00003 (mean daily discharge, cfs; the ts_id differs per site, so it is renamed to flow), its _cd
+          qualifier; a type row under the header. Same split unit as CAMELS."
 
 D071:
   slug: camels_us
@@ -140,7 +142,7 @@ D071:
     timeout_s: 1800
   tasks: [{freq: D, how: mean}]
   select: {max_series: 500, strata: [huc]}
-  confirm: ["zip member layout (usgs_streamflow/<huc>/...): listed after the download (3.4 GB)"]
+  confirm: ["zip member layout (usgs_streamflow/<huc>/...): listed after the download (3.4 GB; the URL answers, probe 2)"]
   notes: "the catalog's Zenodo record 15529996 (the GDEX URL returned 404 on 2026-10-27). No index: the one zip holds every
           gauge; the 500 are selected after reading, stratified by HUC region."
 
@@ -253,25 +255,27 @@ D381:
   select: {max_series: 500}
   confirm: ["the export covers only the last 13 months: the yearly archives (comptage-velo-historique-donnees-compteurs)
             are still to be found"]
-  notes: "probe 2026-10-27: columns id_compteur, sum_counts, date (ISO with offset)"
+  notes: "probe 2026-10-27: columns id_compteur, sum_counts, date (ISO with offset). Kept with the 13 months of the export:
+          ~9,500 hourly points per counter, far above 3 x the hourly long horizon (168), so short, medium and long all run;
+          the yearly archives would only add history."
 
 D181:
   slug: mta_ridership
   fetch:
-    url_template: "https://data.ny.gov/resource/wujg-7c2s.csv?$select=date_trunc_ymd(transit_timestamp)%20as%20day,station_complex_id,sum(ridership)%20as%20riders&$where=date_extract_y(transit_timestamp)={year}%20AND%20date_extract_m(transit_timestamp)={m}&$group=day,station_complex_id&$limit=100000"
-    vars: {year: {range: [2020, 2024]}, m: {range: [1, 12]}}
-    probe_vars: {year: 2023, m: 1}
-    rate_limit_s: 1.0
-    timeout_s: 600
-    retries: 5
-  read: {format: csv, dtype: {station_complex_id: str}}
-  time: {col: day}
+    urls: ["https://data.ny.gov/api/views/ak4z-sape/rows.csv?accessType=DOWNLOAD"]
+    timeout_s: 1800
+  read: {format: csv}
+  time: {col: month}
   id: [station_complex_id]
-  value: riders
-  tasks: [{freq: D, how: sum}]
+  value: ridership
+  tasks: [{freq: M, how: sum}]
   select: {max_series: 500}
-  tz: America/New_York
-  confirm: ["the monthly SoQL query answers in time (the whole-history aggregation timed out on 2026-10-27)"]
+  confirm: ["the column names of ak4z-sape (month, station_complex_id, ridership are guesses), and whether rows are split
+            further (fare class): if so add the split column to a sum"]
+  notes: "MTA Subway Station Monthly Ridership, beginning February 2017 (data.ny.gov ak4z-sape), a plain export. The hourly
+          dataset wujg-7c2s timed out even for one month of server-side aggregation (probes 2026-10-27), and there is no
+          daily station-level dataset (daily data is systemwide only), so the dev set takes the monthly station series
+          (~110 months each)."
 
 # ------------------------------------------------------------------------------------------------ cloud
 D314:
@@ -336,7 +340,7 @@ D347:
   slug: iowa_liquor
   fetch:
     url_template: https://idh-be.iowa.gov/api/v1/datasets/{dataset}/rows.csv
-    vars: {dataset: ["1258", "1259"]}
+    vars: {dataset: ["1258", "1259", "1260", "1261", "1262", "1263"]}
     probe_vars: {dataset: "1258"}
     rate_limit_s: 1.0
     timeout_s: 1800
@@ -346,10 +350,10 @@ D347:
   events: {how: sum, value: sale_dollars}
   tasks: [{freq: D, how: sum}, {freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["data.iowa.gov moved to the Iowa Data Hub: the Socrata id m3tr-qhgy returns 404 (2026-10-27). Known yearly
-            datasets: 2021 = 1258, 2022 = 1259, 2026 = 1263; ids for 2012-2020 and 2023-2025, or an all-years dataset, are
-            to be found in the Data Hub catalog", "the rows.csv endpoint (seen for dataset 1078) and the column names
-            county / sale_dollars (ordered_on is confirmed)"]
+  confirm: ["the column names county / sale_dollars inside the zip the endpoint returns (ordered_on is confirmed)"]
+  notes: "Iowa Data Hub yearly datasets: 2021 = 1258, 2022 = 1259, 2023 = 1260, 2024 = 1261, 2025 = 1262, 2026 = 1263
+          (2026 partial); rows.csv answers with a zip (probe 2026-10-27). Gap: no yearly ids for 2012-2020 were found (the
+          old Socrata all-years dataset m3tr-qhgy returns 404), so the series start in 2021."
 
 # ------------------------------------------------------------------------------------------------ health
 D297:
@@ -365,13 +369,10 @@ D297:
 D295:
   slug: infodengue
   index:
-    url: https://servicodados.ibge.gov.br/api/v1/localidades/municipios
-    read: {format: json, normalize: true}
-    id: id
-    derive: {uf: "`microrregiao.mesorregiao.UF.sigla`"}
-    strata: [uf]
-    timeout_s: 300
-    retries: 6
+    url: https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/main/csv/municipios.csv
+    read: {format: csv, dtype: {codigo_ibge: str, codigo_uf: str}}
+    id: codigo_ibge
+    strata: [codigo_uf]
   fetch:
     url_template: "https://info.dengue.mat.br/api/alertcity?geocode={series}&disease=dengue&format=csv&ew_start=1&ew_end=53&ey_start=2012&ey_end=2025"
     vars: {series: index}
@@ -384,8 +385,10 @@ D295:
   value: casos
   tasks: [{freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["IBGE municipality JSON fields (the index timed out on 2026-10-27: longer timeout and retries now; it is cached
-            under <raw>/infodengue/index/ once fetched)"]
+  confirm: ["the csv path in kelvins/Municipios-Brasileiros (csv/municipios.csv) and its header codigo_ibge, nome, latitude,
+            longitude, capital, codigo_uf"]
   notes: "probe 2026-10-27: CSV columns data_iniSE, SE, casos_est, casos, ..., tempmin, umidmax, umidmed, umidmin, ...
-          (weekly, newest first); the weather columns feed the covariate task infodengue_weather"
+          tempmed, tempmax, ... (weekly, newest first); the weather columns feed the covariate task infodengue_weather.
+          Municipality list: a static copy, kelvins/Municipios-Brasileiros (MIT licence; 5,570 municipalities with IBGE
+          code, name, lat / lon, state code), because IBGE's API timed out from NERSC twice (2026-10-27)."
 

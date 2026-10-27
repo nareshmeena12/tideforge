@@ -5,9 +5,9 @@
     python -m tideforge.slurm --check    # exit 1 if a committed script differs from what this would write
 
 Jobs:
-  e03_score.sbatch   E0.3 scoring in the background: baseline, nofill_delete and nofill_mask, groups ON and OFF, one GPU per
-                     variant (shared QOS, 3 GPUs), then the E0.3 table. score_groups resumes per (tag, task), so a job that hits
-                     its time limit is requeued and continues where it stopped.
+  e03_score.sbatch   E0.3 scoring in the background: nofill_delete and nofill_mask, groups ON and OFF, one GPU per variant
+                     (shared QOS, 2 GPUs), then the E0.3 table against tidemark's board as the baseline. score_groups resumes
+                     per (tag, task), so a job that hits its time limit is requeued and continues where it stopped.
 Submit from the log folder (the job's output lands there as <job name>-<job id>.out):
     cd $TF_ROOT/logs && sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch
 """
@@ -44,9 +44,9 @@ trap 'echo "$(date) SIGUSR1: time limit close, requeueing"; scontrol requeue "$S
 
 JOBS = {
     "e03_score": dict(
-        qos="shared", gpus=3, cpus=96, time="06:00:00",
-        what="E0.3: score ft3_main under baseline, nofill_delete, nofill_mask (groups ON + OFF), then the E0.3 table.",
-        body="""bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score --with-baseline &
+        qos="shared", gpus=2, cpus=64, time="06:00:00",
+        what="E0.3: score ft3_main under nofill_delete and nofill_mask (groups ON + OFF), then the table vs tidemark's board.",
+        body="""bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score &
 wait $! || { echo "$(date) E0.3 scoring FAILED"; exit 1; }
 bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" table
 echo "$(date) E0.3 JOB DONE"

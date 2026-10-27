@@ -4,21 +4,21 @@
 #SBATCH -C gpu
 #SBATCH -q shared
 #SBATCH -N 1
-#SBATCH --gpus=3
-#SBATCH -c 96
+#SBATCH --gpus=2
+#SBATCH -c 64
 #SBATCH -t 06:00:00
 #SBATCH -J e03_score
 #SBATCH -o %x-%j.out
 #SBATCH --signal=B:USR1@120
 #SBATCH --requeue
 #SBATCH --open-mode=append
-# E0.3: score ft3_main under baseline, nofill_delete, nofill_mask (groups ON + OFF), then the E0.3 table.
+# E0.3: score ft3_main under nofill_delete and nofill_mask (groups ON + OFF), then the table vs tidemark's board.
 set -u
 source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 echo "$(date) job $SLURM_JOB_ID on $(hostname), restart count ${SLURM_RESTART_COUNT:-0}"
 # two minutes before the time limit: requeue (the scorer resumes per task, so nothing is lost but the task in progress)
 trap 'echo "$(date) SIGUSR1: time limit close, requeueing"; scontrol requeue "$SLURM_JOB_ID"; exit 0' USR1
-bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score --with-baseline &
+bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score &
 wait $! || { echo "$(date) E0.3 scoring FAILED"; exit 1; }
 bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" table
 echo "$(date) E0.3 JOB DONE"

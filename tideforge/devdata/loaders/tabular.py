@@ -11,14 +11,16 @@ from pathlib import Path
 import pandas as pd
 
 READ_KEYS = {"format", "zip_member", "strip_columns", "drop_first_rows", "record_path", "normalize", "encoding", "melt",
-             "fillna"}
+             "fillna", "rename_regex"}
 
 
 def _frames(path: Path, read: dict):
     """One DataFrame per table in the file (a zip may hold several members)."""
     opts = {k: v for k, v in read.items() if k not in READ_KEYS}
     fmt = read.get("format", "csv")
-    if path.suffix == ".zip":
+    with open(path, "rb") as fh:                    # by content, not name: some endpoints answer .csv with a zip or gzip
+        magic = fh.read(4)
+    if path.suffix == ".zip" or magic[:4] == b"PK\x03\x04":
         pat = re.compile(read.get("zip_member", r".*\.(csv|txt|tsv|parquet|json)$"), re.I)
         with zipfile.ZipFile(path) as z:
             for name in sorted(z.namelist()):
@@ -26,7 +28,7 @@ def _frames(path: Path, read: dict):
                     with z.open(name) as fh:
                         yield _parse(io.BytesIO(fh.read()), fmt, opts, read, None)
         return
-    comp = "gzip" if path.suffix == ".gz" else None
+    comp = "gzip" if path.suffix == ".gz" or magic[:2] == b"\x1f\x8b" else None
     yield _parse(path, fmt, opts, read, comp)
 
 
@@ -53,6 +55,8 @@ def _parse(src, fmt, opts, read, comp):
         df.columns = [str(c).strip() for c in df.columns]
     n = int(read.get("drop_first_rows", 0) or 0)
     df = df.iloc[n:].reset_index(drop=True) if n else df
+    for pat, new in (read.get("rename_regex") or {}).items():      # e.g. USGS "<ts_id>_00060_00003" -> "flow"
+        df = df.rename(columns={c: new for c in df.columns if re.search(pat, str(c))})
     if read.get("fillna") is not None:            # e.g. 0 where a missing cell means "no events"
         df = df.fillna(read["fillna"])
     if read.get("melt"):            # wide (one column per series) -> long: melt: {id_vars: [time], var_name: series}
