@@ -228,4 +228,6 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 
 | ID | Date | Status | Result (one line) | Log |
 |---|---|---|---|---|
-| | | | | |
+| E0.3 | 2026-10-27 | planned | | [E0.3](experiments/E0.3.md) |
+| E0.2 | 2026-10-27 | planned | | [E0.2](experiments/E0.2.md) |
+| E0.1 | 2026-10-27 | planned | | [E0.1](experiments/E0.1.md) |
