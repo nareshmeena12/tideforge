@@ -1,0 +1,12 @@
+id: G1.10
+base: b0
+switches:
+  sc_load: {share: 0.04}
+  sc_price: {share: 0.04}
+  sc_retail: {share: 0.04}
+  sc_pv: {share: 0.04}
+  sc_events: {share: 0.04}
+  causal_graph: {share: 0.08}
+seeds: [0]
+notes: >-
+  scenarios 0.04 each + causal graph 0.08: 0.7 x 0.28 / 1.28 = 15.3% of blocks (2.2% each, graph 4.4%).

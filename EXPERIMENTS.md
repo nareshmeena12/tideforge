@@ -112,6 +112,22 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G1.12 | Static / categorical covariates passed as constant known lanes (no model change). |
 | G1.13 | Model M1: known covariates see the whole window, with a firewall (covariates never read targets). Then the 2x2: B0 / best G1 data / M1 / both. |
 
+- 2026-10-28 (owner): G1.11 is 1-7 covariates (8-lane limit), P = (0.35, 0.25, 0.15, 0.10, 0.07, 0.05, 0.03); more than 7
+  needs more lanes, a model change (future work).
+- 2026-10-28 (owner): G1.5 uses a plain holiday flag; the holiday source is pluggable (`g1_common.HOLIDAYS`, switch param
+  `holidays`) so G2's calendar engine replaces it without touching the retail code.
+- 2026-10-28 (owner): G1.9 decoys = descendants, siblings and unrelated nodes; descendants are always past-only (their future
+  would reveal the target's). A known sibling's future stays partly informative through the shared parent (realistic).
+  Parent roles are drawn known / past 0.5 each, independent of the lag.
+- 2026-10-28 (owner): resolutions sc_load 15 min / 30 min / hourly / daily 0.2 / 0.15 / 0.45 / 0.2, sc_pv the same without
+  daily, sc_price 15 min / hourly 0.3 / 0.7, sc_retail and sc_events daily / weekly 0.75 / 0.25 (weekly = sums of 7 days).
+  Shares: 0.15 in the single configs (G1.3-G1.7, G1.9), 0.05 each in G1.8 (14.0% of blocks), 0.04 each + graph 0.08 in
+  G1.10 (15.3%).
+- 2026-10-28: G1.12 NOT built. ft3 normalises every lane by its own running mean / sd (`_causal_stats`, then asinh), so a
+  constant lane is exactly 0 after normalisation for any value (checked: 0.3, -0.7, 5.0 all give z = 0); a constant plus a
+  small fixed pattern loses the constant too. An encoding that survives must live in the lane's shape; waiting for the
+  owner.
+
 ### G2. Calendar engine
 - Probes P2: holiday effect with and without its flag; a moving festival; a different weekend definition.
 - Dev slice: TSA, Eurocontrol, Iowa liquor, Agmarknet, Seattle library, transit ridership.

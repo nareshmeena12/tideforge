@@ -174,4 +174,14 @@ print(f"\nGROUPS (V={V}, group_prob {gp}, cov_r3 {gc.cov_r3}): lanes in a relate
 ROW.update(target_known=round(100 * tgt_with_known / n_lanes, 2), target_past=round(100 * tgt_with_past / n_lanes, 2),
            target_any_cov=round(100 * tgt_with_cov / n_lanes, 2),
            in_group=round(100 * float(in_group.mean()), 2))
+from tideforge.gen import groups as _groups  # noqa: E402
+kp = np.array(_groups.GROUP_KIND_PROBS)
+# added kinds (G1): share of blocks = group_prob x p / sum(p), one column "name:share;..."
+ROW["added_kinds"] = ";".join(f"{nm}:{100 * gp * pk / kp.sum():.2f}" for nm, pk in zip(_groups.GROUP_KINDS[5:], kp[5:]))
+xt = x.numpy()[(role == G.ROLE_TARGET) & in_group]
+xt = xt[np.isfinite(xt).all(1)]
+ROW.update(group_tgt_zero20=round(100 * float(np.mean((xt == 0).mean(1) > 0.2)), 2),
+           group_tgt_integer=round(100 * float(np.mean(np.all(np.abs(xt - np.round(xt)) < 1e-6, 1))), 2))
+print(f"   added kinds (% of blocks): {ROW['added_kinds'] or 'none'}; group targets with > 20% zeros "
+      f"{ROW['group_tgt_zero20']}%, integer {ROW['group_tgt_integer']}%")
 write_row()
