@@ -87,6 +87,20 @@ def scenario_ratios(tgt, covs, roles, gr) -> np.ndarray:
     return np.array(out)
 
 
+def coarse_grid(gr: dict, k: int) -> dict:
+    """The clock of rows aggregated by k fine steps (value at each block's first step)."""
+    out = {key: v[:, ::k] for key, v in gr.items() if key != "dt"}
+    out["dt"] = gr["dt"] * k
+    return out
+
+
+def coarse_ratios(build, dt: float, k: int, n: int, L: int, g) -> np.ndarray:
+    """scenario_ratios on rows built at dt and aggregated by k (daily load: dt 1, k 24; weekly retail / events: dt 24, k 7)."""
+    from tideforge.gen.ext import g1_common as C
+    tgt, covs, roles, _, infos = C.by_resolution(g, n, L, ((dt, k, 1.0),), build, "cpu")
+    return scenario_ratios(tgt, covs, roles, coarse_grid(infos[0]["gr"], k))
+
+
 def lag_bucket(lag: int) -> str:
     return "lag 0" if lag == 0 else f"lag 1-{H - 1}" if lag < H else f"lag >= {H}"
 

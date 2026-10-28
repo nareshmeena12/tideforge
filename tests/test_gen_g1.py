@@ -281,6 +281,16 @@ def test_oracle_true_covariates_help(name, dt):
     assert med < 0.9                                                         # gain of at least 10%
 
 
+@pytest.mark.parametrize("name,dt,k", [("sc_load", 1.0, 24), ("sc_retail", 24.0, 7), ("sc_events", 24.0, 7)])
+def test_oracle_coarse_rows(name, dt, k):
+    m, _ = BUILD[name]
+    rr = O.coarse_ratios(m.build, dt, k, 48, 512 if k == 24 else 1024, gen(1))
+    med = float(np.nanmedian(rr))
+    print(f"\noracle {name} coarse (dt {dt} x {k}): median {med:.3f} (q25 {np.nanpercentile(rr, 25):.3f}, "
+          f"q75 {np.nanpercentile(rr, 75):.3f})")
+    assert med < 0.9
+
+
 def test_oracle_graph_by_role_and_lag():
     X, info = graph_nodes()
     rk = (torch.rand(X.shape[0], X.shape[1], generator=gen(9)) < 0.5).numpy()

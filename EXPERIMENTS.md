@@ -111,6 +111,7 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G1.11 | Number of covariates: realistic 1-13 vs today's 2-8 (lanes permitting). |
 | G1.12 | Static / categorical covariates passed as constant known lanes (no model change). |
 | G1.13 | Model M1: known covariates see the whole window, with a firewall (covariates never read targets). Then the 2x2: B0 / best G1 data / M1 / both. |
+| G1.14 | G1.1 + G1.8 together (planned 2x2 with B0, G1.1, G1.8; exception to rule 1). |
 
 - 2026-10-28 (owner): G1.11 is 1-7 covariates (8-lane limit), P = (0.35, 0.25, 0.15, 0.10, 0.07, 0.05, 0.03); more than 7
   needs more lanes, a model change (future work).
@@ -123,10 +124,11 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
   daily, sc_price 15 min / hourly 0.3 / 0.7, sc_retail and sc_events daily / weekly 0.75 / 0.25 (weekly = sums of 7 days).
   Shares: 0.15 in the single configs (G1.3-G1.7, G1.9), 0.05 each in G1.8 (14.0% of blocks), 0.04 each + graph 0.08 in
   G1.10 (15.3%).
-- 2026-10-28: G1.12 NOT built. ft3 normalises every lane by its own running mean / sd (`_causal_stats`, then asinh), so a
-  constant lane is exactly 0 after normalisation for any value (checked: 0.3, -0.7, 5.0 all give z = 0); a constant plus a
-  small fixed pattern loses the constant too. An encoding that survives must live in the lane's shape; waiting for the
-  owner.
+- 2026-10-28 (owner): G1.12 dropped for now. ft3's per-lane scaling erases constants (0.3 / -0.7 / 5.0 all become exactly
+  0 after `_causal_stats` + asinh), so static covariates need a model change (a static embedding, future "M2"). Not
+  tested, not negative.
+- 2026-10-28 (owner): G1.14 = G1.1 + G1.8 together. G1.1 (count), G1.8 (realism at the same count) and G1.14 (both) form a
+  planned 2x2 with B0: an exception to rule 1 (one switch per experiment), like G1.13.
 
 ### G2. Calendar engine
 - Probes P2: holiday effect with and without its flag; a moving festival; a different weekend definition.

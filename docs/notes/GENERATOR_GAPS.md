@@ -58,7 +58,9 @@ oneoff on; breaks, tv_season, sarima, bursty off; cov_r3 on; cov_small_group_p, 
 
 ## Model-side items
 - Known-covariate attention over the whole window (TIMESTRAL_GAP #4).
-- Static/categorical inputs.
+- Static/categorical inputs (future M2, a static embedding). 2026-10-28: ft3 scales every lane by its own running mean /
+  sd, so a constant lane becomes exactly 0 whatever its value (checked 0.3 / -0.7 / 5.0); static covariates cannot be
+  passed as lanes. G1.12 dropped: not tested, not negative.
 - Calendar input.
 - 32K context and DHF.
 - 21 quantiles and the refine frame.
