@@ -1,0 +1,6 @@
+id: G5.2a
+base: b0
+switches:
+  amfm: {share: 0.04, mode: add}
+seeds: [0]
+notes: amfm family added at 4% of rows (the others renormalised). Rule 6 add arm; G5.2b is the replace arm.

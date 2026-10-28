@@ -1,0 +1,6 @@
+id: G9.1c
+base: b0
+switches:
+  ode: {share: 0.10, mode: add}
+seeds: [0]
+notes: ode at 10% of rows, in case 5% (G9.1a) shows nothing at 5M (owner 2026-10-28).

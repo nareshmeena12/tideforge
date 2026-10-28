@@ -26,6 +26,13 @@ Status of this file: plan agreed on 2026-10-27. Each experiment gets its own log
 8. **Negative results are results.** A gap that fails at 5M is logged as "negative at 5M, not tested at larger size",
    not as "does not work". This matters most for G3 (seen-once history) and G1.11 (many covariates).
 
+- 2026-10-28 (owner): rule 6's "the family it is closest to" is read as "the closest families with enough weight". A replace
+  arm takes the add arm's share from the listed families in order (each emptied before the next); when they hold less, it
+  takes all of them and is smaller than the add arm (said in its config). Pairs (B0 shares): amfm (4%) and beats (3%) <- tsi
+  (6.33%); irregular_cycles (4%) <- long_cycle (9.49%); demand (5%) <- count + intermittent (3.16%, all); ode (5%) <-
+  damped_osc + nonlinear_ar (1.27%) then 3.73% from gp_kernel (the two are too small); tar (3%) <- regime_switch +
+  nonlinear_ar (1.90%, all); garch_jump (4%) <- stochastic_vol (2.53%, all).
+
 ## 2. Scores every run reports
 
 - Fast dev score: ~15k windows, geometric mean of scaled error per dataset, every dataset weighted equally.
@@ -200,6 +207,9 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G5.3 | Beats of two close periods (tides 12.42 h + 12 h, spring-neap). |
 | G5.4 | Cycles of irregular length (sunspots 9-14 years, ENSO 2-7 years). |
 
+- 2026-10-28 (owner): G5.2-G5.4 are families (tideforge/gen/ext/g5_cycles.py), each with an add (a) and a replace (b) config;
+  add shares 4% / 3% / 4%.
+
 ### G6. True missing values
 - Probe P6: random, block and periodic gaps.
 - Dev slice: sources with real gaps (OpenAQ, NDBC, USGS) plus gaps inserted into clean dev series.
@@ -223,6 +233,10 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G7.3 | Stockout censoring (zeros meaning no stock, then a rebound). |
 | G7.4 | Larger share of integer-valued series (today ~3%). |
 
+- 2026-10-28 (owner): G7.1 = the demand family (5% add, G7.1a; replace G7.1b; 10% add G7.1c in case 5% shows nothing at 5M).
+  G7.2 is demand's `lifecycle_p` 0.5 and is compared with G7.1a, not B0. G7.3 is an H8 hook on count lanes (stockout zeros
+  stay observed values; `unobserved: true` writes NaN instead, for later).
+
 ### G8. Hierarchies
 - Probe P8: coherence (do the parts add up to the total forecast?).
 - Dev slice: Iowa liquor by store / county / state, Eurostat regional levels.
@@ -230,6 +244,10 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | ID | Change |
 |---|---|
 | G8.1 | Hierarchical group kind: children sum to parents; parents smoother. |
+
+- 2026-10-28 (owner): group-size rules (H6) are a list; each group kind is claimed by at most one rule (an error at install
+  time otherwise). G8.1 claims `hierarchy` (g in 3..8), cov_count claims the covariate kinds. "Parents smoother" is measured
+  against the children's level-weighted roughness (one dominant child makes the parent about as rough as that child).
 
 ### G9. Nonlinear dynamics
 - Probe P9: ODE trajectories.
@@ -240,6 +258,12 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G9.1 | ODE pool generated offline (Lotka-Volterra, seasonally forced SIR, van der Pol, Duffing). |
 | G9.2 | Threshold / smooth-transition AR. |
 
+- 2026-10-28 (owner): the ODE pool (tools/build_ode_pool.py, plus Lorenz) is built on Perlmutter into $TF_DATA/pools; only the
+  builder and its manifest (sha256, scipy version, seed) are committed; generation refuses to run if the sha differs.
+  G9.1c = ode at 10% add. tar (G9.2) and garch_jump (G10.1) have an optional offline pool (tools/build_loop_pool.py, off by
+  default, switch param `pool`): they switch to it if `gen_throughput --loops` on GPU shows the loop above 10% of B0's
+  generator time at their share.
+
 ### G10. Financial tails
 - Probe P10: interval calibration under heavy tails (not point skill).
 - Dev slice: crypto pairs other than BTC / ETH / LTC / BCH, FX, equities.
@@ -247,6 +271,9 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | ID | Change |
 |---|---|
 | G10.1 | Jumps and the leverage effect. |
+
+- 2026-10-28: G10.1's jump sizes are in units of the return sd, mu_J in [-3, 1], sigma_J in [2, 6]; the proposal's
+  [-0.05, 0.02] / [0.02, 0.1] were too small to be jumps (corrected before any run).
 
 ---
 

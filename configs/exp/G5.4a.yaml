@@ -1,0 +1,6 @@
+id: G5.4a
+base: b0
+switches:
+  irregular_cycles: {share: 0.04, mode: add}
+seeds: [0]
+notes: irregular_cycles added at 4% of rows. Rule 6 add arm. Probes P5 and P3.

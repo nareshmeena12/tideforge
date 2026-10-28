@@ -1,0 +1,6 @@
+id: G7.1c
+base: b0
+switches:
+  demand: {share: 0.10, mode: add}
+seeds: [0]
+notes: demand at 10% of rows, in case 5% (G7.1a) shows nothing at 5M (owner 2026-10-28).

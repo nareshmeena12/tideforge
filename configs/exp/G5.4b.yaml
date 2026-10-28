@@ -1,0 +1,6 @@
+id: G5.4b
+base: b0
+switches:
+  irregular_cycles: {share: 0.04, mode: "replace:long_cycle"}
+seeds: [0]
+notes: irregular_cycles takes 4% of rows from long_cycle (9.49% -> 5.49%). Rule 6 replace arm.

@@ -1,0 +1,8 @@
+id: G9.1b
+base: b0
+switches:
+  ode: {share: 0.05, mode: "replace:damped_osc+nonlinear_ar+gp_kernel"}
+seeds: [0]
+notes: >-
+  ode takes 5% of rows: all of damped_osc + nonlinear_ar (1.27%), then 3.73% from gp_kernel (7.59% -> 3.86%): the two
+  closest families are too small for 5% (owner 2026-10-28: gp_kernel only then). Rule 6 replace arm.

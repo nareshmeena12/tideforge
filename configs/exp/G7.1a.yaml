@@ -1,0 +1,6 @@
+id: G7.1a
+base: b0
+switches:
+  demand: {share: 0.05, mode: add}
+seeds: [0]
+notes: demand family (Croston / Poisson / NB counts, promotions) added at 5% of rows. Rule 6 add arm.

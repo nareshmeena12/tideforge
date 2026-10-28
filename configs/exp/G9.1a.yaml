@@ -1,0 +1,6 @@
+id: G9.1a
+base: b0
+switches:
+  ode: {share: 0.05, mode: add}
+seeds: [0]
+notes: ode family (crops of the pool ode_v1 in $TF_DATA/pools) added at 5% of rows. Rule 6 add arm.

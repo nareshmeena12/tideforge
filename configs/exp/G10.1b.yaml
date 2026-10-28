@@ -1,0 +1,6 @@
+id: G10.1b
+base: b0
+switches:
+  garch_jump: {share: 0.04, mode: "replace:stochastic_vol"}
+seeds: [0]
+notes: garch_jump takes all of stochastic_vol (2.53% of rows; less than the add arm 4%). Rule 6 replace arm.

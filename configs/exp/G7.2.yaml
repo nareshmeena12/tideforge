@@ -1,0 +1,6 @@
+id: G7.2
+base: b0
+switches:
+  demand: {share: 0.05, mode: add, lifecycle_p: 0.5}
+seeds: [0]
+notes: G7.1a with a life-cycle envelope on half the demand rows. Compared with G7.1a, not B0 (owner 2026-10-28).

@@ -1,0 +1,8 @@
+id: G7.1b
+base: b0
+switches:
+  demand: {share: 0.05, mode: "replace:count+intermittent"}
+seeds: [0]
+notes: >-
+  demand takes all of count + intermittent (3.16% of rows; less than the add arm 5%: the replace arm is smaller). Rule 6
+  replace arm, closest families with enough weight (owner 2026-10-28).

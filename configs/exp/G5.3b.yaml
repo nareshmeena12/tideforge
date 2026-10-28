@@ -1,0 +1,6 @@
+id: G5.3b
+base: b0
+switches:
+  beats: {share: 0.03, mode: "replace:tsi"}
+seeds: [0]
+notes: beats takes 3% of rows from tsi (6.33% -> 3.33%). Rule 6 replace arm.

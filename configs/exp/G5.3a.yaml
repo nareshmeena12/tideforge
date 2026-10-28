@@ -1,0 +1,6 @@
+id: G5.3a
+base: b0
+switches:
+  beats: {share: 0.03, mode: add}
+seeds: [0]
+notes: beats family (40% tide rows) added at 3% of rows. Rule 6 add arm.

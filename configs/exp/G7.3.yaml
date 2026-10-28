@@ -1,0 +1,6 @@
+id: G7.3
+base: b0
+switches:
+  stockout: {share: 0.3, unobserved: false}
+seeds: [0]
+notes: stockout runs (zeros, then a rebound) on 30% of the count lanes (H8); zeros stay observed values.

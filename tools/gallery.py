@@ -56,8 +56,11 @@ def main(argv=None) -> int:
             if e.gen == e.base:
                 print(f"{e.id}: generator = base (train: {e.train}), no gallery")
                 continue
-            main(["--exp", e.id, "--blocks", str(a.blocks), "--L", str(a.L), "--seed", str(a.seed),
-                  "--out", str(REPO / "runs" / "gallery" / f"{e.id}.png")])
+            try:
+                main(["--exp", e.id, "--blocks", str(a.blocks), "--L", str(a.L), "--seed", str(a.seed),
+                      "--out", str(REPO / "runs" / "gallery" / f"{e.id}.png")])
+            except RuntimeError as err:                    # e.g. G9.1 without its pool: say so, go on
+                print(f"{e.id}: skipped ({err})")
         return 0
     base, gc, label = gc_from_cli(a.base, a.exp, a.switch, a.param, a.set_)
     _hooks.STRICT = True

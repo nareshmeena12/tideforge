@@ -1,0 +1,6 @@
+id: G5.2b
+base: b0
+switches:
+  amfm: {share: 0.04, mode: "replace:tsi"}
+seeds: [0]
+notes: amfm takes 4% of rows from tsi (6.33% -> 2.33%). Rule 6 replace arm.
