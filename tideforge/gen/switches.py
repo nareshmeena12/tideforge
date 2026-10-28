@@ -1,7 +1,7 @@
 """Registry of tideforge generator switches (EXPERIMENTS.md rule 2: every change is a switch, off by default).
 
 A switch is off unless it is listed in GenConfig.switches. When on, its `install(params, inst)` registers what it changes through
-the Installer: new families, layer overrides (H1), hooks at H2-H4 / H7-H8, new group kinds (H5), a group-size rule (H6). The
+the Installer: new families, layer overrides (H1), hooks at H2-H4 / H7-H8, new group kinds (H5), group-size rules (H6, one per kind). The
 generated v0 modules are never edited for a switch; the code lives in tideforge/gen/ext/. configure() first restores v0 (tables,
 profiles, hooks), then installs the active switches in name order, so configure(b0()) after any switch config is v0 again.
 
@@ -123,7 +123,9 @@ class Installer:
                    allow_add: bool = True, passthrough: bool = False, mode: str = "add") -> None:
         """mode "add": the family gets `weight` on top of the profile's weights (_allocate renormalises the others).
         mode "replace:<family>": the new family takes exactly `weight` from <family> (error if <family> has less); it is
-        placed right after <family>, so the other families' row counts stay as they were."""
+        placed right after <family>, so the other families' row counts stay as they were.
+        mode "replace:<a>+<b>+...": `weight` is taken from the listed families in that order (each emptied before the next is
+        touched); placed right after <a>."""
         if not (weight > 0):
             raise ValueError(f"{self.name}: weight must be > 0")
         if mode != "add" and not mode.startswith("replace:"):
@@ -139,14 +141,19 @@ class Installer:
         if mode == "add":
             w[family] = float(weight)
         else:
-            old = mode.split(":", 1)[1]
-            have = w.get(old, 0.0)
+            olds = mode.split(":", 1)[1].split("+")
+            have = sum(w.get(o, 0.0) for o in olds)
             if have + 1e-12 < weight:
-                raise ValueError(f"{self.name}: replace:{old} needs weight {weight}, but {old} has {have} in profile "
+                raise ValueError(f"{self.name}: {mode} needs weight {weight}, but {'+'.join(olds)} has {have} in profile "
                                  f"{self.profile!r}")
-            rest = have - weight
+            need = float(weight)
+            for o in olds:
+                take = min(need, w.get(o, 0.0))
+                rest = w.get(o, 0.0) - take
+                w[o] = 0.0 if abs(rest) < 1e-12 else rest
+                need -= take
             w = {k2: v2 for k, v in w.items()
-                 for k2, v2 in (((k, 0.0 if abs(rest) < 1e-12 else rest), (family, float(weight))) if k == old else ((k, v),))}
+                 for k2, v2 in (((k, v), (family, float(weight))) if k == olds[0] else ((k, v),))}
         _profiles.FAMILIES[family] = (fn, bool(is_count), bool(is_nonneg), bool(allow_add), 0.0)
         if passthrough:
             _profiles.PASSTHROUGH_FAMILIES.add(family)
@@ -195,13 +202,19 @@ class Installer:
                 raise KeyError(f"{self.name}: profile {self.profile!r} has no setting {key!r}")
             _profiles.GEN_PROFILES[self.profile] = dict(pr, **{key: fn(pr[key])})
 
-    def set_group_size(self, fn: Callable) -> None:
-        """fn(g, kind, is_group, V, ctx) -> g (first group of a block; the optional second group keeps v0's sizes)."""
-        self.plan.append(("group_size", self.name, _qual(fn)))
+    def set_group_size(self, fn: Callable, kinds) -> None:
+        """fn(g, kind, is_group, V, ctx) -> g (first group of a block; the optional second group keeps v0's sizes). The rule
+        applies only to the group kinds it claims (names); a kind claimed by two rules is an error at install time."""
+        kinds = tuple(sorted(kinds))
+        if not kinds:
+            raise ValueError(f"{self.name}: a group-size rule must claim at least one group kind")
+        self.plan.append(("group_size", self.name, kinds, _qual(fn)))
         if self.apply:
-            if _hooks.GROUP_SIZE:
-                raise ValueError(f"{self.name}: the group size is already set by {_hooks.GROUP_SIZE[0][0]!r}")
-            _hooks.GROUP_SIZE.append((self.name, fn))
+            for sw, ks, _ in _hooks.GROUP_SIZE:
+                both = sorted(set(ks) & set(kinds))
+                if both:
+                    raise ValueError(f"{self.name}: group kind(s) {both} already have a size rule from {sw!r}")
+            _hooks.GROUP_SIZE.append((self.name, kinds, fn))
 
 
 def _qual(fn) -> str:

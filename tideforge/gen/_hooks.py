@@ -38,7 +38,7 @@ PRIORITY = {"structure": 100, "observation": 200, "gaps": 300}
 HOOKS: dict[str, list[tuple[int, str, Callable]]] = {p: [] for p in POINTS}
 LAYER_OVERRIDES: dict[str, tuple[str, Callable]] = {}
 GROUP_KINDS_EXT: dict[str, tuple[str, Callable]] = {}
-GROUP_SIZE: list[tuple[str, Callable]] = []        # at most one
+GROUP_SIZE: list[tuple[str, tuple, Callable]] = []  # (switch, claimed kinds, fn): each kind claimed by at most one rule
 STRICT = False                                     # True: fail if a hook touches the global RNG (tests, gallery, audit)
 
 _seed = 0
@@ -166,15 +166,20 @@ def group_kind(name, z, act, mu, sd, device):
 
 
 def group_size(g, kind, is_group, V, device):
-    """H6: fn(g, kind, is_group, V, ctx) -> g, every size in [2, V]."""
+    """H6: each rule fn(g, kind, is_group, V, ctx) -> g, every size in [2, V]; its result is kept only for the blocks whose kind
+    it claims (names; kinds not installed are ignored). Rules run in switch-name order; no rule = g unchanged, no draw."""
     if not GROUP_SIZE:
         return g
-    sw, fn = GROUP_SIZE[0]
-    ctx = Ctx("blocks", torch.device(device), 0, switch=sw)
-    g2 = _call(sw, "group_size", device, fn, g, kind, is_group, V, ctx)
-    if g2.shape != g.shape or bool((g2 < 2).any() or (g2 > V).any()):
-        raise RuntimeError(f"switch {sw!r}: group sizes must keep their shape and lie in [2, {V}]")
-    return g2
+    from tideforge.gen import groups as _groups
+    names = _groups.GROUP_KINDS
+    for sw, kinds, fn in GROUP_SIZE:
+        ctx = Ctx("blocks", torch.device(device), 0, switch=sw)
+        g2 = _call(sw, "group_size", device, fn, g, kind, is_group, V, ctx)
+        if g2.shape != g.shape or bool((g2 < 2).any() or (g2 > V).any()):
+            raise RuntimeError(f"switch {sw!r}: group sizes must keep their shape and lie in [2, {V}]")
+        own = torch.tensor([nm in kinds for nm in names], device=g.device)
+        g = torch.where(own[kind], g2, g)
+    return g
 
 
 def run_groups(point, x, role, lgid, device):

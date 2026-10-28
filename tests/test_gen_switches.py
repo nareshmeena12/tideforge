@@ -95,7 +95,7 @@ def _identity_switch(seen):
         inst.add_hook("final_blocks", mark("H8", lambda x, r, l, ctx: (x, r, l)), "gaps")
         for layer in _hooks.LAYERS:
             inst.override_layer(layer, mark(layer, lambda args, kwargs, out, ctx: out))
-        inst.set_group_size(mark("H6", lambda g, kind, is_group, V, ctx: g))
+        inst.set_group_size(mark("H6", lambda g, kind, is_group, V, ctx: g), ("mix",))
     register(Switch("t_identity", "TEST", "identity at every hook point", install))
 
 
@@ -241,7 +241,7 @@ def test_replace_family_needs_enough_weight():
 def test_group_kind_and_size_hooks():
     def install(p, inst):
         inst.add_group_kind("t_copy", lambda z, act, mu, sd, ctx: (z * sd + mu, torch.zeros(z.shape[:2], dtype=torch.long)), 0.5)
-        inst.set_group_size(lambda g, kind, is_group, V, ctx: torch.full_like(g, 2))
+        inst.set_group_size(lambda g, kind, is_group, V, ctx: torch.full_like(g, 2), ("t_copy",))
     register(Switch("t_kind", "TEST", "", install))
     x, role, lgid = port_blocks(STRESS_GC.with_changes(switches={"t_kind": True}), N=32)()
     assert G.groups.GROUP_KINDS[-1] == "t_copy" and len(G.groups.GROUP_KIND_PROBS) == 6
@@ -251,7 +251,7 @@ def test_group_kind_and_size_hooks():
 
 
 def test_bad_group_size_fails():
-    register(Switch("t_size", "TEST", "", lambda p, inst: inst.set_group_size(lambda g, k, i, V, ctx: g * 0 + V + 1)))
+    register(Switch("t_size", "TEST", "", lambda p, inst: inst.set_group_size(lambda g, k, i, V, ctx: g * 0 + V + 1, ("mix",))))
     with pytest.raises(RuntimeError, match="group sizes"):
         port_blocks(STRESS_GC.with_changes(switches={"t_size": True}), N=4, L=64)()
 

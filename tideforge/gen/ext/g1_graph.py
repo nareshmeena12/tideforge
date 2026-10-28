@@ -12,7 +12,7 @@ causal_graph: K in {3..min(8, V)} nodes in a random order; edge i -> j (i < j) w
            target: always past (their future would reveal the target's); siblings, other ancestors, unrelated nodes and the
            unused lanes (nodes >= K are the block's own v0 series): decoys, known or past at random
   lanes    target in lane 0, then parents, then the rest (random order within the group's g - 1 slots); in the lane's v0 scale
-cov_count: in known_cov, past_cov and every G1 scenario / graph kind, the number of covariates k in 1..7 is drawn with
+cov_count: in known_cov, past_cov and every G1 / G2 covariate kind (COV_KINDS), the number of covariates k in 1..7 is drawn with
   P = (0.35, 0.25, 0.15, 0.10, 0.07, 0.05, 0.03), g = 1 + k (capped at V); other kinds keep v0's sizes. More than 7 needs
   more lanes (a model change; EXPERIMENTS.md G1.11).
 """
@@ -20,14 +20,14 @@ from __future__ import annotations
 
 import torch
 
-from tideforge.gen import _hooks
-from tideforge.gen import groups as _groups
 from tideforge.gen.ext import g1_common as C
 from tideforge.gen.ext._rand import bern, randint, u
 from tideforge.gen.groups import ROLE_KNOWN, ROLE_PAST
 from tideforge.gen.switches import Switch, register
 
 COUNT_P = (0.35, 0.25, 0.15, 0.10, 0.07, 0.05, 0.03)
+# the covariate kinds cov_count sizes: v0's two and every covariate kind of G1 / G2 (a new covariate kind is added here)
+COV_KINDS = ("known_cov", "past_cov", "causal_graph", "cal_cov", "sc_load", "sc_price", "sc_pv", "sc_retail", "sc_events")
 
 
 def _std(x):
@@ -117,11 +117,9 @@ def _install_count(p, inst):
 
     def fn(g, kind_, is_group, V, ctx):
         gen, dev = ctx.rng(), g.device
-        names = _groups.GROUP_KINDS
-        cov = torch.tensor([nm in ("known_cov", "past_cov") or nm in _hooks.GROUP_KINDS_EXT for nm in names], device=dev)
         k = 1 + C.choice(gen, g.shape[0], probs, dev)
-        return torch.where(cov[kind_], (1 + k).clamp(max=V), g)
-    inst.set_group_size(fn)
+        return (1 + k).clamp(max=V)
+    inst.set_group_size(fn, COV_KINDS)
 
 
 register(Switch("causal_graph", "G1.9", "causal-graph covariates (group kind)", _install_graph, dict(share=0.15)))
