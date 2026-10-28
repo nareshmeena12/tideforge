@@ -132,6 +132,9 @@ T3 requirements already fixed (owner 2026-10-28; the batcher port must meet them
   today copies NaN into X with mask True.
 - G1.2: tideforge/gen/ext/g1_lead_noise.lead_noise on the known lanes, from the start of the CPM-hidden span, for cells that
   have one (configs/exp/G1.2.yaml, `train: lead_noise`). G3.3: `train: long_row_frac`.
+- G4.3: break placement moves to crop time: place breaks relative to the cropped context (last 10-30% of it), not the
+  block. The generator-side `breaks_late` (46.3% of breaks in the last 10-30% of the real context under ft3_main's layout
+  sampler, v0 15.9%; owner rule was >= 50%) stays as the fallback.
 
 T0 scaffold: package skeleton, pyproject, v0 generator port + parity test (E0.1), scorer wrapper reproducing ft3_main
 (E0.2), NaN check (E0.3). T1 dev data v1 (E0.4) and the public-model sanity check (E0.5). T2 probe suite (E0.6). T3 5M
