@@ -4,6 +4,9 @@
                   REPLACED on every row (owner 2026-10-28): the exposed rows (allow_add rows with probability `exposure`,
                   0.3 = v0's rate) get x + the engine's calendar effect, all other rows get x unchanged. Changes values
                   before the noise layer, so on CPU later poisson draws can shift (switches.py).
+                  DST rows (G2.5, dst_p): after a spring-forward the local-time row needs one hour more of the family's
+                  series than the window holds, so the last local hour repeats the final step (at most one hour per row;
+                  a shift would only move the repeat to the start). Not fixed: the layer cannot see beyond the window.
   cal_cov         (G2.2) group kind (H5): the target is the block's lane-0 v0 series with the engine's effects; in a share
                   `show` (0.5) of the groups the known covariate lanes hold the holiday-type code, weekend, bridge and payday
                   flags, in the rest those lanes are the block's own v0 series (decoys). Flags can only be shown for group

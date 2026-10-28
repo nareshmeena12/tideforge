@@ -157,6 +157,10 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 - 2026-10-28 (owner): G2.2 = cal_engine + the cal_cov group kind with flags shown in 50% of its groups. This differs from
   "50% of rows": generate_batch shuffles rows after H4, so a row's calendar cannot follow it into a block, and flags can
   only be shown for group targets.
+- 2026-10-28 (owner): G2.4 waits for batch 2 of the dev data: at least 2 human-activity sources (load, retail, traffic,
+  transit, footfall) per held-out country (GB, IN, KR, AU, BR), checked against the benchmark exclusions and tagged with
+  their country. Calendar effects show only in human-activity series, so GHCN weather stations do not count. Today the
+  tags give GB 0, IN 0, KR 0, AU 1, BR 2 datasets.
 - 2026-10-28: the calendar table (tools/build_calendars.py, holidays 0.107) is committed with its sha256; the builder's
   --check fails when a rebuild differs. The holidays package lacks some lunisolar dates (Diwali: IN 2001-2035, LK 2004-2026;
   NP's Tihar 2010-2035); each calendar has a valid year range and windows are placed inside it, never on invented dates.
