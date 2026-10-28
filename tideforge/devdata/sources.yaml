@@ -12,6 +12,7 @@ batches:
 # ------------------------------------------------------------------------------------------------ weather and ocean
 D053:
   slug: ghcn_daily
+  country: {prefix: 2, codes: fips}
   index:
     url: https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt
     read: {format: fwf, header: null, colspecs: [[0, 11], [12, 20], [21, 30], [31, 35], [36, 40], [41, 45]],
@@ -41,6 +42,7 @@ D053:
 
 D054:
   slug: ghcn_hourly
+  country: {prefix: 2, codes: fips}
   index:
     url: https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv
     read: {format: csv}
@@ -67,6 +69,7 @@ D054:
 
 D057:
   slug: ndbc
+  country: multi
   index:
     url: https://www.ndbc.noaa.gov/data/stations/station_table.txt
     read: {format: csv, sep: "|", comment: "#", header: null, names: [station, owner, ttype, hull, name, payload, location, tz, forecast, note]}
@@ -89,6 +92,7 @@ D057:
 
 D058:
   slug: noaa_coops
+  country: US
   index:
     url: https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels
     read: {format: json, record_path: [stations]}
@@ -110,6 +114,7 @@ D058:
 # ------------------------------------------------------------------------------------------------ hydrology
 D074:
   slug: usgs_nwis
+  country: US
   index:
     url_template: "https://waterservices.usgs.gov/nwis/site/?format=rdb&stateCd={state}&parameterCd=00060&siteType=ST&siteStatus=active&hasDataTypeCd=dv"
     vars: {state: [al, az, ar, ca, co, ct, fl, ga, id, il, in, ia, ks, ky, la, me, md, ma, mi, mn, ms, mo, mt, ne, nv, nh, nj,
@@ -136,6 +141,7 @@ D074:
 
 D071:
   slug: camels_us
+  country: US
   loader: adapter:camels_us
   fetch:
     urls: [https://zenodo.org/api/records/15529996/files/basin_timeseries_v1p2_metForcing_obsFlow.zip/content]
@@ -149,6 +155,7 @@ D071:
 # ------------------------------------------------------------------------------------------------ energy
 D003:
   slug: eia930
+  country: US
   fetch:
     url_template: https://www.eia.gov/electricity/gridmonitor/sixMonthFiles/EIA930_BALANCE_{year}_{half}.csv
     try_without_key: true      # owner 2026-10-27: test the bulk files without a key first; else auth env EIA_API_KEY
@@ -166,6 +173,7 @@ D003:
 
 D217:
   slug: ons_brazil
+  country: BR
   fetch:
     url_template: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_{month}.csv
     vars: {month: {months: ["2022-01", "2024-12"], fmt: "%Y_%m"}}
@@ -181,6 +189,7 @@ D217:
 
 D038:
   slug: pvdaq
+  country: US
   loader: adapter:pending
   fetch:
     urls: ["https://oedi-data-lake.s3.amazonaws.com/?list-type=2&prefix=pvdaq/parquet/pvdata/&delimiter=/"]
@@ -195,6 +204,7 @@ D038:
 
 D029:
   slug: ausgrid_solar
+  country: AU
   loader: adapter:ausgrid
   fetch:
     manual: true
@@ -209,6 +219,7 @@ D029:
 # ------------------------------------------------------------------------------------------------ air
 D078:
   slug: epa_aqs
+  country: US
   fetch:
     url_template: https://aqs.epa.gov/aqsweb/airdata/hourly_{param}_{year}.zip
     vars: {param: ["44201", "88101", "42602"], year: {range: [2019, 2024]}}
@@ -224,6 +235,7 @@ D078:
 
 D084:
   slug: eea_aq
+  country: multi
   loader: adapter:pending
   fetch:
     urls: ["https://eeadmz1-downloads-api-appservice.azurewebsites.net/ParquetFile/urls"]
@@ -234,6 +246,7 @@ D084:
 # ------------------------------------------------------------------------------------------------ mobility
 D176:
   slug: citibike
+  country: US
   fetch:
     url_template: https://s3.amazonaws.com/tripdata/{month}-citibike-tripdata.zip
     vars: {month: {months: ["2024-01", "2024-12"], fmt: "%Y%m"}}
@@ -249,6 +262,7 @@ D176:
 
 D381:
   slug: paris_bikes
+  country: FR
   fetch:
     urls: ["https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/comptage-velo-donnees-compteurs/exports/csv?delimiter=%3B"]
     timeout_s: 600
@@ -266,6 +280,7 @@ D381:
 
 D181:
   slug: mta_ridership
+  country: US
   fetch:
     urls: ["https://data.ny.gov/api/views/ak4z-sape/rows.csv?accessType=DOWNLOAD"]
     timeout_s: 1800
@@ -285,6 +300,7 @@ D181:
 # ------------------------------------------------------------------------------------------------ cloud
 D314:
   slug: huawei_serverless
+  country: multi
   fetch:
     urls: ["https://drive.usercontent.google.com/download?id=1RfkSxt9TddpOHiybEJFwUXfWqpsJyqSK&export=download&confirm=t"]
     timeout_s: 1800
@@ -302,6 +318,7 @@ D314:
 
 D320:
   slug: backblaze
+  country: US
   fetch:
     url_template: https://f001.backblazeb2.com/file/Backblaze-Hard-Drive-Data/data_Q{q}_{year}.zip
     vars: {q: [1, 2, 3, 4], year: {range: [2022, 2024]}}
@@ -317,6 +334,7 @@ D320:
 # ------------------------------------------------------------------------------------------------ web
 D138:
   slug: wikimedia_pageviews
+  country: multi
   index:
     url_template: https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/all-access/2023/01/all-days
     vars: {project: [en.wikipedia]}
@@ -343,6 +361,7 @@ D138:
 # ------------------------------------------------------------------------------------------------ retail
 D347:
   slug: iowa_liquor
+  country: US
   fetch:
     url_template: https://idh-be.iowa.gov/api/v1/datasets/{dataset}/rows.csv
     vars: {dataset: ["1258", "1259", "1260", "1261", "1262", "1263"]}
@@ -363,6 +382,7 @@ D347:
 # ------------------------------------------------------------------------------------------------ health
 D297:
   slug: eurostat_weekly_deaths
+  country: multi
   loader: adapter:eurostat_tsv
   fetch:
     urls: ["https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/demo_r_mwk3_ts/?format=TSV&compressed=true"]
@@ -373,6 +393,7 @@ D297:
 
 D295:
   slug: infodengue
+  country: BR
   index:
     url: https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/main/csv/municipios.csv
     read: {format: csv, dtype: {codigo_ibge: str, codigo_uf: str}}

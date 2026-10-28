@@ -20,12 +20,14 @@ import hashlib
 import json
 import math
 import sys
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from tideforge.devdata import fetch as F
+from tideforge.devdata.country import series_country
 from tideforge.devdata import loaders
 from tideforge.devdata.freqs import canonical, min_length
 from tideforge.devdata.schema import Source, load_sources, resolve_ids, validate
@@ -182,6 +184,9 @@ class Run:
             meta["tasks"][key] = dict(freq=key, how=task.get("how", "mean"), min_length=need, n_series=len(final),
                                       n_points=int(len(v)), nan_share=float(np.isnan(v).mean()) if len(v) else None,
                                       dropped=why, sha256=sha256_file(path))
+            cc = {sid: series_country(src.country, sid) for sid in sorted(final)}
+            meta["series_country"].update(cc)
+            meta["tasks"][key]["countries"] = dict(sorted(Counter(cc.values()).items()))
             self.say(f"  {src.id} {key}: {len(final)} series, {len(v):,} points, dropped {why}")
         (self.out / "meta.json").write_text(json.dumps(meta, indent=1, default=str), encoding="utf-8")
         return meta
@@ -201,7 +206,8 @@ class Run:
                                for p, _ in files],
                     rules=dict(max_series=src.max_series, max_points=MAX_POINTS, max_missing=MAX_MISSING,
                                min_length="3 x longest horizon + 64", gaps="kept as NaN"),
-                    ingested=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), tasks={})
+                    ingested=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), tasks={},
+                    country=src.country, series_country={})
 
 
 def sha256_file(p: Path) -> str:

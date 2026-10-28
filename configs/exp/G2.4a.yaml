@@ -1,0 +1,8 @@
+id: G2.4a
+base: b0
+switches:
+  cal_engine: {exposure: 0.3, invented: 0.0, exclude_held_out: true}
+seeds: [0]
+notes: >-
+  real calendars only, held-out countries (GB, IN, KR, AU, BR) excluded. Scored on dev series tagged with those countries,
+  against G2.4b. The held-out exclusion exists ONLY in G2.4a / G2.4b (owner 2026-10-28).

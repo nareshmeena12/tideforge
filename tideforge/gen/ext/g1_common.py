@@ -43,13 +43,34 @@ def choice(g, n, probs, dev) -> torch.Tensor:
     return torch.searchsorted(c / c[-1], torch.rand(n, generator=g, device=dev), right=True).clamp(max=len(probs) - 1)
 
 
-def grid(g, n, L, dt, dev) -> dict:
-    """Hours since a random start (aligned on the step), hour of day, day index, day of week, day of year, year angle."""
+def grid(g, n, L, dt, dev, clock: str = "fixed") -> dict:
+    """Hours since a random start (aligned on the step), hour of day, day index, day of week, day of year, year angle,
+    weekend mask. clock "fixed": no calendar (weekend = day of week 5, 6); "engine": the G2 calendar engine's clock (a real
+    or invented calendar and a start date per group: real weekdays and weekend rules, holiday codes in gr["holcode"])."""
+    if clock == "engine":
+        return _engine_grid(g, n, L, dt, dev)
     t0 = torch.floor(u(g, (n, 1), 0.0, YEAR_H / dt, dev)) * dt
     th = t0 + dt * torch.arange(L, device=dev, dtype=torch.float32).view(1, L)
     day = torch.floor(th / 24.0)
-    return dict(th=th, hour=torch.remainder(th, 24.0), day=day, dow=torch.remainder(day, 7.0),
+    dow = torch.remainder(day, 7.0)
+    return dict(th=th, hour=torch.remainder(th, 24.0), day=day, dow=dow, weekend=dow >= 5,
                 doy=torch.floor(torch.remainder(day, 365.25)), ang=2 * math.pi * th / YEAR_H, dt=dt)
+
+
+def _engine_grid(g, n, L, dt, dev) -> dict:
+    from tideforge.gen.ext import g2_engine as E
+    from tideforge.gen.ext import g2_table
+    tab = g2_table.table(dev)
+    nd = math.ceil(L * dt / 24) + 1
+    dd = E.daily(g, n, nd, tab, E.OPTS, dev)
+    th = dt * torch.arange(L, device=dev, dtype=torch.float32).view(1, L).expand(n, L)
+    di = torch.floor(th / 24.0).long()
+    days = dd["d0"].view(n, 1) + di
+    D = E.dates(days)
+    hour = torch.remainder(th, 24.0)
+    return dict(th=th + 24.0 * dd["d0"].view(n, 1).float(), hour=hour, day=days.float(), dow=D["wd"].float(),
+                weekend=torch.gather(dd["weekend"], 1, di), holcode=torch.gather(dd["code"], 1, di),
+                doy=D["doy"].float(), ang=2 * math.pi * (D["doy"].float() + hour / 24.0) / D["ylen"].float(), dt=dt)
 
 
 def ar1(g, shape, rho, dev) -> torch.Tensor:
@@ -141,7 +162,12 @@ def holidays_fixed(g, n, gr, lo, hi, dev) -> torch.Tensor:
     return (gr["doy"].unsqueeze(-1) == pos.unsqueeze(1)).any(-1)
 
 
-HOLIDAYS = {"fixed": holidays_fixed}            # name -> fn(g, n, gr, lo, hi, dev) -> (n, L) bool; switch param `holidays`
+def holidays_engine(g, n, gr, lo, hi, dev) -> torch.Tensor:
+    """The G2 engine's holidays (needs a grid built with clock="engine")."""
+    return gr["holcode"] > 0
+
+
+HOLIDAYS = {"fixed": holidays_fixed, "engine": holidays_engine}            # name -> fn(g, n, gr, lo, hi, dev) -> (n, L) bool; switch param `holidays`
 
 
 def rescale(g, x, dev) -> torch.Tensor:

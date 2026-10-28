@@ -1,0 +1,1975 @@
+calendars v1: 67 calendars, 18628 days 1990-01-01..2040-12-31, holidays 0.107
+holiday names: 1794, unmatched -> other: 110
+   MX: 1
+   BR: 2
+   AR: 4
+   CL: 2
+   GB: 3
+   IE: 2
+   FR: 1
+   DE: 1
+   BE: 1
+   CZ: 1
+   SE: 2
+   DK: 1
+   FI: 3
+   GR: 2
+   RU: 2
+   UA: 1
+   ZA: 3
+   KE: 9
+   NZ: 1
+   PH: 2
+   AE: 1
+   EG: 1
+   MA: 3
+   TR: 1
+   PK: 5
+   BD: 6
+   ID: 1
+   IN: 1
+   NP: 12
+   LK: 2
+   TH: 6
+   HK: 2
+   KR: 2
+   VN: 1
+   SG: 2
+   MY: 2
+   JP: 4
+   US-CA: 1
+   US-TX: 2
+   DE-BY: 1
+   DE-BE: 1
+   AU-VIC: 2
+   IN-MH: 3
+   BR-SP: 2
+   MY-10: 2
+
+== US  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst US)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Columbus Day
+   civic           Independence Day
+   observed        Independence Day (observed)
+   civic           Juneteenth National Independence Day
+   observed        Juneteenth National Independence Day (observed)
+   civic           Labor Day
+   civic           Martin Luther King Jr. Day
+   civic           Memorial Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Thanksgiving Day
+   civic           Veterans Day
+   observed        Veterans Day (observed)
+   civic           Washington's Birthday
+
+== CA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst US)
+   civic           Canada Day
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   easter          Good Friday
+   civic           Labor Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+
+== MX  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Benito Juárez's birthday
+   other           Change of Federal Government
+   christmas       Christmas Day
+   civic           Constitution Day
+   civic           Independence Day
+   civic           Labor Day
+   new_year        New Year's Day
+   civic           Revolution Day
+
+== BR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other_religious All Souls' Day
+   christmas       Christmas Day
+   easter          Good Friday
+   civic           Independence Day
+   civic           National Day of Zumbi and Black Awareness
+   other_religious Our Lady of Aparecida
+   civic           Republic Proclamation Day
+   civic           Tiradentes' Day
+   other           Universal Fraternization Day
+   other           Worker's Day
+
+== AR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Bicentenary of the Battle of Salta
+   civic           Bicentenary of the Battle of Tucumán
+   civic           Bicentenary of the May Revolution
+   civic           Bicentenary of the creation and first oath of the national flag
+   civic           Bicentenary of the inaugural session of the National Constituent Assembly of the year 1813
+   observed        Bridge Public Holiday
+   easter          Carnival Monday
+   easter          Carnival Tuesday
+   christmas       Christmas Day
+   civic           Columbus Day
+   civic           Day of Affirmation of Argentine Rights over the Malvinas, Islands and Antarctic Sector
+   civic           FIFA World Cup 2022 Victory Day
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Independence Day
+   civic           Labor Day
+   easter          Maundy Thursday
+   civic           May Revolution Day
+   civic           National Census Day 2010
+   civic           National Census Day 2022
+   civic           National Day of Remembrance for Truth and Justice
+   civic           National Sovereignty Day
+   new_year        New Year's Day
+   civic           Pass to the Immortality of General Don José de San Martín
+   civic           Pass to the Immortality of General Don Manuel Belgrano
+   civic           Pass to the Immortality of General Don Martín Miguel de Güemes
+   other           Respect for Cultural Diversity Day
+   other           Veteran's Day and the Fallen in the Malvinas War
+   other           Visit of His Holiness Pope Leo XIV
+   other           War Veteran's Day
+
+== CL  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other_religious All Saints' Day
+   civic           Army Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   civic           Columbus Day
+   easter          Corpus Christi
+   easter          Good Friday
+   easter          Holy Saturday
+   other_religious Immaculate Conception
+   civic           Independence Day
+   civic           Labor Day
+   other           Meeting of Two Worlds' Day
+   civic           National Holiday
+   civic           National Indigenous Peoples Day
+   civic           National Liberation Day
+   civic           National Population and Housing Census
+   civic           National Unity Day
+   other           Navy Day
+   new_year        New Year's Day
+   other_religious Our Lady of Mount Carmel
+   other_religious Reformation Day
+   other_religious Saint Peter and Saint Paul's Day
+
+== CO  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other_religious All Saints' Day
+   observed        All Saints' Day (observed)
+   observed        Ascension Day (observed)
+   other_religious Assumption Day
+   observed        Assumption Day (observed)
+   civic           Battle of Boyacá
+   christmas       Christmas Day
+   civic           Columbus Day
+   observed        Columbus Day (observed)
+   observed        Corpus Christi (observed)
+   other_religious Day of Our Lady of the Rosary of Chiquinquirá
+   observed        Day of Our Lady of the Rosary of Chiquinquirá (observed)
+   other_religious Epiphany
+   observed        Epiphany (observed)
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Independence Day
+   civic           Independence of Cartagena
+   observed        Independence of Cartagena (observed)
+   civic           Labor Day
+   easter          Maundy Thursday
+   new_year        New Year's Day
+   observed        Sacred Heart (observed)
+   other_religious Saint Joseph's Day
+   observed        Saint Joseph's Day (observed)
+   other_religious Saint Peter and Saint Paul's Day
+   observed        Saint Peter and Saint Paul's Day (observed)
+
+== GB  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Coronation of Charles III
+   civic           Diamond Jubilee of Elizabeth II
+   civic           Golden Jubilee of Elizabeth II
+   easter          Good Friday
+   other           May Day
+   other           Millennium Celebrations
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Platinum Jubilee of Elizabeth II
+   civic           Spring Bank Holiday
+   civic           State Funeral of Queen Elizabeth II
+   other           Wedding of William and Catherine
+
+== IE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   civic           August Bank Holiday
+   christmas       Christmas Day
+   civic           Day of Remembrance and Recognition
+   easter          Easter Monday
+   civic           June Bank Holiday
+   other           May Day
+   other           Millennium Celebrations
+   civic           National Day of Mourning
+   new_year        New Year's Day
+   civic           October Bank Holiday
+   other_religious Saint Brigid's Day
+   other_religious Saint Patrick's Day
+   christmas       Saint Stephen's Day
+
+== FR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other           Armistice Day
+   easter          Ascension Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   civic           Labor Day
+   civic           National Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   civic           Victory Day
+
+== DE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   civic           German Unity Day
+   easter          Good Friday
+   civic           Labor Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   other_religious Reformation Day
+   other           Repentance and Prayer Day
+   later_day       Second Day of Christmas
+
+== ES  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   civic           Constitution Day
+   other_religious Epiphany
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Labor Day
+   civic           National Day
+   new_year        New Year's Day
+
+== IT  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   civic           Anniversary of the Unification of Italy
+   other_religious Assumption Of Mary Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   other_religious Epiphany
+   other_religious Immaculate Conception
+   civic           Labor Day
+   civic           Liberation Day
+   civic           National Unity Day
+   new_year        New Year's Day
+   civic           Republic Day
+   other_religious Saint Francis of Assisi, Patron Saint of Italy
+   christmas       Saint Stephen's Day
+
+== NL  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   easter          Good Friday
+   civic           King's Day
+   civic           Liberation Day
+   new_year        New Year's Day
+   easter          Pentecost
+   easter          Pentecost Monday
+   civic           Queen's Day
+   later_day       Second Day of Christmas
+
+== BE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other           Armistice Day
+   easter          Ascension Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   civic           Labor Day
+   civic           National Day
+   new_year        New Year's Day
+   easter          Pentecost
+   easter          Pentecost Monday
+
+== CH  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   civic           National Day
+   new_year        New Year's Day
+
+== AT  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   easter          Ascension Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   easter          Corpus Christi
+   easter          Easter Monday
+   other_religious Epiphany
+   other_religious Immaculate Conception
+   civic           Labor Day
+   civic           National Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   christmas       Saint Stephen's Day
+
+== PL  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   christmas       Christmas Eve
+   easter          Corpus Christi
+   easter          Easter Monday
+   easter          Easter Sunday
+   other_religious Epiphany
+   civic           National Day
+   civic           National Day of the Third of May
+   civic           National Independence Day
+   civic           National Independence Day - 100th anniversary
+   new_year        New Year's Day
+   easter          Pentecost
+   later_day       Second Day of Christmas
+
+== CZ  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   christmas       Christmas Day
+   christmas       Christmas Eve
+   civic           Day of liberation from Fascism
+   easter          Easter Monday
+   easter          Good Friday
+   civic           Independent Czech State Restoration Day
+   civic           Independent Czechoslovak State Day
+   other           Jan Hus Day
+   civic           Labor Day
+   civic           Liberation Day
+   new_year        New Year's Day
+   other_religious Saints Cyril and Methodius Day
+   later_day       Second Day of Christmas
+   civic           Statehood Day
+   civic           Struggle for Freedom and Democracy Day
+   civic           Struggle for Freedom and Democracy Day and International Students' Day
+   civic           Victory Day
+
+== SE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   other_religious Epiphany
+   easter          Good Friday
+   other           May Day
+   other           Midsummer Day
+   civic           National Day
+   new_year        New Year's Day
+   easter          Pentecost
+   easter          Pentecost Monday
+   later_day       Second Day of Christmas
+
+== NO  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   civic           Constitution Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   easter          Good Friday
+   civic           Labor Day
+   easter          Maundy Thursday
+   new_year        New Year's Day
+   easter          Pentecost
+   easter          Pentecost Monday
+   later_day       Second Day of Christmas
+
+== DK  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Easter Sunday
+   easter          Good Friday
+   other           Great Prayer Day
+   easter          Maundy Thursday
+   new_year        New Year's Day
+   easter          Pentecost
+   easter          Pentecost Monday
+   later_day       Second Day of Christmas
+
+== FI  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   easter          Ascension Day
+   christmas       Christmas Day
+   christmas       Christmas Eve
+   easter          Easter Monday
+   easter          Easter Sunday
+   other_religious Epiphany
+   easter          Good Friday
+   civic           Independence Day
+   other           May Day
+   other           Midsummer Day
+   other           Midsummer Eve
+   new_year        New Year's Day
+   easter          Pentecost
+   later_day       Second Day of Christmas
+
+== PT  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   easter          Corpus Christi
+   civic           Day of Portugal, Camões, and the Portuguese Communities
+   easter          Easter Sunday
+   civic           Freedom Day
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Labor Day
+   new_year        New Year's Day
+   civic           Republic Day
+   civic           Restoration of Independence Day
+
+== GR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   christmas       Christmas Day
+   civic           Dormition of the Mother of God
+   easter          Easter Monday
+   other_religious Epiphany
+   civic           Glorifying Mother of God
+   easter          Good Friday
+   other           Green Monday
+   civic           Independence Day
+   civic           Labor Day
+   observed        Labor Day (observed)
+   new_year        New Year's Day
+   other           Ohi Day
+   easter          Pentecost Monday
+
+== RU  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Anniversary of the Great October Socialist Revolution
+   observed        Anniversary of the Great October Socialist Revolution (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Constitution Day
+   observed        Constitution Day (observed)
+   civic           Day of consent and reconciliation
+   observed        Day of consent and reconciliation (observed)
+   civic           Day of the Adoption of the Declaration of Sovereignty of the Russian Federation
+   observed        Day of the Adoption of the Declaration of Sovereignty of the Russian Federation (observed)
+   observed        Day off (substituted from 01/01/2017)
+   observed        Day off (substituted from 01/01/2022)
+   observed        Day off (substituted from 01/01/2023)
+   observed        Day off (substituted from 01/02/2016)
+   observed        Day off (substituted from 01/02/2021)
+   observed        Day off (substituted from 01/02/2022)
+   observed        Day off (substituted from 01/02/2027)
+   observed        Day off (substituted from 01/03/2015)
+   observed        Day off (substituted from 01/03/2016)
+   observed        Day off (substituted from 01/03/2021)
+   observed        Day off (substituted from 01/03/2026)
+   observed        Day off (substituted from 01/03/2027)
+   observed        Day off (substituted from 01/04/2003)
+   observed        Day off (substituted from 01/04/2014)
+   observed        Day off (substituted from 01/04/2015)
+   observed        Day off (substituted from 01/04/2020)
+   observed        Day off (substituted from 01/04/2025)
+   observed        Day off (substituted from 01/04/2026)
+   observed        Day off (substituted from 01/05/1997)
+   observed        Day off (substituted from 01/05/2003)
+   observed        Day off (substituted from 01/05/2013)
+   observed        Day off (substituted from 01/05/2014)
+   observed        Day off (substituted from 01/05/2019)
+   observed        Day off (substituted from 01/05/2020)
+   observed        Day off (substituted from 01/05/2025)
+   observed        Day off (substituted from 01/06/2013)
+   observed        Day off (substituted from 01/06/2018)
+   observed        Day off (substituted from 01/06/2019)
+   observed        Day off (substituted from 01/06/2024)
+   observed        Day off (substituted from 01/07/2017)
+   observed        Day off (substituted from 01/07/2018)
+   observed        Day off (substituted from 01/07/2024)
+   observed        Day off (substituted from 01/08/2023)
+   observed        Day off (substituted from 01/10/1999)
+   observed        Day off (substituted from 01/11/2009)
+   observed        Day off (substituted from 02/20/2016)
+   observed        Day off (substituted from 02/20/2021)
+   observed        Day off (substituted from 02/20/2027)
+   observed        Day off (substituted from 02/23/2013)
+   observed        Day off (substituted from 02/23/2014)
+   observed        Day off (substituted from 02/23/2019)
+   observed        Day off (substituted from 02/23/2025)
+   observed        Day off (substituted from 02/26/2006)
+   observed        Day off (substituted from 02/27/2010)
+   observed        Day off (substituted from 03/05/1994)
+   observed        Day off (substituted from 03/05/2005)
+   observed        Day off (substituted from 03/05/2011)
+   observed        Day off (substituted from 03/05/2022)
+   observed        Day off (substituted from 03/08/2025)
+   observed        Day off (substituted from 03/11/2001)
+   observed        Day off (substituted from 03/11/2012)
+   observed        Day off (substituted from 04/27/2002)
+   observed        Day off (substituted from 04/27/2024)
+   observed        Day off (substituted from 04/28/2001)
+   observed        Day off (substituted from 04/28/2007)
+   observed        Day off (substituted from 04/28/2012)
+   observed        Day off (substituted from 04/28/2018)
+   observed        Day off (substituted from 05/04/2008)
+   observed        Day off (substituted from 05/05/1991)
+   observed        Day off (substituted from 05/05/1996)
+   observed        Day off (substituted from 05/05/2012)
+   observed        Day off (substituted from 05/06/1995)
+   observed        Day off (substituted from 05/06/2000)
+   observed        Day off (substituted from 05/06/2006)
+   observed        Day off (substituted from 05/12/1991)
+   observed        Day off (substituted from 05/12/1996)
+   observed        Day off (substituted from 05/12/2012)
+   observed        Day off (substituted from 05/14/2005)
+   observed        Day off (substituted from 05/18/2002)
+   observed        Day off (substituted from 06/07/2008)
+   observed        Day off (substituted from 06/09/2001)
+   observed        Day off (substituted from 06/09/2007)
+   observed        Day off (substituted from 06/09/2012)
+   observed        Day off (substituted from 06/09/2018)
+   observed        Day off (substituted from 06/15/1997)
+   observed        Day off (substituted from 06/21/2003)
+   observed        Day off (substituted from 11/01/2008)
+   observed        Day off (substituted from 11/01/2025)
+   observed        Day off (substituted from 11/02/2024)
+   observed        Day off (substituted from 11/04/1995)
+   observed        Day off (substituted from 11/04/2000)
+   observed        Day off (substituted from 11/10/1996)
+   observed        Day off (substituted from 11/10/2002)
+   observed        Day off (substituted from 11/13/2010)
+   observed        Day off (substituted from 12/09/1995)
+   observed        Day off (substituted from 12/09/2000)
+   observed        Day off (substituted from 12/14/1996)
+   observed        Day off (substituted from 12/15/1996)
+   observed        Day off (substituted from 12/15/2002)
+   observed        Day off (substituted from 12/28/2024)
+   observed        Day off (substituted from 12/29/2001)
+   observed        Day off (substituted from 12/29/2007)
+   observed        Day off (substituted from 12/29/2012)
+   observed        Day off (substituted from 12/29/2018)
+   other           Defender of the Fatherland Day
+   observed        Defender of the Fatherland Day (observed)
+   civic           Holiday of Spring and Labor
+   observed        Holiday of Spring and Labor (observed)
+   civic           International Women's Day
+   observed        International Women's Day (observed)
+   civic           International Workers' Solidarity Day
+   new_year        New Year Holidays
+   observed        New Year Holidays (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   other           Russia Day
+   observed        Russia Day (observed)
+   civic           Unity Day
+   observed        Unity Day (observed)
+   civic           Victory Day
+   observed        Victory Day (observed)
+
+== UA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   civic           Anniversary of the Great October Socialist Revolution
+   observed        Anniversary of the Great October Socialist Revolution (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Day of Victory over Nazism in World War II (Victory Day)
+   observed        Day of Victory over Nazism in World War II (Victory Day) (observed)
+   civic           Day of defenders of Ukraine
+   civic           Day of the Constitution of Ukraine
+   observed        Day of the Constitution of Ukraine (observed)
+   observed        Day off (substituted from 01/04/1992)
+   observed        Day off (substituted from 01/04/1997)
+   observed        Day off (substituted from 01/04/1998)
+   observed        Day off (substituted from 01/04/2003)
+   observed        Day off (substituted from 01/10/1993)
+   observed        Day off (substituted from 01/10/1999)
+   observed        Day off (substituted from 01/10/2004)
+   observed        Day off (substituted from 01/10/2009)
+   observed        Day off (substituted from 01/11/1997)
+   observed        Day off (substituted from 01/11/2014)
+   observed        Day off (substituted from 01/11/2020)
+   observed        Day off (substituted from 01/12/2008)
+   observed        Day off (substituted from 01/16/2016)
+   observed        Day off (substituted from 01/16/2021)
+   observed        Day off (substituted from 01/17/2004)
+   observed        Day off (substituted from 01/17/2015)
+   observed        Day off (substituted from 01/20/2007)
+   observed        Day off (substituted from 01/21/2006)
+   observed        Day off (substituted from 01/24/2009)
+   observed        Day off (substituted from 01/25/2014)
+   observed        Day off (substituted from 01/26/2008)
+   observed        Day off (substituted from 01/27/2007)
+   observed        Day off (substituted from 01/30/2010)
+   observed        Day off (substituted from 01/31/2004)
+   observed        Day off (substituted from 01/31/2015)
+   observed        Day off (substituted from 02/04/2006)
+   observed        Day off (substituted from 02/07/2009)
+   observed        Day off (substituted from 02/08/2014)
+   observed        Day off (substituted from 02/09/2008)
+   observed        Day off (substituted from 02/10/2007)
+   observed        Day off (substituted from 02/13/2010)
+   observed        Day off (substituted from 02/14/2015)
+   observed        Day off (substituted from 02/18/2006)
+   observed        Day off (substituted from 02/24/2007)
+   observed        Day off (substituted from 02/27/2010)
+   observed        Day off (substituted from 03/03/2007)
+   observed        Day off (substituted from 03/03/2012)
+   observed        Day off (substituted from 03/03/2018)
+   observed        Day off (substituted from 03/05/1994)
+   observed        Day off (substituted from 03/05/2005)
+   observed        Day off (substituted from 03/11/2001)
+   observed        Day off (substituted from 03/11/2006)
+   observed        Day off (substituted from 03/12/2011)
+   observed        Day off (substituted from 03/12/2016)
+   observed        Day off (substituted from 03/12/2022)
+   observed        Day off (substituted from 03/13/2010)
+   observed        Day off (substituted from 04/19/1997)
+   observed        Day off (substituted from 04/24/1999)
+   observed        Day off (substituted from 04/28/2001)
+   observed        Day off (substituted from 04/28/2007)
+   observed        Day off (substituted from 04/28/2012)
+   observed        Day off (substituted from 05/05/1991)
+   observed        Day off (substituted from 05/05/1996)
+   observed        Day off (substituted from 05/05/2001)
+   observed        Day off (substituted from 05/05/2018)
+   observed        Day off (substituted from 05/06/1995)
+   observed        Day off (substituted from 05/06/2000)
+   observed        Day off (substituted from 05/06/2001)
+   observed        Day off (substituted from 05/06/2006)
+   observed        Day off (substituted from 05/11/2002)
+   observed        Day off (substituted from 05/11/2019)
+   observed        Day off (substituted from 05/12/1991)
+   observed        Day off (substituted from 05/12/1996)
+   observed        Day off (substituted from 05/13/2017)
+   observed        Day off (substituted from 05/14/2005)
+   observed        Day off (substituted from 05/16/1992)
+   observed        Day off (substituted from 05/17/1997)
+   observed        Day off (substituted from 05/17/2008)
+   observed        Day off (substituted from 05/18/2013)
+   observed        Day off (substituted from 05/31/2008)
+   observed        Day off (substituted from 06/01/2013)
+   observed        Day off (substituted from 06/16/2007)
+   observed        Day off (substituted from 06/23/2001)
+   observed        Day off (substituted from 06/23/2018)
+   observed        Day off (substituted from 06/25/2005)
+   observed        Day off (substituted from 06/25/2011)
+   observed        Day off (substituted from 07/02/2016)
+   observed        Day off (substituted from 07/07/2012)
+   observed        Day off (substituted from 07/13/1991)
+   observed        Day off (substituted from 08/19/2017)
+   observed        Day off (substituted from 08/21/1993)
+   observed        Day off (substituted from 08/21/1999)
+   observed        Day off (substituted from 08/21/2004)
+   observed        Day off (substituted from 08/21/2010)
+   observed        Day off (substituted from 08/27/1995)
+   observed        Day off (substituted from 08/27/2000)
+   observed        Day off (substituted from 08/28/2021)
+   observed        Day off (substituted from 09/09/2006)
+   observed        Day off (substituted from 10/23/2021)
+   observed        Day off (substituted from 11/04/1995)
+   observed        Day off (substituted from 12/21/2019)
+   observed        Day off (substituted from 12/22/2018)
+   observed        Day off (substituted from 12/28/1996)
+   observed        Day off (substituted from 12/28/2002)
+   observed        Day off (substituted from 12/28/2019)
+   observed        Day off (substituted from 12/29/2001)
+   observed        Day off (substituted from 12/29/2002)
+   observed        Day off (substituted from 12/29/2007)
+   observed        Day off (substituted from 12/29/2012)
+   observed        Day off (substituted from 12/29/2018)
+   other           Defender of Ukraine Day
+   observed        Defender of Ukraine Day (observed)
+   easter          Easter Sunday (Pascha)
+   observed        Easter Sunday (Pascha) (observed)
+   civic           Independence Day
+   observed        Independence Day (observed)
+   civic           International Women's Day
+   observed        International Women's Day (observed)
+   civic           International Workers' Solidarity Day
+   observed        International Workers' Solidarity Day (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   easter          Pentecost
+   observed        Pentecost (observed)
+   civic           Presidential decree holiday
+   civic           Victory Day
+   observed        Victory Day (observed)
+
+== ZA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   easter          Ascension Day
+   christmas       Christmas Day
+   civic           Day of Goodwill
+   observed        Day of Goodwill (observed)
+   civic           Day of Reconciliation
+   observed        Day of Reconciliation (observed)
+   civic           Day of the Vow
+   civic           Family Day
+   other           Founder's Day
+   civic           Freedom Day
+   observed        Freedom Day (observed)
+   easter          Good Friday
+   civic           Heritage Day
+   observed        Heritage Day (observed)
+   civic           Human Rights Day
+   observed        Human Rights Day (observed)
+   other           Kruger Day
+   civic           Local Government Elections
+   civic           Municipal elections
+   civic           National Women's Day
+   observed        National Women's Day (observed)
+   civic           National and Provincial Government Elections
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Public Holiday by Presidential Decree
+   civic           Republic Day
+   civic           Workers' Day
+   observed        Workers' Day (observed)
+   other           Y2K Changeover
+   observed        Y2K Changeover (observed)
+   civic           Youth Day
+   observed        Youth Day (observed)
+
+== NG  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Day of Mourning for President Muhammadu Buhari
+   civic           Day of Mourning for President Umaru Yar'Adua
+   civic           Democracy Day
+   observed        Democracy Day (observed)
+   easter          Easter Monday
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   observed        Eid al-Adha (observed)
+   observed        Eid al-Adha (observed, estimated)
+   islamic         Eid al-Adha Holiday
+   islamic         Eid al-Adha Holiday (estimated)
+   observed        Eid al-Adha Holiday (observed)
+   observed        Eid al-Adha Holiday (observed, estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   observed        Eid al-Fitr (observed, estimated)
+   islamic         Eid al-Fitr Holiday
+   islamic         Eid al-Fitr Holiday (estimated)
+   observed        Eid al-Fitr Holiday (observed)
+   observed        Eid al-Fitr Holiday (observed, estimated)
+   easter          Good Friday
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Presidential Inauguration Day
+   observed        Presidential Inauguration Day (observed)
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   observed        Prophet's Birthday (observed)
+   observed        Prophet's Birthday (observed, estimated)
+   civic           Public Holiday for Elections
+   civic           Workers' Day
+   observed        Workers' Day (observed)
+
+== KE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Day of Mourning for Queen Elizabeth II
+   easter          Easter Monday
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed, estimated)
+   civic           Election Day
+   easter          Good Friday
+   other           Inauguration Day
+   civic           Independence Day
+   observed        Independence Day (observed)
+   other           Jamhuri Day
+   observed        Jamhuri Day (observed)
+   other           Kenyatta Day
+   observed        Kenyatta Day (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   other           Madaraka Day
+   observed        Madaraka Day (observed)
+   other           Mashujaa Day
+   observed        Mashujaa Day (observed)
+   other           Mazingira Day
+   observed        Mazingira Day (observed)
+   other           Moi Day
+   observed        Moi Day (observed)
+   civic           National Tree Growing Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           President Moi Memorial Day
+   civic           State Funeral for Former President Mwai Kibaki
+   other           Utamaduni Day
+   observed        Utamaduni Day (observed)
+   other           Visit of Pope Francis to Kenya
+
+== AU  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst AU_S)
+   civic           ANZAC Day
+   civic           Australia Day
+   christmas       Boxing Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Good Friday
+   civic           National Day of Mourning for Queen Elizabeth II
+   new_year        New Year's Day
+
+== NZ  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst NZ)
+   civic           Anzac Day
+   observed        Anzac Day (observed)
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   later_day       Day after New Year's Day
+   observed        Day after New Year's Day (observed)
+   easter          Easter Monday
+   easter          Good Friday
+   civic           King's Birthday
+   civic           Labour Day
+   other           Matariki
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Queen Elizabeth II Memorial Day
+   civic           Queen's Birthday
+   civic           Waitangi Day
+   observed        Waitangi Day (observed)
+
+== PH  (english names: True; valid 2024-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other           Additional special (non-working) day
+   other_religious All Saints' Day
+   other_religious All Saints' Eve
+   other_religious All Souls' Day
+   other           Black Saturday
+   civic           Bonifacio Day
+   chinese         Chinese New Year
+   christmas       Christmas Day
+   christmas       Christmas Eve
+   civic           Day of Valor
+   civic           EDSA People Power Revolution Anniversary
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   civic           Elections special (non-working) day
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Independence Day
+   civic           Labor Day
+   easter          Maundy Thursday
+   civic           National Heroes Day
+   new_year        New Year's Day
+   new_year        New Year's Eve
+   civic           Ninoy Aquino Day
+   civic           Rizal Day
+
+== SA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'thu_fri'), ('2013-06-29', 'fri_sat')]; dst None)
+   islamic         Day of Arafah
+   civic           Day of Mourning for King Abdullah
+   islamic         Eid al-Adha Holiday
+   observed        Eid al-Adha Holiday (observed)
+   islamic         Eid al-Fitr Holiday
+   observed        Eid al-Fitr Holiday (observed)
+   civic           Founding Day Holiday
+   observed        Founding Day Holiday (observed)
+   civic           Holiday for the National Team's Victory in the World Cup
+   civic           King Abdullah's Return from Medical Treatment Abroad
+   civic           National Day Holiday
+   observed        National Day Holiday (observed)
+
+== AE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'thu_fri'), ('2006-09-01', 'fri_sat'), ('2022-01-01', 'sat_sun')]; dst None)
+   civic           Commemoration Day
+   islamic         Day of Arafah
+   islamic         Day of Arafah (estimated)
+   other           Death of Sheikh Khalifa bin Zayed Al Nahyan
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Adha Holiday
+   islamic         Eid al-Adha Holiday (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   islamic         Eid al-Fitr Holiday
+   islamic         Eid al-Fitr Holiday (estimated)
+   islamic         Islamic New Year
+   islamic         Islamic New Year (estimated)
+   islamic         Isra' and Mi'raj
+   islamic         Isra' and Mi'raj (estimated)
+   civic           National Day
+   new_year        New Year's Day
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+
+== QA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'thu_fri'), ('2003-09-01', 'fri_sat')]; dst None)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   civic           National Sports Day
+   new_year        New Year's Holiday
+   civic           Qatar National Day
+
+== EG  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'fri_sat')]; dst None)
+   civic           Armed Forces Day
+   observed        Armed Forces Day (observed)
+   christmas       Coptic Christmas Day
+   observed        Coptic Christmas Day (observed)
+   islamic         Day of Arafah
+   islamic         Day of Arafah (estimated)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   observed        Eid al-Adha (observed)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   islamic         Islamic New Year
+   islamic         Islamic New Year (estimated)
+   observed        Islamic New Year (observed)
+   observed        Islamic New Year (observed, estimated)
+   civic           January 25th Revolution and National Police Day
+   observed        January 25th Revolution and National Police Day (observed)
+   civic           July 23 Revolution Day
+   observed        July 23 Revolution Day (observed)
+   civic           June 30 Revolution Day
+   observed        June 30 Revolution Day (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   other           Police Day
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   civic           Sinai Liberation Day
+   observed        Sinai Liberation Day (observed)
+   chinese         Spring Festival
+
+== MA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   new_year        Amazigh New Year
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr (estimated)
+   other           Green March
+   civic           Independence Day
+   islamic         Islamic New Year (estimated)
+   civic           Labor Day
+   new_year        New Year's Day
+   other           Oued Ed-Dahab Day
+   civic           Proclamation of Independence Day
+   islamic         Prophet's Birthday (estimated)
+   civic           Revolution Day
+   other           Throne Day
+   civic           Unity Day
+   civic           Youth Day
+
+== TR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Commemoration of Atatürk, Youth and Sports Day
+   civic           Democracy and National Unity Day
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   civic           Labour and Solidarity Day
+   civic           National Sovereignty and Children's Day
+   new_year        New Year's Day
+   other           Public Holiday
+   civic           Republic Day
+   civic           Victory Day
+
+== PK  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   islamic         Ashura
+   islamic         Ashura (estimated)
+   civic           Benazir Bhutto's Martyrdom Day
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   civic           General Election Day
+   civic           Independence Day
+   other           Iqbal Day
+   other           Kashmir Solidarity Day
+   civic           Labor Day
+   islamic         Love for the Prophet Day
+   other           Pakistan Day
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   other           Quaid-e-Azam Day
+   other           Youm-e-Takbeer
+
+== BD  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'fri_sat')]; dst None)
+   islamic         Ashura
+   islamic         Ashura (estimated)
+   new_year        Bengali New Year's Day
+   christmas       Christmas Day
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   civic           Independence Day
+   civic           July Mass Uprising Day
+   other           Jumu'atul-Wida
+   other           Jumu'atul-Wida (estimated)
+   islamic         Laylat al-Qadr
+   islamic         Laylat al-Qadr (estimated)
+   civic           Martyrs' Day and International Mother Language Day
+   other           May Day
+   other           Mid-Sha'ban
+   other           Mid-Sha'ban (estimated)
+   civic           National Mourning Day
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   other           Public Holiday
+   civic           Sheikh Mujibur Rahman's Birthday
+   civic           Victory Day
+
+== ID  (english names: True; valid 2003-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   easter          Ascension Day
+   christmas       Christmas Day
+   civic           Day of Silence
+   easter          Easter Sunday
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   later_day       Eid al-Fitr Second Day
+   later_day       Eid al-Fitr Second Day (estimated)
+   civic           General Election Day
+   easter          Good Friday
+   civic           Independence Day
+   civic           International Labor Day
+   islamic         Islamic New Year
+   islamic         Islamic New Year (estimated)
+   islamic         Isra' and Mi'raj
+   islamic         Isra' and Mi'raj (estimated)
+   civic           Legislative Election Day
+   civic           Local Election Day
+   chinese         Lunar New Year
+   chinese         Lunar New Year (estimated)
+   new_year        New Year's Day
+   other           Pancasila Day
+   civic           Presidential Election Day
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   hindu_buddhist  Vesak Day
+   hindu_buddhist  Vesak Day (estimated)
+
+== IN  (english names: True; valid 2001-2035; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   islamic         Ashura
+   islamic         Ashura (estimated)
+   hindu_buddhist  Buddha Purnima
+   christmas       Christmas
+   hindu_buddhist  Diwali
+   civic           Dr. B. R. Ambedkar's Birthday
+   hindu_buddhist  Dussehra
+   hindu_buddhist  Dussehra (Mahanavami)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   easter          Good Friday
+   hindu_buddhist  Guru Nanak's Birthday
+   hindu_buddhist  Holi
+   civic           Independence Day
+   hindu_buddhist  Janmashtami (Vaishnava)
+   other           Maha Shivaratri
+   hindu_buddhist  Mahatma Gandhi's Birthday
+   hindu_buddhist  Mahavira's Birthday
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   hindu_buddhist  Ram Navami
+   civic           Republic Day
+
+== NP  (english names: True; valid 2010-2035; weekend [('1990-01-01', 'sat')]; dst None)
+   hindu_buddhist  Bhai Tika
+   hindu_buddhist  Bijaya Dashami
+   hindu_buddhist  Buddha Jayanti
+   hindu_buddhist  Chhath Parva
+   christmas       Christmas Day
+   civic           Constitution Day
+   civic           Day of National Mourning
+   hindu_buddhist  Duwadashi (Dashain)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   hindu_buddhist  Ekadashi (Dashain)
+   hindu_buddhist  Fagu Poornima
+   hindu_buddhist  Fagu Poornima (Terai)
+   other           Fulpati
+   hindu_buddhist  Gai Tihar
+   other           Ghatasthapana
+   other           Gobardhan Pooja
+   hindu_buddhist  Gyalpo Lhosar
+   civic           International Labor Day
+   civic           International Women's Day
+   hindu_buddhist  Janai Poornima
+   other           Laxmi Pooja
+   other           Maghe Sankranti
+   other           Maha Ashtami
+   other           Maha Navami
+   other           Maha Shivaratri
+   civic           Martyr's Day
+   other           Mha Pooja
+   civic           National Democracy Day
+   new_year        Nepali New Year
+   civic           People War's Day
+   other           Prithvi Jayanti
+   hindu_buddhist  Ram Navami
+   civic           Republic Day
+   hindu_buddhist  Shree Krishna Janmashtami
+   other           Sonam Lhochhar
+   other           Tamu Lhochhar
+   hindu_buddhist  Tihar Holiday
+
+== LK  (english names: True; valid 2004-2026; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   hindu_buddhist  Adhi Binara Full Moon Poya Day
+   hindu_buddhist  Adhi Esala Full Moon Poya Day
+   hindu_buddhist  Adhi Poson Full Moon Poya Day
+   hindu_buddhist  Adhi Vap Full Moon Poya Day
+   hindu_buddhist  Adhi Vesak Full Mon Poya Day
+   hindu_buddhist  Bak Full Moon Poya Day
+   hindu_buddhist  Binara Full Moon Poya Day
+   christmas       Christmas Day
+   hindu_buddhist  Day Before Sinhala and Tamil New Year
+   hindu_buddhist  Day Following Vesak Full Moon Poya Day
+   hindu_buddhist  Diwali
+   hindu_buddhist  Duruthu Full Moon Poya Day
+   islamic         Eid al-Adha
+   islamic         Eid al-Fitr
+   hindu_buddhist  Esala Full Moon Poya Day
+   easter          Good Friday
+   hindu_buddhist  Il Full Moon Poya Day
+   civic           Independence Day
+   civic           International Workers' Day
+   other           Maha Sivarathri Day
+   hindu_buddhist  Medin Full Moon Poya Day
+   hindu_buddhist  Nawam Full Moon Poya Day
+   hindu_buddhist  Nikini Full Moon Poya Day
+   hindu_buddhist  Poson Full Moon Poya Day
+   islamic         Prophet's Birthday
+   hindu_buddhist  Sinhala and Tamil New Year
+   other           Special Public Holiday
+   hindu_buddhist  Tamil Thai Pongal Day
+   hindu_buddhist  Unduvap Full Moon Poya Day
+   hindu_buddhist  Vap Full Moon Poya Day
+   hindu_buddhist  Vesak Full Moon Poya Day
+
+== TH  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other           Asarnha Bucha
+   observed        Asarnha Bucha (in lieu)
+   observed        Bridge Public Holiday
+   other           Buddhist Lent Day
+   observed        Buddhist Lent Day (in lieu)
+   civic           Chakri Memorial Day
+   observed        Chakri Memorial Day (in lieu)
+   civic           Constitution Day
+   observed        Constitution Day (in lieu)
+   civic           Coronation Day
+   observed        Coronation Day (in lieu)
+   civic           Day of Mourning for HM King Bhumibol Adulyadej
+   other           Emergency Lockdown (2011 Thailand Floods)
+   other           Emergency Lockdown (Thai Military Coup d'état)
+   other           Emergency Lockdown (Thai Political Unrest)
+   civic           HM King Bhumibol Adulyadej Memorial Day
+   observed        HM King Bhumibol Adulyadej Memorial Day (in lieu)
+   civic           HM King Bhumibol Adulyadej the Great Memorial Day
+   observed        HM King Bhumibol Adulyadej the Great Memorial Day (in lieu)
+   civic           HM King Bhumibol Adulyadej the Great's Birthday
+   observed        HM King Bhumibol Adulyadej the Great's Birthday (in lieu)
+   civic           HM King Bhumibol Adulyadej's 60th Anniversary of Accession Event
+   civic           HM King Bhumibol Adulyadej's Birthday
+   observed        HM King Bhumibol Adulyadej's Birthday (in lieu)
+   civic           HM King Bhumibol Adulyadej's Golden Jubilee
+   civic           HM King Bhumibol Adulyadej's Royal Cremation Ceremony
+   civic           HM King Chulalongkorn Memorial Day
+   observed        HM King Chulalongkorn Memorial Day (in lieu)
+   civic           HM King Maha Vajiralongkorn's Birthday
+   observed        HM King Maha Vajiralongkorn's Birthday (in lieu)
+   civic           HM King Maha Vajiralongkorn's Coronation Celebrations
+   civic           HM Queen Sirikit The Queen Mother's Birthday
+   observed        HM Queen Sirikit The Queen Mother's Birthday (in lieu)
+   civic           HM Queen Sirikit's Birthday
+   observed        HM Queen Sirikit's Birthday (in lieu)
+   civic           HM Queen Suthida's Birthday
+   observed        HM Queen Suthida's Birthday (in lieu)
+   hindu_buddhist  Makha Bucha
+   observed        Makha Bucha (in lieu)
+   civic           National Children's Day
+   civic           National Day
+   observed        National Day (in lieu)
+   civic           National Father's Day
+   observed        National Father's Day (in lieu)
+   civic           National Labor Day
+   observed        National Labor Day (in lieu)
+   civic           National Mother's Day
+   observed        National Mother's Day (in lieu)
+   new_year        New Year's Day
+   observed        New Year's Day (in lieu)
+   new_year        New Year's Eve
+   observed        New Year's Eve (in lieu)
+   hindu_buddhist  Songkran Festival
+   observed        Songkran Festival (in lieu)
+   other           Special In-Lieu Holiday
+   civic           Thai Election Day
+   observed        Thai Election Day (in lieu)
+   hindu_buddhist  Visakha Bucha
+   observed        Visakha Bucha (in lieu)
+
+== CN  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           70th Anniversary of the Victory of the Chinese People's War of Resistance against Japanese Aggression and the World Anti-Fascist War
+   chinese         Chinese New Year (Spring Festival)
+   observed        Chinese New Year (Spring Festival) (observed)
+   chinese         Chinese New Year Extended Holiday
+   chinese         Chinese New Year's Eve
+   observed        Chinese New Year's Eve (observed)
+   observed        Day off (substituted from 01/04/2009)
+   observed        Day off (substituted from 01/04/2015)
+   observed        Day off (substituted from 01/04/2026)
+   observed        Day off (substituted from 01/05/2013)
+   observed        Day off (substituted from 01/06/2013)
+   observed        Day off (substituted from 01/17/2004)
+   observed        Day off (substituted from 01/18/2004)
+   observed        Day off (substituted from 01/19/2020)
+   observed        Day off (substituted from 01/20/2001)
+   observed        Day off (substituted from 01/21/2001)
+   observed        Day off (substituted from 01/21/2012)
+   observed        Day off (substituted from 01/22/2017)
+   observed        Day off (substituted from 01/24/2009)
+   observed        Day off (substituted from 01/26/2014)
+   observed        Day off (substituted from 01/26/2025)
+   observed        Day off (substituted from 01/28/2006)
+   observed        Day off (substituted from 01/28/2023)
+   observed        Day off (substituted from 01/29/2012)
+   observed        Day off (substituted from 01/29/2022)
+   observed        Day off (substituted from 01/29/2023)
+   observed        Day off (substituted from 01/30/2011)
+   observed        Day off (substituted from 01/30/2022)
+   observed        Day off (substituted from 02/01/2009)
+   observed        Day off (substituted from 02/02/2008)
+   observed        Day off (substituted from 02/02/2019)
+   observed        Day off (substituted from 02/03/2008)
+   observed        Day off (substituted from 02/03/2019)
+   observed        Day off (substituted from 02/04/2017)
+   observed        Day off (substituted from 02/04/2024)
+   observed        Day off (substituted from 02/05/2005)
+   observed        Day off (substituted from 02/05/2006)
+   observed        Day off (substituted from 02/06/2005)
+   observed        Day off (substituted from 02/06/2016)
+   observed        Day off (substituted from 02/07/2021)
+   observed        Day off (substituted from 02/08/2003)
+   observed        Day off (substituted from 02/08/2014)
+   observed        Day off (substituted from 02/08/2025)
+   observed        Day off (substituted from 02/09/2002)
+   observed        Day off (substituted from 02/09/2003)
+   observed        Day off (substituted from 02/10/2002)
+   observed        Day off (substituted from 02/11/2018)
+   observed        Day off (substituted from 02/12/2011)
+   observed        Day off (substituted from 02/14/2016)
+   observed        Day off (substituted from 02/14/2026)
+   observed        Day off (substituted from 02/15/2015)
+   observed        Day off (substituted from 02/16/2013)
+   observed        Day off (substituted from 02/17/2007)
+   observed        Day off (substituted from 02/17/2013)
+   observed        Day off (substituted from 02/18/2024)
+   observed        Day off (substituted from 02/20/2010)
+   observed        Day off (substituted from 02/20/2021)
+   observed        Day off (substituted from 02/21/2010)
+   observed        Day off (substituted from 02/24/2018)
+   observed        Day off (substituted from 02/25/2007)
+   observed        Day off (substituted from 02/28/2015)
+   observed        Day off (substituted from 02/28/2026)
+   observed        Day off (substituted from 03/31/2012)
+   observed        Day off (substituted from 04/01/2012)
+   observed        Day off (substituted from 04/01/2017)
+   observed        Day off (substituted from 04/02/2011)
+   observed        Day off (substituted from 04/02/2022)
+   observed        Day off (substituted from 04/07/2013)
+   observed        Day off (substituted from 04/07/2024)
+   observed        Day off (substituted from 04/08/2018)
+   observed        Day off (substituted from 04/23/2023)
+   observed        Day off (substituted from 04/24/2022)
+   observed        Day off (substituted from 04/25/2021)
+   observed        Day off (substituted from 04/26/2003)
+   observed        Day off (substituted from 04/26/2020)
+   observed        Day off (substituted from 04/27/2002)
+   observed        Day off (substituted from 04/27/2003)
+   observed        Day off (substituted from 04/27/2013)
+   observed        Day off (substituted from 04/27/2025)
+   observed        Day off (substituted from 04/28/2001)
+   observed        Day off (substituted from 04/28/2002)
+   observed        Day off (substituted from 04/28/2007)
+   observed        Day off (substituted from 04/28/2012)
+   observed        Day off (substituted from 04/28/2013)
+   observed        Day off (substituted from 04/28/2018)
+   observed        Day off (substituted from 04/28/2019)
+   observed        Day off (substituted from 04/28/2024)
+   observed        Day off (substituted from 04/29/2001)
+   observed        Day off (substituted from 04/29/2006)
+   observed        Day off (substituted from 04/29/2007)
+   observed        Day off (substituted from 04/30/2005)
+   observed        Day off (substituted from 04/30/2006)
+   observed        Day off (substituted from 05/04/2008)
+   observed        Day off (substituted from 05/04/2014)
+   observed        Day off (substituted from 05/05/2019)
+   observed        Day off (substituted from 05/06/2023)
+   observed        Day off (substituted from 05/07/2022)
+   observed        Day off (substituted from 05/08/2004)
+   observed        Day off (substituted from 05/08/2005)
+   observed        Day off (substituted from 05/08/2021)
+   observed        Day off (substituted from 05/09/2004)
+   observed        Day off (substituted from 05/09/2020)
+   observed        Day off (substituted from 05/09/2026)
+   observed        Day off (substituted from 05/11/2024)
+   observed        Day off (substituted from 05/27/2017)
+   observed        Day off (substituted from 05/31/2009)
+   observed        Day off (substituted from 06/08/2013)
+   observed        Day off (substituted from 06/09/2013)
+   observed        Day off (substituted from 06/12/2010)
+   observed        Day off (substituted from 06/12/2016)
+   observed        Day off (substituted from 06/13/2010)
+   observed        Day off (substituted from 06/25/2023)
+   observed        Day off (substituted from 06/28/2020)
+   observed        Day off (substituted from 09/06/2015)
+   observed        Day off (substituted from 09/14/2024)
+   observed        Day off (substituted from 09/18/2016)
+   observed        Day off (substituted from 09/18/2021)
+   observed        Day off (substituted from 09/19/2010)
+   observed        Day off (substituted from 09/20/2026)
+   observed        Day off (substituted from 09/22/2013)
+   observed        Day off (substituted from 09/25/2010)
+   observed        Day off (substituted from 09/26/2010)
+   observed        Day off (substituted from 09/26/2021)
+   observed        Day off (substituted from 09/27/2003)
+   observed        Day off (substituted from 09/27/2008)
+   observed        Day off (substituted from 09/27/2009)
+   observed        Day off (substituted from 09/27/2020)
+   observed        Day off (substituted from 09/28/2002)
+   observed        Day off (substituted from 09/28/2003)
+   observed        Day off (substituted from 09/28/2008)
+   observed        Day off (substituted from 09/28/2014)
+   observed        Day off (substituted from 09/28/2025)
+   observed        Day off (substituted from 09/29/2001)
+   observed        Day off (substituted from 09/29/2002)
+   observed        Day off (substituted from 09/29/2007)
+   observed        Day off (substituted from 09/29/2012)
+   observed        Day off (substituted from 09/29/2013)
+   observed        Day off (substituted from 09/29/2018)
+   observed        Day off (substituted from 09/29/2019)
+   observed        Day off (substituted from 09/29/2024)
+   observed        Day off (substituted from 09/30/2001)
+   observed        Day off (substituted from 09/30/2006)
+   observed        Day off (substituted from 09/30/2007)
+   observed        Day off (substituted from 09/30/2017)
+   observed        Day off (substituted from 09/30/2018)
+   observed        Day off (substituted from 10/07/2023)
+   observed        Day off (substituted from 10/08/2005)
+   observed        Day off (substituted from 10/08/2006)
+   observed        Day off (substituted from 10/08/2011)
+   observed        Day off (substituted from 10/08/2016)
+   observed        Day off (substituted from 10/08/2022)
+   observed        Day off (substituted from 10/08/2023)
+   observed        Day off (substituted from 10/09/2004)
+   observed        Day off (substituted from 10/09/2005)
+   observed        Day off (substituted from 10/09/2010)
+   observed        Day off (substituted from 10/09/2011)
+   observed        Day off (substituted from 10/09/2016)
+   observed        Day off (substituted from 10/09/2021)
+   observed        Day off (substituted from 10/09/2022)
+   observed        Day off (substituted from 10/10/2004)
+   observed        Day off (substituted from 10/10/2009)
+   observed        Day off (substituted from 10/10/2015)
+   observed        Day off (substituted from 10/10/2020)
+   observed        Day off (substituted from 10/10/2026)
+   observed        Day off (substituted from 10/11/2014)
+   observed        Day off (substituted from 10/11/2025)
+   observed        Day off (substituted from 10/12/2013)
+   observed        Day off (substituted from 10/12/2019)
+   observed        Day off (substituted from 10/12/2024)
+   observed        Day off (substituted from 12/29/2001)
+   observed        Day off (substituted from 12/29/2007)
+   observed        Day off (substituted from 12/29/2018)
+   observed        Day off (substituted from 12/30/2001)
+   observed        Day off (substituted from 12/30/2006)
+   observed        Day off (substituted from 12/31/2005)
+   observed        Day off (substituted from 12/31/2006)
+   observed        Day off (substituted from 12/31/2011)
+   chinese         Dragon Boat Festival
+   observed        Dragon Boat Festival (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   chinese         Mid-Autumn Festival
+   observed        Mid-Autumn Festival (observed)
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   chinese         Tomb-Sweeping Day
+   observed        Tomb-Sweeping Day (observed)
+
+== HK  (english names: True; valid 2022-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           70th Anniversary of the Victory of the Chinese People's War of Resistance against Japanese Aggression and the World Anti-Fascist War
+   chinese         Chinese New Year
+   chinese         Chinese New Year's Eve
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   chinese         Double Ninth Festival
+   observed        Double Ninth Festival (observed)
+   chinese         Dragon Boat Festival
+   observed        Dragon Boat Festival (observed)
+   easter          Easter Monday
+   easter          Good Friday
+   other           Hong Kong S.A.R. Establishment Day
+   observed        Hong Kong S.A.R. Establishment Day (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   chinese         Mid-Autumn Festival
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   hindu_buddhist  The Buddha's Birthday
+   observed        The Buddha's Birthday (observed)
+   chinese         The Day following Mid-Autumn Festival
+   later_day       The Second Day following Mid-Autumn Festival
+   easter          The day following Good Friday
+   other           The day following Hong Kong S.A.R. Establishment Day
+   christmas       The first weekday after Christmas Day
+   observed        The first weekday after Christmas Day (observed)
+   later_day       The fourth day of Chinese New Year
+   later_day       The second day of Chinese New Year
+   later_day       The third day of Chinese New Year
+   chinese         Tomb-Sweeping Day
+   observed        Tomb-Sweeping Day (observed)
+
+== TW  (english names: True; valid 1998-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Children's Day
+   observed        Children's Day (observed)
+   chinese         Chinese New Year
+   observed        Chinese New Year (observed)
+   chinese         Chinese New Year's Eve
+   observed        Chinese New Year's Eve (observed)
+   civic           Confucius' Birthday
+   observed        Confucius' Birthday (observed)
+   civic           Constitution Day
+   observed        Constitution Day (observed)
+   observed        Day off (substituted from 01/07/2023)
+   observed        Day off (substituted from 01/10/2009)
+   observed        Day off (substituted from 01/17/2009)
+   observed        Day off (substituted from 01/19/2019)
+   observed        Day off (substituted from 01/20/2001)
+   observed        Day off (substituted from 01/22/2022)
+   observed        Day off (substituted from 01/30/2016)
+   observed        Day off (substituted from 02/04/2012)
+   observed        Day off (substituted from 02/04/2023)
+   observed        Day off (substituted from 02/05/2005)
+   observed        Day off (substituted from 02/06/2010)
+   observed        Day off (substituted from 02/08/2025)
+   observed        Day off (substituted from 02/15/2020)
+   observed        Day off (substituted from 02/17/2024)
+   observed        Day off (substituted from 02/18/2017)
+   observed        Day off (substituted from 02/18/2023)
+   observed        Day off (substituted from 02/20/2021)
+   observed        Day off (substituted from 02/23/2013)
+   observed        Day off (substituted from 02/23/2019)
+   observed        Day off (substituted from 03/03/2007)
+   observed        Day off (substituted from 03/03/2012)
+   observed        Day off (substituted from 03/25/2023)
+   observed        Day off (substituted from 03/31/2018)
+   observed        Day off (substituted from 04/08/2000)
+   observed        Day off (substituted from 04/14/2007)
+   observed        Day off (substituted from 06/03/2017)
+   observed        Day off (substituted from 06/04/2016)
+   observed        Day off (substituted from 06/06/2009)
+   observed        Day off (substituted from 06/17/2023)
+   observed        Day off (substituted from 06/20/2020)
+   observed        Day off (substituted from 06/23/2007)
+   observed        Day off (substituted from 09/10/2016)
+   observed        Day off (substituted from 09/11/2021)
+   observed        Day off (substituted from 09/14/2013)
+   observed        Day off (substituted from 09/23/2023)
+   observed        Day off (substituted from 09/26/2020)
+   observed        Day off (substituted from 09/29/2007)
+   observed        Day off (substituted from 09/30/2017)
+   observed        Day off (substituted from 10/05/2019)
+   observed        Day off (substituted from 10/14/2006)
+   observed        Day off (substituted from 12/22/2012)
+   observed        Day off (substituted from 12/22/2018)
+   observed        Day off (substituted from 12/27/2014)
+   chinese         Dragon Boat Festival
+   observed        Dragon Boat Festival (observed)
+   civic           Founding Day of the Republic of China
+   observed        Founding Day of the Republic of China (observed)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   chinese         Mid-Autumn Festival
+   observed        Mid-Autumn Festival (observed)
+   civic           National Day
+   observed        National Day (observed)
+   civic           Peace Memorial Day
+   observed        Peace Memorial Day (observed)
+   civic           Taiwan Restoration and Guningtou Victory Memorial Day
+   observed        Taiwan Restoration and Guningtou Victory Memorial Day (observed)
+   observed        The Buddha's Birthday (observed)
+   chinese         Tomb-Sweeping Day
+   observed        Tomb-Sweeping Day (observed)
+
+== KR  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           2002 FIFA World Cup National Team Semi-Finals Celebrations
+   observed        Alternative holiday for Buddha's Birthday
+   observed        Alternative holiday for Children's Day
+   observed        Alternative holiday for Christmas Day
+   observed        Alternative holiday for Chuseok
+   observed        Alternative holiday for Constitution Day
+   observed        Alternative holiday for Hangul Day
+   observed        Alternative holiday for Independence Movement Day
+   observed        Alternative holiday for Korean New Year
+   observed        Alternative holiday for Labor Day
+   observed        Alternative holiday for Liberation Day
+   observed        Alternative holiday for National Foundation Day
+   civic           Armed Forces Day
+   hindu_buddhist  Buddha's Birthday
+   civic           Children's Day
+   christmas       Christmas Day
+   chinese         Chuseok
+   civic           Constitution Day
+   civic           Hangul Day
+   civic           Independence Movement Day
+   chinese         Korean New Year
+   civic           Labor Day
+   civic           Liberation Day
+   civic           Local Election Day
+   civic           Memorial Day
+   civic           National Assembly Election Day
+   civic           National Foundation Day
+   new_year        New Year's Day
+   civic           Presidential Election Day
+   other           Temporary Public Holiday
+   chinese         The day preceding Chuseok
+   chinese         The day preceding Korean New Year
+   later_day       The second day of Chuseok
+   later_day       The second day of Korean New Year
+   other           Tree Planting Day
+
+== VN  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   chinese         29 of Lunar New Year
+   observed        Day off (substituted from 01/05/2019)
+   observed        Day off (substituted from 02/04/2012)
+   observed        Day off (substituted from 02/14/2015)
+   observed        Day off (substituted from 02/27/2010)
+   observed        Day off (substituted from 04/25/2015)
+   observed        Day off (substituted from 04/26/2014)
+   observed        Day off (substituted from 04/26/2025)
+   observed        Day off (substituted from 05/04/2013)
+   observed        Day off (substituted from 05/04/2019)
+   observed        Day off (substituted from 05/04/2024)
+   observed        Day off (substituted from 08/22/2026)
+   observed        Day off (substituted from 09/06/2014)
+   observed        Day off (substituted from 12/27/2014)
+   later_day       Fifth Day of Lunar New Year
+   later_day       Fourth Day of Lunar New Year
+   civic           Hung Kings' Commemoration Day
+   observed        Hung Kings' Commemoration Day (observed)
+   civic           International Labor Day
+   observed        International Labor Day (observed)
+   civic           Liberation Day/Reunification Day
+   observed        Liberation Day/Reunification Day (observed)
+   chinese         Lunar New Year
+   chinese         Lunar New Year's Eve
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   later_day       Second Day of Lunar New Year
+   chinese         Sixth Day of Lunar New Year
+   later_day       Third Day of Lunar New Year
+   other           Vietnam Cultural Day
+   observed        Vietnam Cultural Day (observed)
+
+== SG  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   chinese         Chinese New Year
+   chinese         Chinese New Year (estimated)
+   observed        Chinese New Year (observed)
+   observed        Chinese New Year (observed, estimated)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   hindu_buddhist  Diwali
+   observed        Diwali (observed)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   observed        Eid al-Adha (observed)
+   observed        Eid al-Adha (observed, estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   observed        Eid al-Fitr (observed, estimated)
+   easter          Good Friday
+   civic           Labor Day
+   observed        Labor Day (observed)
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   other           Polling Day
+   other           SG50 Public Holiday
+   hindu_buddhist  Vesak Day
+   hindu_buddhist  Vesak Day (estimated)
+   observed        Vesak Day (observed)
+   observed        Vesak Day (observed, estimated)
+
+== MY  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other           Additional holiday
+   civic           Additional holiday in commemoration of the 2017 SEA Games
+   civic           Birthday of HM Yang di-Pertuan Agong
+   observed        Birthday of HM Yang di-Pertuan Agong (observed)
+   chinese         Chinese New Year
+   later_day       Chinese New Year (Second Day)
+   later_day       Chinese New Year (Second Day) (estimated)
+   observed        Chinese New Year (Second Day) (observed)
+   observed        Chinese New Year (Second Day) (observed, estimated)
+   chinese         Chinese New Year (estimated)
+   observed        Chinese New Year (observed)
+   observed        Chinese New Year (observed, estimated)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Day of Installation of the 15th Yang di-Pertuan Agong
+   civic           Day of Installation of the 16th Yang di-Pertuan Agong
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   observed        Eid al-Adha (observed)
+   observed        Eid al-Adha (observed, estimated)
+   islamic         Eid al-Fitr
+   later_day       Eid al-Fitr (Second Day)
+   later_day       Eid al-Fitr (Second Day) (estimated)
+   observed        Eid al-Fitr (Second Day) (observed)
+   observed        Eid al-Fitr (Second Day) (observed, estimated)
+   islamic         Eid al-Fitr (additional holiday)
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   observed        Eid al-Fitr (observed, estimated)
+   civic           General election additional holiday
+   islamic         Islamic New Year
+   islamic         Islamic New Year (estimated)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   other           Malaysia Day
+   observed        Malaysia Day (observed)
+   civic           National Day
+   observed        National Day (observed)
+   islamic         Prophet Muhammad's Birthday
+   islamic         Prophet Muhammad's Birthday (estimated)
+   observed        Prophet Muhammad's Birthday (observed)
+   observed        Prophet Muhammad's Birthday (observed, estimated)
+   hindu_buddhist  Vesak Day
+   hindu_buddhist  Vesak Day (estimated)
+   observed        Vesak Day (observed)
+   observed        Vesak Day (observed, estimated)
+
+== IL  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'fri_sat')]; dst None)
+   civic           Independence Day
+   observed        Independence Day (observed)
+   jewish          Pesach
+   jewish          Rosh Hashanah
+   jewish          Seventh day of Pesach
+   jewish          Shavuot
+   jewish          Simchat Torah / Shemini Atzeret
+   jewish          Sukkot
+   jewish          Yom Kippur
+
+== JP  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   civic           Autumnal Equinox Day
+   civic           Children's Day
+   other           Coming of Age Day
+   civic           Constitution Day
+   civic           Culture Day
+   civic           Emperor's Birthday
+   civic           Emperor's Enthronement Day
+   other           Enthronement Ceremony
+   civic           Foundation Day
+   civic           Greenery Day
+   civic           Labor Thanksgiving Day
+   civic           Marine Day
+   civic           Mountain Day
+   civic           National Holiday
+   new_year        New Year's Day
+   other           Physical Education Day
+   civic           Respect for the Aged Day
+   civic           Showa Day
+   civic           Sports Day
+   observed        Substitute Holiday
+   other           The Crown Prince Marriage Ceremony
+   civic           Vernal Equinox Day
+
+== US-CA  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst US)
+   civic           Cesar Chavez Day
+   observed        Cesar Chavez Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Columbus Day
+   later_day       Day After Thanksgiving
+   hindu_buddhist  Diwali
+   civic           Independence Day
+   observed        Independence Day (observed)
+   civic           Juneteenth National Independence Day
+   observed        Juneteenth National Independence Day (observed)
+   civic           Labor Day
+   civic           Lincoln's Birthday
+   observed        Lincoln's Birthday (observed)
+   civic           Martin Luther King Jr. Day
+   civic           Memorial Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Presidents' Day
+   other           Susan B. Anthony Day
+   civic           Thanksgiving Day
+   civic           Veterans Day
+   observed        Veterans Day (observed)
+
+== US-TX  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst US)
+   civic           Cesar Chavez Day
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   christmas       Christmas Eve
+   observed        Christmas Eve (observed)
+   civic           Confederate Memorial Day
+   later_day       Day After Christmas
+   civic           Emancipation Day In Texas
+   civic           Friday After Thanksgiving
+   easter          Good Friday
+   civic           Independence Day
+   observed        Independence Day (observed)
+   civic           Juneteenth National Independence Day
+   observed        Juneteenth National Independence Day (observed)
+   civic           Labor Day
+   other           Lyndon Baines Johnson Day
+   civic           Martin Luther King Jr. Day
+   civic           Memorial Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Presidents' Day
+   other           San Jacinto Day
+   civic           Texas Independence Day
+   civic           Thanksgiving Day
+   civic           Veterans Day
+   observed        Veterans Day (observed)
+
+== DE-BY  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Corpus Christi
+   easter          Easter Monday
+   other_religious Epiphany
+   civic           German Unity Day
+   easter          Good Friday
+   civic           Labor Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   other_religious Reformation Day
+   other           Repentance and Prayer Day
+   later_day       Second Day of Christmas
+
+== DE-BE  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   civic           75th anniversary of the East German uprising of 1953
+   civic           75th anniversary of the liberation from Nazism and the end of the Second World War in Europe
+   civic           80th anniversary of the liberation from Nazism and the end of the Second World War in Europe
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   civic           German Unity Day
+   easter          Good Friday
+   civic           Labor Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   other_religious Reformation Day
+   other           Repentance and Prayer Day
+   later_day       Second Day of Christmas
+   civic           Women's Day
+
+== ES-CT  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   other_religious All Saints' Day
+   other_religious Assumption Day
+   christmas       Christmas Day
+   civic           Constitution Day
+   easter          Easter Monday
+   other_religious Epiphany
+   easter          Good Friday
+   other_religious Immaculate Conception
+   civic           Labor Day
+   civic           National Day
+   civic           National Day of Catalonia
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   other_religious Saint John the Baptist
+   christmas       Saint Stephen's Day
+
+== CA-QC  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst US)
+   civic           Canada Day
+   observed        Canada Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   easter          Good Friday
+   civic           Labor Day
+   civic           National Patriots' Day
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   other_religious Saint John the Baptist Day
+   observed        Saint John the Baptist Day (observed)
+   civic           Thanksgiving Day
+
+== AU-NSW  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst AU_S)
+   civic           ANZAC Day
+   observed        ANZAC Day (observed)
+   civic           Australia Day
+   observed        Australia Day (observed)
+   civic           Bank Holiday
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   easter          Easter Monday
+   easter          Easter Saturday
+   easter          Easter Sunday
+   easter          Good Friday
+   civic           King's Birthday
+   civic           Labor Day
+   civic           National Day of Mourning for Queen Elizabeth II
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Queen's Birthday
+
+== AU-VIC  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst AU_S)
+   civic           ANZAC Day
+   civic           Australia Day
+   christmas       Boxing Day
+   observed        Boxing Day (observed)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   easter          Easter Monday
+   easter          Easter Saturday
+   easter          Easter Sunday
+   other           Friday before the AFL Grand Final
+   easter          Good Friday
+   civic           King's Birthday
+   civic           Labor Day
+   other           Melbourne Cup Day
+   civic           National Day of Mourning for Queen Elizabeth II
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   civic           Queen's Birthday
+
+== IN-MH  (english names: True; valid 2001-2035; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   islamic         Ashura
+   islamic         Ashura (estimated)
+   hindu_buddhist  Buddha Purnima
+   civic           Chhatrapati Shivaji Maharaj's Birthday
+   christmas       Christmas
+   hindu_buddhist  Diwali
+   hindu_buddhist  Diwali (Bali Pratipada)
+   civic           Dr. B. R. Ambedkar's Birthday
+   hindu_buddhist  Dussehra
+   hindu_buddhist  Dussehra (Mahanavami)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   islamic         Eid al-Fitr
+   islamic         Eid al-Fitr (estimated)
+   hindu_buddhist  Ganesh Chaturthi
+   easter          Good Friday
+   other           Gudi Padwa
+   hindu_buddhist  Guru Nanak's Birthday
+   hindu_buddhist  Holi
+   civic           Independence Day
+   hindu_buddhist  Janmashtami (Vaishnava)
+   other           Maha Shivaratri
+   other           Maharashtra Day
+   hindu_buddhist  Mahatma Gandhi's Birthday
+   hindu_buddhist  Mahavira's Birthday
+   new_year        Parsi New Year (Shahenshahi)
+   islamic         Prophet's Birthday
+   islamic         Prophet's Birthday (estimated)
+   hindu_buddhist  Ram Navami
+   civic           Republic Day
+
+== CH-ZH  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst EU)
+   easter          Ascension Day
+   christmas       Christmas Day
+   easter          Easter Monday
+   easter          Good Friday
+   civic           Labor Day
+   civic           National Day
+   new_year        New Year's Day
+   easter          Pentecost Monday
+   christmas       Saint Stephen's Day
+
+== BR-SP  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other_religious All Souls' Day
+   christmas       Christmas Day
+   civic           Constitutionalist Revolution
+   easter          Good Friday
+   civic           Independence Day
+   civic           National Day of Zumbi and Black Awareness
+   other_religious Our Lady of Aparecida
+   civic           Republic Proclamation Day
+   civic           Tiradentes' Day
+   other           Universal Fraternization Day
+   other           Worker's Day
+
+== MY-10  (english names: True; valid 1990-2040; weekend [('1990-01-01', 'sat_sun')]; dst None)
+   other           Additional holiday
+   civic           Additional holiday in commemoration of the 2017 SEA Games
+   civic           Birthday of HM Yang di-Pertuan Agong
+   observed        Birthday of HM Yang di-Pertuan Agong (observed)
+   civic           Birthday of The Sultan of Selangor
+   observed        Birthday of The Sultan of Selangor (observed)
+   chinese         Chinese New Year
+   later_day       Chinese New Year (Second Day)
+   later_day       Chinese New Year (Second Day) (estimated)
+   observed        Chinese New Year (Second Day) (observed)
+   observed        Chinese New Year (Second Day) (observed, estimated)
+   chinese         Chinese New Year (estimated)
+   observed        Chinese New Year (observed)
+   observed        Chinese New Year (observed, estimated)
+   christmas       Christmas Day
+   observed        Christmas Day (observed)
+   civic           Day of Installation of the 15th Yang di-Pertuan Agong
+   civic           Day of Installation of the 16th Yang di-Pertuan Agong
+   hindu_buddhist  Diwali
+   observed        Diwali (observed)
+   islamic         Eid al-Adha
+   islamic         Eid al-Adha (estimated)
+   observed        Eid al-Adha (observed)
+   observed        Eid al-Adha (observed, estimated)
+   islamic         Eid al-Fitr
+   later_day       Eid al-Fitr (Second Day)
+   later_day       Eid al-Fitr (Second Day) (estimated)
+   observed        Eid al-Fitr (Second Day) (observed)
+   observed        Eid al-Fitr (Second Day) (observed, estimated)
+   islamic         Eid al-Fitr (additional holiday)
+   islamic         Eid al-Fitr (estimated)
+   observed        Eid al-Fitr (observed)
+   observed        Eid al-Fitr (observed, estimated)
+   civic           General election additional holiday
+   islamic         Islamic New Year
+   islamic         Islamic New Year (estimated)
+   civic           Labor Day
+   observed        Labor Day (observed)
+   other           Malaysia Day
+   observed        Malaysia Day (observed)
+   civic           National Day
+   observed        National Day (observed)
+   new_year        New Year's Day
+   observed        New Year's Day (observed)
+   islamic         Nuzul Al-Quran Day
+   islamic         Nuzul Al-Quran Day (estimated)
+   observed        Nuzul Al-Quran Day (observed)
+   observed        Nuzul Al-Quran Day (observed, estimated)
+   islamic         Prophet Muhammad's Birthday
+   islamic         Prophet Muhammad's Birthday (estimated)
+   observed        Prophet Muhammad's Birthday (observed)
+   observed        Prophet Muhammad's Birthday (observed, estimated)
+   hindu_buddhist  Thaipusam
+   observed        Thaipusam (observed)
+   hindu_buddhist  Vesak Day
+   hindu_buddhist  Vesak Day (estimated)
+   observed        Vesak Day (observed)
+   observed        Vesak Day (observed, estimated)

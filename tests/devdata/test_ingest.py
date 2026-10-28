@@ -22,7 +22,7 @@ def test_repo_sources_validate():
 
 
 def _src(**kw):
-    d = dict(slug="x", fetch={"urls": ["file:///x"]}, read={"format": "csv"}, time={"col": "t"}, id=["k"], value="v",
+    d = dict(slug="x", country="US", fetch={"urls": ["file:///x"]}, read={"format": "csv"}, time={"col": "t"}, id=["k"], value="v",
              tasks=[{"freq": "h"}])
     d.update(kw)
     return schema.from_dict(kw.pop("_id", "D055"), d)
@@ -40,6 +40,16 @@ def test_schema_catches_problems():
     assert any("aggregator rules" in p for p in schema.validate(agg))
     with pytest.raises(KeyError):
         schema.from_dict("D055", {"slug": "x", "nope": 1})
+    assert any("country is required" in p for p in schema.validate(_src(exclude={"rule": "r"}, country="")))
+    assert any("not an ISO" in p for p in schema.validate(_src(exclude={"rule": "r"}, country="usa")))
+
+
+def test_series_country():
+    from tideforge.devdata.country import series_country
+    fips = {"prefix": 2, "codes": "fips"}
+    assert series_country(fips, "UKM00003772") == "GB" and series_country(fips, "KSM00047108") == "KR"
+    assert series_country(fips, "ASN00066062") == "AU" and series_country(fips, "XXM0001") == "multi"
+    assert series_country({"prefix": 2, "codes": "iso2"}, "EL30") == "GR" and series_country("multi", "a") == "multi"
 
 
 # ---------------------------------------------------------------------------------------------------- fetch

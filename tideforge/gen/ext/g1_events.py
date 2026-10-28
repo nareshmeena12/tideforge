@@ -34,10 +34,10 @@ def effect(g, n, L, dev):
     return eff.clamp(min=-0.9), ev, ml
 
 
-def build(g, n, Lf, dt, dev, holidays="fixed"):
-    gr = C.grid(g, n, Lf, dt, dev)
+def build(g, n, Lf, dt, dev, holidays="fixed", clock="fixed"):
+    gr = C.grid(g, n, Lf, dt, dev, clock)
     hol = C.HOLIDAYS[holidays](g, n, gr, 4, 10, dev)
-    we = gr["dow"] >= 5
+    we = gr["weekend"]
     dtype = torch.where(we, u(g, (n, 1), 0.5, 1.5, dev), torch.ones(n, 1, device=dev))
     dtype = torch.where(hol, u(g, (n, 1), 0.3, 1.5, dev), dtype)
     eff, ev, ml = effect(g, n, Lf, dev)
@@ -59,9 +59,9 @@ def build(g, n, Lf, dt, dev, holidays="fixed"):
 
 def _install(p, inst):
     def b(g, n, Lf, dt, dev):
-        return build(g, n, Lf, dt, dev, holidays=p["holidays"])
+        return build(g, n, Lf, dt, dev, holidays=p["holidays"], clock=p["clock"])
     inst.add_group_kind("sc_events", C.scenario_kind(b, C.RES_DAILY, own=False), p["share"])
 
 
 register(Switch("sc_events", "G1.7", "events -> traffic / footfall scenario (group kind)", _install,
-                dict(share=0.15, holidays="fixed")))
+                dict(share=0.15, holidays="fixed", clock="fixed")))

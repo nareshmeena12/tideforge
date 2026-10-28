@@ -147,6 +147,21 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G2.3 | Exposure share 25% / 75%. |
 | G2.4 | Real calendars only vs real + invented calendars (memorisation check: score separately on dev countries that are not in the pool). |
 | G2.5 | Sub-daily effects: daylight-saving 23 / 25-hour days, paydays, month and quarter ends. |
+| G2.6 | Calendar-aware versions of the families with their own day types (daily_weekly, repeat_week, epidemic). Only if diagnosis points there. |
+
+- 2026-10-28 (owner): the held-out countries GB, IN, KR, AU, BR are excluded ONLY in G2.4, from both arms (G2.4a real only,
+  G2.4b real + invented); the comparison is scored on dev series tagged with those countries. Every other G2 config uses the
+  full pool (67 calendars: 55 countries + 12 subdivisions).
+- 2026-10-28 (owner): cal_engine REPLACES v0's calendar effect on every row; exposure 0.3 as in v0, so G2.1 tests "better
+  calendar at the same exposure". Steps per day {1/7, 1, 24, 48, 96}; weekly rows are built daily and averaged over 7 days.
+- 2026-10-28 (owner): G2.2 = cal_engine + the cal_cov group kind with flags shown in 50% of its groups. This differs from
+  "50% of rows": generate_batch shuffles rows after H4, so a row's calendar cannot follow it into a block, and flags can
+  only be shown for group targets.
+- 2026-10-28: the calendar table (tools/build_calendars.py, holidays 0.107) is committed with its sha256; the builder's
+  --check fails when a rebuild differs. The holidays package lacks some lunisolar dates (Diwali: IN 2001-2035, LK 2004-2026;
+  NP's Tihar 2010-2035); each calendar has a valid year range and windows are placed inside it, never on invented dates.
+- 2026-10-28: the G1 scenario switches got a `clock` parameter (fixed = unchanged output; engine = the G2 calendar clock and
+  holidays). Their run ids changed (the parameter is in the hash); no G1 run had started.
 
 ### G3. Few cycles and seen-once history
 - Probes P3: year-once / year-twice; a period longer than a quarter of the context.

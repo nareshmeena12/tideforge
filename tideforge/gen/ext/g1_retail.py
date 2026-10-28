@@ -39,8 +39,8 @@ def promos(g, n, L, dev):
     return C.windows(g, n, L, 1.0 / u(g, (n, 1), 14, 60, dev), 3, 14, dev)
 
 
-def build(g, n, Lf, dt, dev, holidays=None):
-    gr = C.grid(g, n, Lf, dt, dev)
+def build(g, n, Lf, dt, dev, holidays=None, clock="fixed"):
+    gr = C.grid(g, n, Lf, dt, dev, clock)
     hol = C.HOLIDAYS[holidays or HOLIDAY_SOURCE](g, n, gr, 6, 12, dev)
     pre = torch.cat([hol[:, 1:], torch.zeros_like(hol[:, :1])], 1) & ~hol
     yearly = torch.exp(u(g, (n, 1), 0, 0.3, dev) * torch.cos(gr["ang"] - u(g, (n, 1), 0, 2 * math.pi, dev)))
@@ -75,8 +75,8 @@ def build(g, n, Lf, dt, dev, holidays=None):
 
 def _install(p, inst):
     def b(g, n, Lf, dt, dev):
-        return build(g, n, Lf, dt, dev, holidays=p["holidays"])
+        return build(g, n, Lf, dt, dev, holidays=p["holidays"], clock=p["clock"])
     inst.add_group_kind("sc_retail", C.scenario_kind(b, C.RES_DAILY, own=False), p["share"])
 
 
-register(Switch("sc_retail", "G1.5", "retail scenario (group kind)", _install, dict(share=0.15, holidays="fixed")))
+register(Switch("sc_retail", "G1.5", "retail scenario (group kind)", _install, dict(share=0.15, holidays="fixed", clock="fixed")))

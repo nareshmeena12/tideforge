@@ -1,0 +1,7 @@
+id: G2.4b
+base: b0
+switches:
+  cal_engine: {exposure: 0.3, invented: 0.3, exclude_held_out: true}
+seeds: [0]
+notes: >-
+  real + invented (0.3) calendars, held-out countries excluded; the other arm of G2.4 (see G2.4a).

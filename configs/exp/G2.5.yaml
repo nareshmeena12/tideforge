@@ -1,0 +1,8 @@
+id: G2.5
+base: b0
+switches:
+  cal_engine: {exposure: 0.3, payday_p: 0.3, month_end_p: 0.3, dst_p: 0.5}
+seeds: [0]
+notes: >-
+  G2.1 + sub-daily effects: paydays (1st / 15th / last business day) and month / quarter ends in 30% of calendar rows,
+  local-time DST (23 / 25-hour days) in 50% of hourly calendar rows of calendars with a DST rule. Compared with G2.1.

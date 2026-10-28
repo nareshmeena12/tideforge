@@ -1,0 +1,8 @@
+id: G2.1
+base: b0
+switches:
+  cal_engine: {exposure: 0.3}
+seeds: [0]
+notes: >-
+  calendar engine replaces v0 calendar layer at v0 exposure (0.3 of allow_add rows): better calendar at the same exposure.
+  Full pool (held-out countries included), invented 0.3, no flags shown.

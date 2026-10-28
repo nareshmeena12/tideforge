@@ -1,0 +1,6 @@
+id: G3.2
+base: b0
+switches:
+  long_cycle_cal: {}
+seeds: [0]
+notes: long_cycle replaced (its whole weight) by long_cycle_cal on real dates (doy, leap years, weekday drift, holidays).

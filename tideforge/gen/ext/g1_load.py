@@ -42,7 +42,8 @@ def load_core(g, n, gr, T, H, I, dev) -> tuple[torch.Tensor, dict]:
     for k in (1, 2, 3):
         B = B + u(g, (n, 1), 0.0, 0.15 / k, dev) * torch.cos(2 * math.pi * k * gr["hour"] / 24 + u(g, (n, 1), 0, 2 * math.pi, dev))
     wf = u(g, (n, 1), 0.7, 0.95, dev)
-    B = B * torch.where(gr["dow"] >= 5, wf, torch.ones_like(wf))
+    off = gr["weekend"] | (gr["holcode"] > 0) if "holcode" in gr else gr["weekend"]     # engine clock: holidays as weekend
+    B = B * torch.where(off, wf, torch.ones_like(wf))
     zeta = u(g, (n, 1), 0.0, 0.1, dev)
     noise = torch.exp(u(g, (n, 1), 0.01, 0.05, dev) * C.ar1(g, T.shape, 0.9 ** dt, dev))
     load = B * (1 + R) * (1 - zeta * I / 1000.0) * noise
@@ -60,8 +61,8 @@ def wind_speed(g, n, gr, dev):
     return torch.nn.functional.softplus(u(g, (n, 1), 1, 4, dev) + 2 * C.ar1(g, gr["th"].shape, rho, dev))
 
 
-def build(g, n, Lf, dt, dev):
-    gr = C.grid(g, n, Lf, dt, dev)
+def build(g, n, Lf, dt, dev, clock="fixed"):
+    gr = C.grid(g, n, Lf, dt, dev, clock)
     T = C.temperature(g, n, gr, dev)
     H = humidity(g, n, gr, dev)
     I = C.clear_sky(gr, torch.deg2rad(u(g, (n, 1), 0, 60, dev))) * C.cloud(g, n, gr, dev)
@@ -70,14 +71,16 @@ def build(g, n, Lf, dt, dev):
     nb, _ = load_core(g, n, gr, T2, H, I, dev)
     S = C.log_u(g, (n, 1), 0.1, 1e4, dev)
     tgt = S * load + u(g, (n, 1), -0.5, 0.5, dev) * S
-    covs = torch.stack([T, (gr["dow"] >= 5).float(), H, I, wind_speed(g, n, gr, dev), C.rescale(g, nb, dev)], 1)
+    covs = torch.stack([T, (gr["weekend"]).float(), H, I, wind_speed(g, n, gr, dev), C.rescale(g, nb, dev)], 1)
     roles = torch.tensor([ROLE_KNOWN, ROLE_KNOWN, ROLE_KNOWN, ROLE_KNOWN, C.DECOY, ROLE_PAST], device=dev).expand(n, -1)
     info.update(agg=("mean",) * 7, gr=gr, load=load, S=S)
     return tgt, covs, roles, info
 
 
 def _install(p, inst):
-    inst.add_group_kind("sc_load", C.scenario_kind(build, C.RES_LOAD, own=True), p["share"])
+    def b(g, n, Lf, dt, dev):
+        return build(g, n, Lf, dt, dev, clock=p["clock"])
+    inst.add_group_kind("sc_load", C.scenario_kind(b, C.RES_LOAD, own=True), p["share"])
 
 
-register(Switch("sc_load", "G1.3", "weather -> load scenario (group kind)", _install, dict(share=0.15)))
+register(Switch("sc_load", "G1.3", "weather -> load scenario (group kind)", _install, dict(share=0.15, clock="fixed")))

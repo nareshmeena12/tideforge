@@ -48,13 +48,13 @@ print("RESULT " + json.dumps(out))
 """
 
 
-def run(det: bool, exp: str = "", device: str = "cuda") -> list[dict]:
+def run(det: bool, exp: str = "", device: str = "cuda", warm: int | None = None) -> list[dict]:
     env = {k: v for k, v in os.environ.items() if k != "CUBLAS_WORKSPACE_CONFIG"}
     if det:
         env["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
     cpu = device == "cpu"
     code = CHILD.format(repo=str(REPO), tp=str(REPO / "third_party" / "tidemark_e21cbf0"), det=det, exp=exp, device=device,
-                        pool=1e6 if cpu else 16e6, warm=1 if cpu else 2, reps=6 if cpu else 5)
+                        pool=1e6 if cpu else 16e6, warm=warm if warm is not None else (1 if cpu else 2), reps=6 if cpu else 5)
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
     if r.returncode:
         raise SystemExit(r.stderr[-3000:])
@@ -67,6 +67,7 @@ def main(argv=None) -> int:
     ap.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
     ap.add_argument("--exp", nargs="*", default=[])
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--warm", type=int, default=None, help="warm-up calls per length before timing (default 1 CPU / 2 GPU)")
     o = ap.parse_args(argv)
     exps = list(o.exp)
     if o.all:
@@ -74,13 +75,14 @@ def main(argv=None) -> int:
         sys.path[:0] = [str(REPO), str(REPO / "third_party" / "tidemark_e21cbf0")]
         exps = [p.stem for p in sorted(EXP_DIR.glob("G*.yaml")) if load_exp(p).gen != load_exp(p).base]
     if exps:
-        ref = run(False, "", o.device)
-        print(f"{o.device}, torch default mode; points/s and ratio vs B0 per length")
+        ref = run(False, "", o.device, o.warm)
+        print(f"{o.device}, torch default mode; points/s and ratio vs the B0 run made right after each config "
+              f"(not the first B0 row)")
         print(f"{'config':8s} " + " ".join(f"{'L' + str(r['L']):>20s}" for r in ref))
         print(f"{'B0':8s} " + " ".join(f"{r['points_per_s']:12.3e} (1.000)" for r in ref))
         for e in exps:
-            res = run(False, e, o.device)
-            ref = run(False, "", o.device)         # B0 again right after: the ratio uses the adjacent B0 (machine load drifts)
+            res = run(False, e, o.device, o.warm)
+            ref = run(False, "", o.device, o.warm)         # B0 again right after: the ratio uses the adjacent B0 (machine load drifts)
             print(f"{e:8s} " + " ".join(f"{x['points_per_s']:12.3e} ({x['points_per_s'] / r['points_per_s']:.3f})"
                                        for x, r in zip(res, ref)), flush=True)
         return 0

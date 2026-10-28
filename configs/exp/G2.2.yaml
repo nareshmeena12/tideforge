@@ -1,0 +1,10 @@
+id: G2.2
+base: b0
+switches:
+  cal_engine: {exposure: 0.3}
+  cal_cov: {share: 0.15, show: 0.5}
+seeds: [0]
+notes: >-
+  G2.1 + the cal_cov group kind (0.7 x 0.15 / 1.15 = 9.1% of blocks); flags (holiday type, weekend, bridge, payday) shown as
+  known lanes in 50% of those groups. Differs from "50% of rows": rows are shuffled after H4, so flags can only be shown for
+  group targets (owner 2026-10-28). Compared with G2.1.

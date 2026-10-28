@@ -1,0 +1,6 @@
+id: G2.3a
+base: b0
+switches:
+  cal_engine: {exposure: 0.25}
+seeds: [0]
+notes: calendar exposure 25% of allow_add rows (G2.1 = 30%).

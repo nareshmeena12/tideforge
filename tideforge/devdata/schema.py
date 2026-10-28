@@ -32,6 +32,9 @@ Entry (keys not listed are errors; see sources.yaml for real ones):
       exclude: {where: "country != 'SN'", rule: "...", aggregator: [D078]}   # where = rows to KEEP (pandas query)
       tz: UTC                                # timestamps are converted to UTC naive at ingest
       covariate_only: false                  # true: ingested as a covariate source, not a dev target
+      country: US                            # ISO 3166-1 alpha-2 | multi (unknown or many: Europe-wide sets) |
+                                             # {prefix: 2, codes: fips | iso2}: the first N characters of the series id
+                                             # (GHCN station ids start with a FIPS code); tideforge/devdata/country.py
       confirm: ["the by-station URL pattern"]   # what the probe step must confirm before a full fetch
       notes: ...
     batches: {batch1: [D053, ...]}
@@ -54,7 +57,7 @@ from tideforge.devdata.freqs import canonical
 
 SOURCES = Path(__file__).resolve().parent / "sources.yaml"
 KEYS = {"slug", "loader", "index", "fetch", "read", "time", "id", "value", "events", "filter", "missing", "scale", "tasks",
-        "select", "exclude", "tz", "covariate_only", "confirm", "notes"}
+        "select", "exclude", "tz", "covariate_only", "country", "confirm", "notes"}
 HOWS = {"mean", "sum", "count", "last", "max", "min"}
 FORMATS = {"csv", "parquet", "json", "whitespace", "fwf"}
 SECRET_KEY = re.compile(r"(token|secret|password|passwd|api[_-]?key|auth[_-]?key)", re.I)
@@ -81,6 +84,7 @@ class Source:
     exclude: dict = field(default_factory=dict)
     tz: str = "UTC"
     covariate_only: bool = False
+    country: str | dict = ""
     confirm: list = field(default_factory=list)
     notes: str = ""
 
@@ -173,6 +177,8 @@ def validate(src: Source) -> list[str]:
     have = set((src.exclude or {}).get("aggregator", []) or [])
     if need - have:
         p.append(f"{src.id}: aggregator rules not covered in exclude.aggregator: {sorted(need - have)}")
+    from tideforge.devdata.country import check_tag
+    p += [f"{src.id}: {m}" for m in check_tag(src.country)]
     if src.loader != "table" and not src.loader.startswith("adapter:"):
         p.append(f"{src.id}: loader must be 'table' or 'adapter:<name>'")
     if src.loader == "table":

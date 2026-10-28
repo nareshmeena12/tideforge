@@ -4,3 +4,4 @@ GenConfig lists the switch. See tideforge/gen/switches.py for the rules (own RNG
 g1_lead_noise is not a switch (the batcher applies it in T3)."""
 from tideforge.gen.ext import dummy, g3_share, g4_breaks, g6_gaps, g7_integer  # noqa: F401
 from tideforge.gen.ext import g1_events, g1_graph, g1_load, g1_price, g1_pv, g1_retail  # noqa: F401
+from tideforge.gen.ext import g2_switches  # noqa: F401

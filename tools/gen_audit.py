@@ -78,6 +78,13 @@ def feats(x):
     f["kurt_diff"] = float(k)
     h = L // 2
     f["var_ratio"] = float(np.log((x[h:].std() + 1e-12) / (x[:h].std() + 1e-12)))
+    # SHORT seasons (G3.4): the dominant frequency of the detrended series (periodogram zero-padded 4x, steps of 0.25
+    # cycles per window) lies in [1.5, 3) cycles and holds >= 25% of the power; the ACF detector above needs >= 3 cycles
+    Pz = np.abs(np.fft.rfft(rr, n=4 * L)) ** 2
+    cyc = np.arange(len(Pz)) / 4.0
+    band = cyc >= 1.0
+    kpk = int(np.argmax(np.where(band, Pz, 0)))
+    f["short_season"] = bool(1.5 <= cyc[kpk] < 3.0 and Pz[kpk] >= 0.25 * Pz[band].sum() / 4.0)
     # exact repetition at the detected lag
     f["exact_repeat"] = bool(np.mean(np.abs(x[lag:] - x[:-lag])) < 1e-3 * sd)
     return f
@@ -117,12 +124,13 @@ print(f"   share at a bank period (+-1): {100*sum(k for p,k in c.items() if any(
 print(f"   share with period > 1/3 of what fits (<4 cycles): {100*sum(k for p,k in c.items() if 2048/p<4)/tot_s:.0f}%")
 
 ROW = dict(config=label, run_id=gc.run_id_fragment(base))
-for fam in ("long_cycle",):
-    ROW[f"share_{fam}"] = round(100 * W.get(fam, 0.0) / tot, 2)
+# long_cycle and its G3.2 replacement long_cycle_cal count together
+ROW["share_long_cycle"] = round(100 * (W.get("long_cycle", 0.0) + W.get("long_cycle_cal", 0.0)) / tot, 2)
 ns_all = [r for r in rows if not r["flat"]]
 ROW.update(integer=round(share(ns_all, "integer"), 2), jumps=round(share(ns_all, "n_jumps", lambda v: v >= 1), 2),
            var_change=round(share(ns_all, "var_ratio", lambda v: abs(v) > math.log(2)), 2),
-           seasonal=round(share(ns_all, "seasonal"), 2), flat=round(share(rows, "flat"), 2))
+           seasonal=round(share(ns_all, "seasonal"), 2), short_season=round(share(ns_all, "short_season"), 2),
+           flat=round(share(rows, "flat"), 2))
 
 
 def write_row():

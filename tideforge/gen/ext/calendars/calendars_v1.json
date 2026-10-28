@@ -1,0 +1,1336 @@
+{
+ "version": "v1",
+ "sha256": "20de60db420e36da0c98712fa95cc7e508189bafff0863e43dd05c1ba19c4bd1",
+ "holidays_version": "0.107",
+ "start": "1990-01-01",
+ "end": "2040-12-31",
+ "types": [
+  "none",
+  "new_year",
+  "civic",
+  "easter",
+  "christmas",
+  "islamic",
+  "hindu_buddhist",
+  "chinese",
+  "jewish",
+  "other_religious",
+  "observed",
+  "later_day",
+  "other"
+ ],
+ "rules": {
+  "sat_sun": [
+   5,
+   6
+  ],
+  "fri_sat": [
+   4,
+   5
+  ],
+  "thu_fri": [
+   3,
+   4
+  ],
+  "sun": [
+   6
+  ],
+  "fri": [
+   4
+  ],
+  "sat": [
+   5
+  ]
+ },
+ "calendars": [
+  {
+   "id": "US",
+   "country": "US",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "US",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CA",
+   "country": "CA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "US",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "MX",
+   "country": "MX",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "BR",
+   "country": "BR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": null,
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "AR",
+   "country": "AR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CL",
+   "country": "CL",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CO",
+   "country": "CO",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "GB",
+   "country": "GB",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "IE",
+   "country": "IE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "FR",
+   "country": "FR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "DE",
+   "country": "DE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "ES",
+   "country": "ES",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "IT",
+   "country": "IT",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "NL",
+   "country": "NL",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "BE",
+   "country": "BE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CH",
+   "country": "CH",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "AT",
+   "country": "AT",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "PL",
+   "country": "PL",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CZ",
+   "country": "CZ",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "SE",
+   "country": "SE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "NO",
+   "country": "NO",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "DK",
+   "country": "DK",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "FI",
+   "country": "FI",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "PT",
+   "country": "PT",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "GR",
+   "country": "GR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "RU",
+   "country": "RU",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "UA",
+   "country": "UA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "ZA",
+   "country": "ZA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "NG",
+   "country": "NG",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "KE",
+   "country": "KE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "AU",
+   "country": "AU",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": "AU_S",
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "NZ",
+   "country": "NZ",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": "NZ",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "PH",
+   "country": "PH",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2024,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "SA",
+   "country": "SA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "thu_fri"
+    ],
+    [
+     "2013-06-29",
+     "fri_sat"
+    ]
+   ]
+  },
+  {
+   "id": "AE",
+   "country": "AE",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "thu_fri"
+    ],
+    [
+     "2006-09-01",
+     "fri_sat"
+    ],
+    [
+     "2022-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "QA",
+   "country": "QA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "thu_fri"
+    ],
+    [
+     "2003-09-01",
+     "fri_sat"
+    ]
+   ]
+  },
+  {
+   "id": "EG",
+   "country": "EG",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "fri_sat"
+    ]
+   ]
+  },
+  {
+   "id": "MA",
+   "country": "MA",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "TR",
+   "country": "TR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "PK",
+   "country": "PK",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "BD",
+   "country": "BD",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "fri_sat"
+    ]
+   ]
+  },
+  {
+   "id": "ID",
+   "country": "ID",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2003,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "IN",
+   "country": "IN",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2001,
+    2035
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "NP",
+   "country": "NP",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2010,
+    2035
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat"
+    ]
+   ]
+  },
+  {
+   "id": "LK",
+   "country": "LK",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2004,
+    2026
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "TH",
+   "country": "TH",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CN",
+   "country": "CN",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "HK",
+   "country": "HK",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    2022,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "TW",
+   "country": "TW",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1998,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "KR",
+   "country": "KR",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "VN",
+   "country": "VN",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "SG",
+   "country": "SG",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "MY",
+   "country": "MY",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "IL",
+   "country": "IL",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "fri_sat"
+    ]
+   ]
+  },
+  {
+   "id": "JP",
+   "country": "JP",
+   "subdiv": null,
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "US-CA",
+   "country": "US",
+   "subdiv": "CA",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "US",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "US-TX",
+   "country": "US",
+   "subdiv": "TX",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "US",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "DE-BY",
+   "country": "DE",
+   "subdiv": "BY",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "DE-BE",
+   "country": "DE",
+   "subdiv": "BE",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "ES-CT",
+   "country": "ES",
+   "subdiv": "CT",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CA-QC",
+   "country": "CA",
+   "subdiv": "QC",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "US",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "AU-NSW",
+   "country": "AU",
+   "subdiv": "NSW",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": "AU_S",
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "AU-VIC",
+   "country": "AU",
+   "subdiv": "VIC",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": "AU_S",
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "IN-MH",
+   "country": "IN",
+   "subdiv": "MH",
+   "english": true,
+   "valid": [
+    2001,
+    2035
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "CH-ZH",
+   "country": "CH",
+   "subdiv": "ZH",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": "EU",
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "BR-SP",
+   "country": "BR",
+   "subdiv": "SP",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": true,
+   "dst": null,
+   "held_out": true,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  },
+  {
+   "id": "MY-10",
+   "country": "MY",
+   "subdiv": "10",
+   "english": true,
+   "valid": [
+    1990,
+    2040
+   ],
+   "south": false,
+   "dst": null,
+   "held_out": false,
+   "weekend": [
+    [
+     "1990-01-01",
+     "sat_sun"
+    ]
+   ]
+  }
+ ]
+}

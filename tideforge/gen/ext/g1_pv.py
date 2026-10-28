@@ -26,8 +26,8 @@ def output(g, n, I, Tair, Gc, dev):
     return (P * (1 + 0.02 * C.ar1(g, I.shape, 0.8, dev))).clamp(min=0.0) * (Gc > 0)
 
 
-def build(g, n, Lf, dt, dev):
-    gr = C.grid(g, n, Lf, dt, dev)
+def build(g, n, Lf, dt, dev, clock="fixed"):
+    gr = C.grid(g, n, Lf, dt, dev, clock)
     Gc = C.clear_sky(gr, torch.deg2rad(u(g, (n, 1), 0, 60, dev)))
     c = C.cloud(g, n, gr, dev)
     I = Gc * c
@@ -47,7 +47,9 @@ def build(g, n, Lf, dt, dev):
 
 
 def _install(p, inst):
-    inst.add_group_kind("sc_pv", C.scenario_kind(build, C.RES_PV, own=False), p["share"])
+    def b(g, n, Lf, dt, dev):
+        return build(g, n, Lf, dt, dev, clock=p["clock"])
+    inst.add_group_kind("sc_pv", C.scenario_kind(b, C.RES_PV, own=False), p["share"])
 
 
-register(Switch("sc_pv", "G1.6", "PV output from irradiance scenario (group kind)", _install, dict(share=0.15)))
+register(Switch("sc_pv", "G1.6", "PV output from irradiance scenario (group kind)", _install, dict(share=0.15, clock="fixed")))

@@ -32,8 +32,8 @@ def curve(r, a, b, gamma, r0, sdr):
     return a + b * (torch.nn.functional.softplus(k * (r - r0)) / k / sdr) ** gamma
 
 
-def build(g, n, Lf, dt, dev):
-    gr = C.grid(g, n, Lf, dt, dev)
+def build(g, n, Lf, dt, dev, clock="fixed"):
+    gr = C.grid(g, n, Lf, dt, dev, clock)
     T = C.temperature(g, n, gr, dev)
     H = g1_load.humidity(g, n, gr, dev)
     cs = C.clear_sky(gr, torch.deg2rad(u(g, (n, 1), 0, 60, dev)))
@@ -67,7 +67,9 @@ def build(g, n, Lf, dt, dev):
 
 
 def _install(p, inst):
-    inst.add_group_kind("sc_price", C.scenario_kind(build, C.RES_PRICE, own=True), p["share"])
+    def b(g, n, Lf, dt, dev):
+        return build(g, n, Lf, dt, dev, clock=p["clock"])
+    inst.add_group_kind("sc_price", C.scenario_kind(b, C.RES_PRICE, own=True), p["share"])
 
 
-register(Switch("sc_price", "G1.4", "residual load -> price scenario (group kind)", _install, dict(share=0.15)))
+register(Switch("sc_price", "G1.4", "residual load -> price scenario (group kind)", _install, dict(share=0.15, clock="fixed")))

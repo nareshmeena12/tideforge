@@ -1,0 +1,6 @@
+id: G3.4
+base: b0
+switches:
+  season_short: {share: 0.2}
+seeds: [0]
+notes: in 20% of allow_add rows the seasonal part has 1.5-3 cycles in the window (v0 minimum 3).
