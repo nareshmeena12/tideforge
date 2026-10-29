@@ -183,6 +183,7 @@ class Run:
             self.log(f"resumed {self.run_id} at step {self.step:,}, {self.points / 1e9:.2f}B points")
         mpts = float(self.opt_cfg.get("milestone_points") or 0)
         next_ms = (math.floor(self.points / mpts) + 1) * mpts if mpts > 0 else float("inf")
+        extra = sorted(float(p) for p in (rs.get("extra_ckpt_points") or []) if float(p) > self.points)   # e.g. ckpt_10B.pt
         self.n_bad = 0
         self.model.train()
         mfile = open(self.dir / "metrics.jsonl", "a", encoding="utf-8")
@@ -215,6 +216,9 @@ class Run:
                     atomic_save(slim(self.model, self.cfg, self.step, self.points, self.run_id, "milestone"),
                                 self.dir / f"ckpt_{int(round(next_ms / 1e9))}B.pt")
                     next_ms += mpts
+                while extra and self.points >= extra[0]:
+                    atomic_save(slim(self.model, self.cfg, self.step, self.points, self.run_id, "extra checkpoint"),
+                                self.dir / f"ckpt_{int(round(extra.pop(0) / 1e9))}B.pt")
                 if time.time() - t_save >= rs["ckpt_every_s"]:
                     self.save_last()
                     t_save = time.time()
@@ -252,6 +256,7 @@ def main(argv=None) -> int:
     if a.smoke_points:
         rc.sections["optim"]["target_points"] = float(a.smoke_points)
         rc.sections["optim"]["milestone_points"] = 0.0
+        rc.sections["run"]["extra_ckpt_points"] = []
     if os.environ.get("CUBLAS_WORKSPACE_CONFIG") is None and torch.cuda.is_available():
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"           # needed by cuBLAS whenever deterministic mode is on
     install_signals()

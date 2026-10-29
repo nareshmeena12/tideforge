@@ -12,3 +12,7 @@ model:
 seeds: [0]
 notes: >-
   G1.13 2x2, both: the best G1 data + M1. Switches = G1.8's for now (placeholder).
+win:                              # G1.13 Part A (pre-registered 2026-10-29); confirmed with 3 seeds before it counts
+  - {score: dev_cov, beat: range}
+  - {probe: P1, cells: [lagged_linear, nonlinear_u, promo, events], metric: sql, mode: "on", improve: true}
+  - {score: dev, not_worse: range}

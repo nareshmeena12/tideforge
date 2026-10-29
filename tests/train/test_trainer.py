@@ -154,3 +154,30 @@ def test_m1_run_trains_and_its_checkpoint_reloads_as_m1(tmp_path):
     assert all(torch.equal(a, b) for a, b in zip(m.state_dict().values(), r.model.state_dict().values()))
     b0 = run(tmp_path / "b0")
     assert type(b0.model) is not M1Decoder and b0.cfg["known_attn"] == "off"
+
+
+def test_results_file_with_the_old_header_is_upgraded(tmp_path):
+    p = tmp_path / "results.csv"
+    old = FN.ROW[:14]
+    p.write_text(",".join(old) + "\n" + ",".join("v" + str(i) for i in range(14)) + "\n", encoding="utf-8")
+    FN.append_row(p, dict(run_id="new", dev_cov_gain=0.05, run_dir="/r"))
+    import csv
+    rows = list(csv.DictReader(open(p, encoding="utf-8")))
+    assert list(rows[0]) == FN.ROW and rows[0]["run_id"] == "v1" and rows[0]["dev_cov_gain"] == ""
+    assert rows[1]["run_id"] == "new" and rows[1]["dev_cov_gain"] == "0.05" and rows[1]["run_dir"] == "/r"
+
+
+def test_extra_checkpoint_points_write_a_checkpoint_and_keep_the_run_id(tmp_path):
+    rc = tiny()
+    base_id = rc.run_id(0, "c")
+    rc.sections["run"]["extra_ckpt_points"] = [1.0]
+    assert rc.run_id(0, "c") == base_id                    # not in the train hash
+    r = run(tmp_path, rc)
+    assert r.train(max_steps=2) == TR.EXIT_DONE
+    assert (r.dir / "ckpt_0B.pt").exists()
+
+
+def test_noise_dev_cov_floor():
+    from tideforge.eval import noise as NZ
+    n = {"dev": {"metrics": {"MASE": {"range": 0.02}}}, "dev_cov": {"metrics": {"MASE": {"range": 0.03}}}}
+    assert NZ.floor(n, "MASE") == 0.02 and NZ.floor(n, "MASE", "dev_cov") == 0.03 and NZ.floor({}, "MASE", "dev_cov") is None

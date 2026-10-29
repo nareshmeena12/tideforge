@@ -55,4 +55,5 @@ run:
   val_corpus: clean     # FT3 (the holdout is B0's own generator: a training monitor only)
   val_group_prob: 0.7   # FT3
   ckpt_every_s: 600     # OWNER (~10 min)
+  extra_ckpt_points: [10000000000.0]   # OWNER 2026-10-29: ckpt_10B.pt (X3's cheap rank signal); not in the train hash
   print_every: 50       # FT3

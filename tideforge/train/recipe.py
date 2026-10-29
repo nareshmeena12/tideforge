@@ -29,6 +29,8 @@ REPO = Path(__file__).resolve().parents[2]
 TRAIN_DIR = REPO / "configs" / "train"
 SECTIONS = ("model", "batch", "optim", "run")
 RUN_EXTRA = {"max_steps": None, "smoke_points": None}          # run settings an experiment / the smoke script may add
+# settings that only write extra files (no effect on training): left out of the train hash, so adding one keeps run ids
+UNHASHED = {("run", "extra_ckpt_points")}
 
 
 def load_recipe(name: str = "ab5m_cpm") -> dict:
@@ -73,7 +75,8 @@ class Recipe:
         return cfg
 
     def train_hash(self) -> str:
-        d = dict(sections=self.sections, items=self.items)
+        sec = {k: {kk: vv for kk, vv in v.items() if (k, kk) not in UNHASHED} for k, v in self.sections.items()}
+        d = dict(sections=sec, items=self.items)
         if self.exp.model:
             d["model_options"] = self.exp.model
         s = json.dumps(d, sort_keys=True, separators=(",", ":"), default=str)

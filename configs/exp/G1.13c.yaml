@@ -7,3 +7,7 @@ seeds: [0]
 notes: >-
   M1 with a band: a known token reads at most 32 patches (= max_pass_patches) ahead. Runs ONLY if G1.13a improves dev but not
   fev (the pattern a train / inference mismatch on the known lane's extent would produce; owner 2026-10-29).
+win:                              # G1.13 Part A (pre-registered 2026-10-29); confirmed with 3 seeds before it counts
+  - {score: dev_cov, beat: range}
+  - {probe: P1, cells: [lagged_linear, nonlinear_u, promo, events], metric: sql, mode: "on", improve: true}
+  - {score: dev, not_worse: range}

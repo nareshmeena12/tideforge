@@ -15,6 +15,11 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
     model:                        # model options (tideforge.model.OPTIONS), off when absent; non-default ones join the run id
       known_attn: mask            # M1 (G1.13): off | mask
       known_lookahead: 32         # M1's band in patches (G1.13c); absent = the whole window
+    win:                          # the board's win rule (tideforge.campaign.board); absent = rule 5's default:
+      - {score: dev, beat: range}           #   dev beats B0 by more than E0.7's range, and
+      - {domains_within: 0.01}              #   no domain slice worse than B0 by more than 1%
+      # also: {score: dev_cov, ...}, {score: ..., not_worse: range}, {slice: domain=Energy},
+      #       {probe: P1, cells: [lagged_linear, ...], metric: sql, mode: on, improve: true}
 
 """
 from __future__ import annotations
@@ -28,12 +33,16 @@ from tideforge.gen.config import GenConfig, b0
 
 REPO = Path(__file__).resolve().parents[1]
 EXP_DIR = REPO / "configs" / "exp"
-KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train", "model"}
+KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train", "model", "win"}
 # train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
 TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict, "crop_breaks": dict, "max_steps": int, "pack_rows": int,
               "deterministic_gen": bool, "smoke_points": float, "target_points": float}
 LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
+WIN_KINDS = ("score", "probe", "slice", "domains_within")
+WIN_KEYS = {"score": {"score", "beat", "not_worse"}, "probe": {"probe", "cells", "metric", "mode", "improve"},
+            "slice": {"slice"}, "domains_within": {"domains_within"}}
+DEFAULT_WIN = ({"score": "dev", "beat": "range"}, {"domains_within": 0.01})      # EXPERIMENTS.md rule 5 (own slice: give one)
 # model: options (owner 2026-10-29, M1); the same names and defaults as tideforge.model.OPTIONS (a test checks it)
 MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None}
 
@@ -49,6 +58,7 @@ class Exp:
     train: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict, compare=False)
     model: dict = field(default_factory=dict)          # non-default model options only
+    win: tuple = DEFAULT_WIN                           # the board's win rule (check_win)
 
     def run_id(self) -> str:
         """'<ID>-<generator fragment>[-<model fragment>]', e.g. 'G4.1-v0-breaks-1a2b3c4d', 'G1.13c-v0-kamask-kl32' (the seed
@@ -96,7 +106,44 @@ def load_exp(id_or_path: str | Path) -> Exp:
     gc = apply_changes(base, d.get("gen"), d.get("switches"))
     seeds = tuple(int(s) for s in d.get("seeds", [0]))
     return Exp(d["id"], base_name, base, gc, seeds, str(d.get("notes", "") or ""), check_train(d.get("train"), p), d,
-               check_model(d.get("model"), p))
+               check_model(d.get("model"), p), check_win(d.get("win"), p))
+
+
+def check_win(win: list | None, where="") -> tuple:
+    """The win: block (owner 2026-10-29), one criterion per item, all must pass; absent = DEFAULT_WIN (rule 5)."""
+    if win is None:
+        return DEFAULT_WIN
+    if not isinstance(win, list) or not win:
+        raise ValueError(f"{where}: win must be a non-empty list of criteria")
+    out = []
+    for c in win:
+        c = dict(c)
+        kind = next((k for k in WIN_KINDS if k in c), None)
+        if kind is None:
+            raise KeyError(f"{where}: win item {c} has none of {WIN_KINDS}")
+        bad = sorted(set(c) - WIN_KEYS[kind])
+        if bad:
+            raise KeyError(f"{where}: win item {kind}: unknown key(s) {bad}; known: {sorted(WIN_KEYS[kind])}")
+        if kind == "score":
+            if c["score"] not in ("dev", "dev_cov"):
+                raise ValueError(f"{where}: win score must be dev or dev_cov, not {c['score']!r}")
+            tests = [k for k in ("beat", "not_worse") if k in c]
+            if len(tests) != 1 or c[tests[0]] != "range":
+                raise ValueError(f"{where}: win score needs exactly one of beat: range / not_worse: range")
+        elif kind == "probe":
+            if c.get("improve") is not True:
+                raise ValueError(f"{where}: win probe needs improve: true")
+            if c.get("mode") is False:                     # YAML 1.1: a bare `off` / `on` would be a bool
+                raise ValueError(f"{where}: win probe mode must be quoted")
+            c["mode"] = {True: "on"}.get(c.get("mode", "main"), c.get("mode", "main"))
+            c.setdefault("metric", "sql")
+            c["cells"] = list(c.get("cells", []))
+        elif kind == "slice" and "=" not in str(c["slice"]):
+            raise ValueError(f"{where}: win slice must be key=value")
+        elif kind == "domains_within" and not 0 <= float(c["domains_within"]) < 1:
+            raise ValueError(f"{where}: win domains_within must be in [0, 1)")
+        out.append(c)
+    return tuple(out)
 
 
 def check_model(model: dict | None, where="") -> dict:

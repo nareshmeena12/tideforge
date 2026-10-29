@@ -1,10 +1,13 @@
 """The seed-noise file (E0.7, pre-registered 2026-10-29): runs/noise/e07.json.
 
-    python -m tideforge.eval.noise --out runs/noise/e07.json [--dev-runs <dev run> ...] [--probe-csvs <results.csv> ...]
+    python -m tideforge.eval.noise --out runs/noise/e07.json [--dev-runs <dev run> ...] [--dev-cov-runs <cov run> ...]
+                                   [--probe-csvs <results.csv> ...]
 
 The noise floor for EXPERIMENTS.md rule 5 is the RANGE (max - min) over the seeds, per metric. The sd is recorded but not used.
 - dev: per metric (MASE, CRPS), each seed's overall score (weighted geometric mean of the ratios to seasonal naive). The range
   is stored in the units devscore compare's gain uses (gain = 1 - A / B): max / min - 1.
+- dev_cov (added 2026-10-29 for G1.13's win rule): the same on the dev-covariate set (groups ON score), from the seeds'
+  devscore --cov runs.
 - probes: per (probe, cell, mode, view, metric) of the probe suite's results.csv, the range of the value (in the metric's units).
 Either part can be written alone and the other added later (the dev part from finish --ckpt once the dev set is built): an
 existing file is updated, not replaced. Each part keeps the runs it came from.
@@ -59,11 +62,11 @@ def probe_part(csvs: list[str]) -> dict:
     return dict(runs=[str(c) for c in csvs], metrics=out)
 
 
-def write(out: str | Path, dev_runs=None, probe_csvs=None) -> dict:
+def write(out: str | Path, dev_runs=None, probe_csvs=None, dev_cov_runs=None) -> dict:
     p = Path(out)
     d = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
     d.update(stat=STAT, note="noise floor = range (max - min) over seeds; sd recorded, not used (E0.7 Part A)")
-    for name, items, fn in (("dev", dev_runs, dev_part), ("probes", probe_csvs, probe_part)):
+    for name, items, fn in (("dev", dev_runs, dev_part), ("dev_cov", dev_cov_runs, dev_part), ("probes", probe_csvs, probe_part)):
         if items:
             if len(items) < 2:
                 raise SystemExit(f"{name}: at least 2 seeds are needed for a range")
@@ -73,10 +76,10 @@ def write(out: str | Path, dev_runs=None, probe_csvs=None) -> dict:
     return d
 
 
-def floor(noise: dict | None, metric: str) -> float | None:
-    """The dev noise floor for rule 5 (the range), or None if the dev part is not written yet."""
+def floor(noise: dict | None, metric: str, part: str = "dev") -> float | None:
+    """The noise floor for rule 5 (the range) of part dev | dev_cov, or None if that part is not written yet."""
     try:
-        return float(noise["dev"]["metrics"][metric][STAT])
+        return float(noise[part]["metrics"][metric][STAT])
     except (TypeError, KeyError):
         return None
 
@@ -85,11 +88,12 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--out", default="runs/noise/e07.json")
     ap.add_argument("--dev-runs", nargs="+")
+    ap.add_argument("--dev-cov-runs", nargs="+")
     ap.add_argument("--probe-csvs", nargs="+")
     a = ap.parse_args(argv)
-    if not (a.dev_runs or a.probe_csvs):
+    if not (a.dev_runs or a.probe_csvs or a.dev_cov_runs):
         raise SystemExit("give --dev-runs and / or --probe-csvs")
-    d = write(a.out, a.dev_runs, a.probe_csvs)
+    d = write(a.out, a.dev_runs, a.probe_csvs, a.dev_cov_runs)
     for m, s in d.get("dev", {}).get("metrics", {}).items():
         print(f"dev {m}: range {s['range']:.4f} (sd {s['sd']:.4f}) over {len(s['values'])} seeds")
     print(f"probes: {len(d.get('probes', {}).get('metrics', {}))} metrics -> {a.out}")

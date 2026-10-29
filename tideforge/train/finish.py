@@ -5,6 +5,8 @@
 
 dev     devscore score (tuning role, fast set) with the M5 adapter -> <run dir>/dev/. If the dev version is not built yet the
         row says "dev set missing" and nothing is scored; run this command again later with the same checkpoint.
+dev cov devscore score --cov (the dev-covariate set, groups ON and hidden; owner 2026-10-29) -> <run dir>/dev/: dev_cov_MASE /
+        dev_cov_CRPS (ON) and dev_cov_gain = 1 - ON / hidden (MASE; > 0: the covariates help).
 probes  tideforge.probes run on the built probe sets ($TF_DATA/probes) -> <run dir>/probes/ ("probes missing" if not built).
 row     one line appended to results.csv (never committed): run id, experiment, seed, code, steps, points, the final holdout loss
         and the dev / probe status and headline numbers. The holdout loss is a TRAINING MONITOR ONLY: the holdout is drawn from
@@ -21,7 +23,7 @@ import os
 from pathlib import Path
 
 ROW = ["date", "run_id", "exp", "seed", "code", "steps", "points", "holdout_final", "holdout_note", "dev", "dev_MASE",
-       "dev_CRPS", "probes", "ckpt"]
+       "dev_CRPS", "probes", "ckpt", "dev_cov_MASE", "dev_cov_CRPS", "dev_cov_gain", "run_dir"]   # the last 4: 2026-10-29
 HOLDOUT_NOTE = "training monitor only (B0's generator)"
 
 
@@ -40,7 +42,12 @@ def dev_score(ckpt: Path, run_dir: Path, dev: str | None, version: str, device: 
              "--out", str(out), "--device", device])
     run, _ = DS.load_run(DS.run_dir(out, version, "tuning", "fast", False, "m5"))
     o = run["scores"]["main"]["overall"]
-    return dict(dev=f"{version} fast", dev_MASE=o["MASE"][0], dev_CRPS=o["CRPS"][0])
+    DS.main(["score", "--dev", str(dev), "--version", version, "--cov", "--model", "m5", "--ckpt", str(ckpt),
+             "--out", str(out), "--device", device])
+    cov, _ = DS.load_run(DS.run_dir(out, version, "tuning", "fast", True, "m5"))
+    c = cov["scores"]["on"]["overall"]
+    return dict(dev=f"{version} fast", dev_MASE=o["MASE"][0], dev_CRPS=o["CRPS"][0], dev_cov_MASE=c["MASE"][0],
+                dev_cov_CRPS=c["CRPS"][0], dev_cov_gain=1 - cov["on_vs_hidden"]["ratio"])
 
 
 def probes(ckpt: Path, run_dir: Path, root: str | None, device: str, log=print) -> dict:
@@ -54,8 +61,21 @@ def probes(ckpt: Path, run_dir: Path, root: str | None, device: str, log=print) 
 
 
 def append_row(path: Path, row: dict) -> None:
+    """Appends one row; a file with an older header (fewer columns) is rewritten first with ROW's header, old cells kept."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
+    if not new:
+        with open(path, newline="", encoding="utf-8") as f:
+            old = list(csv.DictReader(f))
+            f.seek(0)
+            head = next(csv.reader(f), [])
+        if head != ROW:
+            if set(head) - set(ROW):
+                raise SystemExit(f"{path}: unknown columns {sorted(set(head) - set(ROW))}")
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=ROW, lineterminator="\n")
+                w.writeheader()
+                w.writerows({k: r.get(k, "") for k in ROW} for r in old)
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=ROW, lineterminator="\n")
         if new:
@@ -80,7 +100,7 @@ def finish(ckpt: Path, run_dir: Path | None = None, dev: str | None = None, vers
     probe_root = probe_root if probe_root is not None else (str(Path(_env("TF_DATA")) / "probes") if _env("TF_DATA") else None)
     row = dict(date=dt.date.today().isoformat(), run_id=ck.get("run_name", info.get("run_id", "")), exp=info.get("exp", ""),
                seed=info.get("seed", ""), code=info.get("code", ""), steps=ck.get("step", ""), points=ck.get("points_seen", ""),
-               holdout_final=hold, holdout_note=HOLDOUT_NOTE, ckpt=str(ckpt))
+               holdout_final=hold, holdout_note=HOLDOUT_NOTE, ckpt=str(ckpt), run_dir=str(run_dir))
     row.update(dev_score(ckpt, run_dir, dev, version, device, log))
     row.update(probes(ckpt, run_dir, probe_root, device, log))
     res = Path(results or (Path(_env("TF_ROOT") or run_dir.parent) / "results" / "results.csv"))

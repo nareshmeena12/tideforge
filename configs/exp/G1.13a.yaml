@@ -7,3 +7,7 @@ notes: >-
   M1 on B0 data (owner OK 2026-10-29): known lanes read their whole lane (time attention bidirectional within the segment),
   firewall in group attention (target -> target / past / known; past -> past / known; known -> known). 0 extra parameters.
   The G1.13 2x2: B0 (E0.7), G1.8 (data alone), G1.13a (M1 alone), G1.13b (both).
+win:                              # G1.13 Part A (pre-registered 2026-10-29); confirmed with 3 seeds before it counts
+  - {score: dev_cov, beat: range}
+  - {probe: P1, cells: [lagged_linear, nonlinear_u, promo, events], metric: sql, mode: "on", improve: true}
+  - {score: dev, not_worse: range}
