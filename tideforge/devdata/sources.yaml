@@ -8,6 +8,8 @@
 batches:
   batch1: [D053, D054, D057, D058, D074, D071, D003, D217, D038, D029, D078, D084, D176, D381, D181, D314, D320, D138,
            D347, D297, D295]
+  batch2: [D251, D252, D279, D210, D144, D326, D328, D170, D174, D340, D342, D343, D163, D162, D360, D047, D052, D374, D376, D283, D286, D334, D330, D110, D289, D169, D371, D068, D275, D272, D229, D230, D188, D336, D339, D103, D104, D202, D391, D394, D401, D182, D014, D373, D384, D219, D383, D402, D345]
+  batch2_standby: [D403]
 
 # ------------------------------------------------------------------------------------------------ weather and ocean
 D053:
@@ -417,3 +419,574 @@ D295:
           Municipality list: a static copy, kelvins/Municipios-Brasileiros (MIT licence; 5,570 municipalities with IBGE
           code, name, lat / lon, state code), because IBGE's API timed out from NERSC twice (2026-10-27)."
 
+# ================================================================================================ batch 2 (owner OK 2026-10-29)
+# Written from the providers' pages as read on 2026-10-29; no file layout is confirmed. Every entry starts on the
+# pending adapter: `ingest probe` shows the listing, the adapter or table spec is written from that output.
+
+D251:
+  slug: bwdf_water
+  country: IT
+  loader: adapter:pending
+  fetch:
+    urls: ["https://waterbenchmarkhub.readthedocs.io/en/dev/water_benchmark_hub.bwdf.html"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the file URLs behind water_benchmark_hub's BWDF load_data() (or the journal's supplemental materials)",
+            "columns: one inflow column per DMA, hourly timestamps, local time zone"]
+  notes: "Licence read 2026-10-29: the BWDF paper (J. Water Resour. Plann. Manage., DOI 10.1061/JWRMD5.WRENG-6887) is CC BY 4.0 and says the demand, weather and calendar data are in its supplemental materials; the dataset's own licence is not stated: record it from the supplement before ingest. 10 DMAs (catalog 14 series incl. weather)."
+
+D252:
+  slug: nyc_dsny_tonnage
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.cityofnewyork.us/api/views/ebb7-mvp5/rows.csv?accessType=DOWNLOAD"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["columns (month, borough, community district, refuse / paper / MGP tonnage)"]
+  notes: "NYC open data terms. One series per community district and stream."
+
+D279:
+  slug: santa_fe
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["http://www-psych.stanford.edu/~andreas/Time-Series/SantaFe.html"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the data file links (A laser, B sleep, C currency, D synthetic, E astrophysical, F Bach)"]
+  notes: "BLOCKED before ingest: the series have no calendar time (index only); the scorer takes the MASE season from the frequency (gluonts), so these need an index frequency with season 1 (owner decision). The h task is a placeholder."
+
+D210:
+  slug: india_ogd
+  country: IN
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.data.gov.in/lists?format=json&offset=0&limit=10"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  # the resource endpoints need a free key: fetch.auth {env: DATAGOVIN_API_KEY, param: api-key} once confirmed
+  confirm: ["which human-activity resources to take (e.g. power, transport, tourism series) and their resource ids",
+            "the API key requirement (DATAGOVIN_API_KEY) for the resource endpoints"]
+  notes: "NDSAP / GODL India. A heterogeneous portal: the probe lists resources, the adapter keeps monthly series only."
+
+D144:
+  slug: telecom_italia
+  country: IT
+  loader: adapter:pending
+  fetch:
+    urls: ["https://dataverse.harvard.edu/dataverse/bigdatachallenge"]
+  tasks: [{freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the Dataverse file list (Milan grid, telecommunications activity, 10-min, Nov-Dec 2013)",
+            "columns: square id, time interval (epoch ms), country code, sms in / out, call in / out, internet"]
+  notes: "ODbL. 10-min activity aggregated to hourly per grid square (500 squares sampled)."
+
+D326:
+  slug: abilene_geant
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://ieee-dataport.org/documents/traffic-datsets-abilene-geant-taxibj"]
+  tasks: [{freq: 15min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["whether the IEEE DataPort files need a login (then manual download)",
+            "matrix layout (OD pairs x time)"]
+  notes: "Research use. OD-pair traffic; Abilene 5-min, GEANT 15-min (taken at 15 min). TaxiBJ in the same record is not used."
+
+D328:
+  slug: ucc_5g
+  country: IE
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.github.com/repos/uccmisl/5Gdataset/contents"]
+  tasks: [{freq: min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["folder layout (static / driving, Netflix / Amazon / download), timestamp column and throughput column"]
+  notes: "CC BY 4.0 (repo). 1-s traces resampled to 1 min."
+
+D170:
+  slug: binance_klines
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.binance.vision/?prefix=data/spot/monthly/klines/"]
+  tasks: [{freq: h, how: last}]
+  select: {max_series: 500}
+  exclude: {where: "not symbol.str.match(r'^(BTC|ETH|LTC|BCH)')", rule: "TIME Crypto = FRED BTC / ETH / LTC / BCH: every pair whose base asset is one of them is dropped"}
+  confirm: ["the S3 listing (https://s3-ap-northeast-1.amazonaws.com/data.binance.vision?prefix=data/spot/monthly/klines/)",
+            "kline CSV columns (open time ms, open, high, low, close, volume, ...)"]
+  notes: "Binance public data, free. Hourly close per pair."
+
+D174:
+  slug: fi2010_lob
+  country: FI
+  loader: adapter:pending
+  fetch:
+    urls: ["https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649"]
+  tasks: [{freq: min, how: last}]
+  select: {max_series: 500}
+  confirm: ["the download link and file format (normalised txt matrices: 149 rows x events)"]
+  notes: "Research use. 5 Finnish stocks, 10 days; event-time mid prices. Likely pooled (< 30 windows)."
+
+D340:
+  slug: nyc_311
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.cityofnewyork.us/resource/erm2-nwe9.json?$select=date_trunc_ymd(created_date)%20as%20day,complaint_type,count(*)&$group=day,complaint_type&$limit=5"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the SoQL aggregate (day x complaint type x borough) returns the full range in pages"]
+  notes: "NYC open data. Daily request counts per complaint type and borough (server-side aggregation, not the 30M raw rows)."
+
+D342:
+  slug: police_uk
+  country: GB
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.police.uk/api/crimes-street-dates"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the archive download (https://data.police.uk/data/archive/) and its CSV columns (Month, Falls within, Crime type)"]
+  notes: "OGL v3.0. Monthly counts per police force and crime type."
+
+D343:
+  slug: sf_fire_calls
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.sfgov.org/resource/nuek-vuh3.json?$select=date_trunc_ymd(received_dttm)%20as%20day,call_type,count(*)&$group=day,call_type&$limit=5"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the dataset id nuek-vuh3 and its column names"]
+  notes: "SF open data (PDDL). Daily calls per call type and battalion (server-side aggregation)."
+
+D163:
+  slug: uk_hpi
+  country: GB
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.gov.uk/government/statistical-data-sets/uk-house-price-index-data-downloads-august-2026"]
+  tasks: [{freq: M, how: last}]
+  select: {max_series: 500}
+  confirm: ["the full-file CSV link on the page and its columns (Date, RegionName, AveragePrice, SalesVolume)"]
+  notes: "OGL v3.0. Average price and sales volume per region."
+
+D162:
+  slug: zillow
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://files.zillowstatic.com/research/public_csvs/zhvi/Metro_zhvi_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv"]
+  tasks: [{freq: M, how: last}]
+  select: {max_series: 500}
+  confirm: ["the CSV URL pattern (the research page answered 403 to the dev machine)",
+            "wide layout: one column per month"]
+  notes: "Licence read 2026-10-29: the research page refused the dev machine (403). Zillow's research data page states, as remembered and NOT re-read: free for public use consistent with its Terms of Use, with clear attribution to Zillow. Read the page in a browser before ingest and record the text here. Different measure from TIME Housing_Inventory (Realtor.com via FRED): value-level check."
+
+D360:
+  slug: nyc_property_sales
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the annualised sales xlsx links (xlsx needs an adapter)"]
+  notes: "NYC open data. Monthly sales counts / median price per neighbourhood and building class."
+
+D047:
+  slug: kr_ev_charging
+  country: KR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10907370/"]
+  tasks: [{freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the data repository link in the paper's Data Records section and the session columns"]
+  notes: "CC BY 4.0. Charging sessions -> hourly energy per station. Held-out country KR (G2.4)."
+
+D052:
+  slug: melbourne_parking
+  country: AU
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets?where=search(%22parking%20sensor%22)&limit=20"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["which dataset holds the historic bay events (the live feed is not history)",
+            "event columns"]
+  notes: "CC BY 4.0. Occupancy share per street segment. Held-out country AU (G2.4)."
+
+D374:
+  slug: wfp_food_prices
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.humdata.org/api/3/action/package_show?id=global-wfp-food-prices"]
+  tasks: [{freq: M, how: last}]
+  select: {max_series: 500}
+  confirm: ["the per-country CSV resources and columns (date, market, commodity, unit, price, usdprice)"]
+  notes: "CC BY-IGO. Split group with D375 FPMA (catalog/split_groups.csv)."
+
+D376:
+  slug: usda_ams
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://marsapi.ams.usda.gov/services/v1.2/reports"]
+  tasks: [{freq: D, how: last}]
+  select: {max_series: 500}
+  confirm: ["whether the MARS API needs a key (it did in 2024: then fetch.auth {env: USDA_MARS_KEY, header: ...})",
+            "which report slugs give daily / weekly price series"]
+  notes: "US public domain. TIME Commodity_Import / Commodity_Production sources are not recorded: value-level check."
+
+D283:
+  slug: noaa_fisheries
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://apps-st.fisheries.noaa.gov/ods/foss/landings/?limit=5"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the FOSS ORDS endpoint and fields (year, month, state, species, pounds, dollars)"]
+  notes: "US public domain. Landings per state and species."
+
+D286:
+  slug: bbs_birds
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.sciencebase.gov/catalog/item/52b1dfa8e4b0d9b325230cd9?format=json"]
+  tasks: [{freq: Y, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the release zip (States.zip / 50-StopData) and its columns"]
+  notes: "US public domain. Yearly counts per route and species; a yearly task (long horizons may be skipped)."
+
+D334:
+  slug: seattle_library
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.seattle.gov/resource/tmmm-ytt6.json?$select=checkoutyear,checkoutmonth,materialtype,sum(checkouts)&$group=checkoutyear,checkoutmonth,materialtype&$limit=5"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["dataset id tmmm-ytt6 and fields; the per-title series to sample (top titles by checkouts)"]
+  notes: "Public domain (Seattle open data)."
+
+D330:
+  slug: steam_players
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.mendeley.com/public-api/datasets/fc969vwptj"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the file list and CSV layout (one file per game?)"]
+  notes: "CC BY 4.0. Hourly player counts of the top-100 games, 2018-2019."
+
+D110:
+  slug: mugrowthdb
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://mgrowthdb.gbiomed.kuleuven.be/help/"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the bulk export route",
+            "time units (minutes / hours since inoculation: no calendar)"]
+  notes: "Licence read 2026-10-29: the site says all data is publicly available to everyone; no licence is named (the docs carry a copyright line only). Usable for research evaluation; ask the maintainers before any redistribution. Same calendar problem as D279 (time since inoculation): BLOCKED until an index frequency exists."
+
+D289:
+  slug: biodare2
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://biodare2.ed.ac.uk/robust/experiments/public?pageIndex=0&pageSize=5"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the public-experiments API, the per-experiment licence field and the data export format"]
+  notes: "Licence per dataset: keep only experiments whose licence is open (CC BY / CC0); record the count. Circadian time (hours) has a true 24 h period."
+
+D169:
+  slug: fama_french
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"]
+  tasks: [{freq: D, how: last}]
+  select: {max_series: 500}
+  confirm: ["the zip members and their header lines (the CSVs carry text above and below the table)"]
+  notes: "Free (Ken French data library). Daily factor and portfolio returns."
+
+D371:
+  slug: treasury_dts
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/deposits_withdrawals_operating_cash?page[size]=5"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the endpoint list and fields (record_date, transaction_catg, transaction_today_amt)"]
+  notes: "US public domain. Daily deposits / withdrawals per category; not the H.15 curve (D175 is excluded)."
+
+D068:
+  slug: usgs_quakes
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://earthquake.usgs.gov/fdsnws/event/1/count?format=geojson&starttime=2020-01-01&endtime=2020-01-02"]
+  tasks: [{freq: D, how: count}]
+  select: {max_series: 500}
+  confirm: ["query by region boxes and magnitude bands (20k events per query cap)"]
+  notes: "US public domain. Daily event counts per region and magnitude band."
+
+D275:
+  slug: ngl_gnss
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://geodesy.unr.edu/NGLStationPages/DataHoldings.txt"]
+  tasks: [{freq: D, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the .tenv3 URL pattern and columns (east / north / up)"]
+  notes: "NGL open data. Daily positions per station (up component)."
+
+D272:
+  slug: intermagnet
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetCapabilities"]
+  tasks: [{freq: min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the GIN web service query for definitive 1-min data and the IAGA-2002 layout"]
+  notes: "CC BY-NC 4.0: research evaluation only (record before any redistribution)."
+
+D229:
+  slug: fr_fuel_prices
+  country: FR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://donnees.roulez-eco.fr/opendata/annee/2024"]
+  tasks: [{freq: D, how: last}]
+  select: {max_series: 500}
+  confirm: ["the yearly zip of XML (one file per year), station id and fuel type fields"]
+  notes: "Licence Ouverte. Daily station prices per fuel. TIME Oil_Price is FRED crude / refined spot: value-level check."
+
+D230:
+  slug: it_fuel_prices
+  country: IT
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.mimit.gov.it/it/open-data/elenco-dataset/carburanti-prezzi-praticati-e-anagrafica-degli-impianti"]
+  tasks: [{freq: D, how: last}]
+  select: {max_series: 500}
+  confirm: ["the daily CSV archive links (prezzo_alle_8.csv history) and columns"]
+  notes: "IODL 2.0. Same value-level check as D229."
+
+D188:
+  slug: tsa_checkpoint
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.tsa.gov/travel/passenger-volumes"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the HTML tables per year (needs an adapter)"]
+  notes: "US public domain. One national series: pooled (< 30 windows)."
+
+D336:
+  slug: nps_visits
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://irma.nps.gov/Stats/SSRSReports/National%20Reports/Query%20Builder%20for%20Public%20Use%20Statistics%20(1979%20-%20Last%20Calendar%20Year)"]
+  tasks: [{freq: M, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the query-builder export (CSV) per park and month"]
+  notes: "US public domain."
+
+D339:
+  slug: eurocontrol_airports
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.eurocontrol.int/performance/data/download/xls/Airport_Traffic.xlsx"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the CSV twin of Airport_Traffic.xlsx (ansperformance.eu/csv/#aptflt-csv) and its columns"]
+  notes: "Licence read 2026-10-29 (ansperformance.eu/about/disclaimer): may be copied in whole or in part with EUROCONTROL cited as the source; non-commercial use only; no modification without prior written permission. Research evaluation only, the files are kept as downloaded. Daily IFR arrivals + departures per airport, 2016-."
+
+D103:
+  slug: cgmacros
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://physionet.org/content/cgmacros/"]
+  tasks: [{freq: 15min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the version folder, the per-participant CSV columns (Libre / Dexcom glucose, meal macros, HR)"]
+  notes: "PhysioNet open access (record the licence of the version page)."
+
+D104:
+  slug: big_ideas_glycemic
+  country: US
+  loader: adapter:pending
+  fetch:
+    urls: ["https://physionet.org/content/big-ideas-glycemic-wearable/"]
+  tasks: [{freq: 5min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the version folder and the Dexcom CSV columns"]
+  notes: "PhysioNet open access (record the licence of the version page)."
+
+D202:
+  slug: cmapss
+  country: multi
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.nasa.gov/download/ff5v-kuh6/application%2Fzip"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the zip (train_FD00x.txt: unit, cycle, 3 settings, 21 sensors)"]
+  notes: "NASA open. BLOCKED before ingest like D279: time is the engine cycle (no calendar). Split group with N-CMAPSS."
+
+D391:
+  slug: petrobras_3w
+  country: BR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.github.com/repos/petrobras/3W/contents/dataset"]
+  tasks: [{freq: min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the parquet layout (class folders, real vs simulated instances: only REAL instances are kept)"]
+  notes: "CC BY 4.0. Real well instances only; 1-s sensors resampled to 1 min."
+
+D394:
+  slug: steel_energy
+  country: KR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://archive.ics.uci.edu/static/public/851/steel+industry+energy+consumption.zip"]
+  tasks: [{freq: 15min, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the CSV columns (date, Usage_kWh, reactive power, CO2, WeekStatus, Load_Type)"]
+  notes: "CC BY 4.0 (UCI). DAEWOO Steel (KR), 2018. Few series: pooled (< 30 windows). TIME Smart_Manufacturing: value check."
+
+D401:
+  slug: neso_demand
+  country: GB
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.neso.energy/api/3/action/datapackage_show?id=historic-demand-data"]
+  tasks: [{freq: 30min, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the yearly resource URLs from datapackage_show",
+            "columns SETTLEMENT_DATE, SETTLEMENT_PERIOD (1-50 on clock-change days), ND, TSD, embedded wind / solar; settlement periods are UK local time"]
+  notes: "NESO Open Data Licence (read the licence page and record it). Held-out GB. Value-level check against fev entsoe on Perlmutter: if entsoe holds GB demand, D401 is dropped and GB = D182 + D345."
+
+D182:
+  slug: tfl_cycle_hire
+  country: GB
+  loader: adapter:pending
+  fetch:
+    urls: ["https://cycling.data.tfl.gov.uk/"]
+  tasks: [{freq: D, how: count}]
+  select: {max_series: 500}
+  confirm: ["the usage-stats file list (weekly CSVs, journey rows: start date, start station)"]
+  notes: "OGL (TfL open data; attribution 'Powered by TfL Open Data'). Daily hires per start station. Held-out GB."
+
+D014:
+  slug: grid_india_demand
+  country: IN
+  loader: adapter:pending
+  fetch:
+    urls: ["https://report.grid-india.in/"]
+  tasks: [{freq: D, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the terms of use, read in a browser: automated access must be allowed, else the source is dropped (owner rule) and D403 replaces it",
+            "the daily PSP report format"]
+  notes: "Terms not readable from the dev machine (the page renders only in a browser). No scraping unless the terms allow automated access. Held-out IN."
+
+D373:
+  slug: agmarknet
+  country: IN
+  loader: adapter:pending
+  fetch:
+    urls: ["https://agmarknet.ceda.ashoka.edu.in/README.html"]
+  tasks: [{freq: D, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the CEDA mirror's bulk files (arrivals and modal prices per market and commodity)",
+            "or the data.gov.in resource API"]
+  notes: "GODL India. Daily arrivals (tonnes) per market and commodity. Held-out IN."
+
+D384:
+  slug: seoul_bike
+  country: KR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.seoul.go.kr/dataList/OA-15245/F/1/datasetView.do"]
+  tasks: [{freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the rental-history file list (monthly CSV / zip, Korean headers, CP949?)",
+            "the subway hourly dataset id"]
+  notes: "KOGL (type 1: attribution). Hourly rentals per station; subway hourly ridership per station. Check whether the UCI Seoul Bike Sharing copy is in LOTSA (pretrain flag only). Held-out KR."
+
+D219:
+  slug: kpx_demand
+  country: KR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://www.data.go.kr/data/15065266/fileData.do"]
+  tasks: [{freq: h, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the dataset id for hourly national demand and its file format"]
+  notes: "KOGL. Few series: pooled (< 30 windows). Held-out KR."
+
+D383:
+  slug: melbourne_pedestrians
+  country: AU
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/pedestrian-counting-system-monthly-counts-per-hour/records?limit=5"]
+  tasks: [{freq: h, how: sum}]
+  select: {max_series: 500}
+  confirm: ["the dataset id and the export URL of the hourly counts per sensor"]
+  notes: "CC BY 4.0. pretrain-flagged (Monash pedestrian_counts is in Chronos / LOTSA): reported apart in E0.5's ranks. Held-out AU."
+
+D402:
+  slug: anac_vra
+  country: BR
+  loader: adapter:pending
+  fetch:
+    urls: ["https://sistemas.anac.gov.br/dadosabertos/Voos%20e%20opera%C3%A7%C3%B5es%20a%C3%A9reas/Voo%20Regular%20Ativo%20(VRA)/2024/"]
+  tasks: [{freq: D, how: count}]
+  select: {max_series: 500}
+  confirm: ["the monthly file names inside a year folder and the CSV columns (airline, flight, origin / destination ICAO, scheduled / actual departure, situation)",
+            "the licence on the dados.gov.br record"]
+  notes: "Listing fetched 2026-10-29: year folders 2000-2026. Licence: Brazilian federal open data (Decreto 8.777/2016); the record's exact licence is to confirm. Daily realised departures per airport. Held-out BR (with D217)."
+
+D403:
+  slug: cea_power_supply
+  country: IN
+  loader: adapter:pending
+  fetch:
+    urls: ["https://api.data.gov.in/lists?format=json&filters[title]=power%20supply%20position"]
+    auth: {env: DATAGOVIN_API_KEY, param: api-key}
+  tasks: [{freq: M, how: mean}]
+  select: {max_series: 500}
+  confirm: ["the resource id and fields (state, month, peak demand, peak met)",
+            "the API key (DATAGOVIN_API_KEY)"]
+  notes: "GODL India. STANDBY: replaces D014 only if Grid-India's terms forbid automated access."
+
+D345:
+  slug: stats19
+  country: GB
+  loader: adapter:pending
+  fetch:
+    urls: ["https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-collision-1979-latest-published-year.csv"]
+  tasks: [{freq: D, how: count}]
+  select: {max_series: 500}
+  confirm: ["columns (date, police force, severity) and the file size (~1 GB)"]
+  notes: "OGL. In batch 2 because D401 is in the locked role (split), so GB's tuning sources are D182 + D345 (G2.4). Daily collisions per police force."

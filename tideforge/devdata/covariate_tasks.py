@@ -177,7 +177,7 @@ def build_task(name: str, task: dict, raw: Path, staging: Path, srcs, cities: pd
         from tideforge.devdata import fetch as F
         from tideforge.devdata import loaders
         from tideforge.devdata.ingest import regularise
-        cols = list(task["covariates"])
+        cols = [c for c in task["covariates"] if c != "holiday"]          # holiday flags are added below
         cs = dataclasses.replace(tgt_src, value=cols)
         files = [(Path(raw) / tgt_src.slug / "files" / F.local_name(u), v) for u, v in F.file_list(tgt_src.fetch, sorted(set(tgt["series_id"])))]
         files = [(p_, v) for p_, v in files if p_.exists()]
@@ -188,8 +188,8 @@ def build_task(name: str, task: dict, raw: Path, staging: Path, srcs, cities: pd
             part = long[long["series_id"].str.endswith("/" + c)]
             series = {sid.rsplit("/", 1)[0]: regularise(g, freq, "mean", False) for sid, g in part.groupby("series_id")}
             out[c] = [series[s].get(ts, np.nan) if s in series else np.nan for s, ts in zip(out["series_id"], out["timestamp"])]
-        cov_meta = {c: dict(v, source=task["target"]["source"], how="a column of the target's own files")
-                    for c, v in task["covariates"].items()}
+        cov_meta = {c: dict(task["covariates"][c], source=task["target"]["source"], how="a column of the target's own files")
+                    for c in cols}
     elif task["join"] in ("calendar", "point_weather"):
         out = tgt.rename(columns={"value": "target"})
         if task["join"] == "point_weather":
@@ -207,6 +207,12 @@ def build_task(name: str, task: dict, raw: Path, staging: Path, srcs, cities: pd
         cov_meta["holiday"] = dict(hol, how="python holidays package, local date")
     else:
         raise ValueError(f"{name}: unknown join {task['join']!r}")
+    if "holiday" in task["covariates"] and "holiday" not in cov_meta:     # any join may add calendar flags (2026-10-29)
+        hol = task["covariates"]["holiday"]
+        ts = pd.DatetimeIndex(out["timestamp"])
+        out["holiday"] = holiday_flags(ts, task.get("tz") if canonical(freq) not in ("D", "W") else None,
+                                       hol["country"], hol.get("subdiv"))
+        cov_meta["holiday"] = dict(hol, how="python holidays package, local date")
     sp = S.load().set_index("dataset_id").loc[task["target"]["source"]]
     meta = dict(task=name, target=task["target"], target_slug=tgt_src.slug, split_unit=sp["unit_id"], role=sp["role"],
                 covariates=cov_meta, n_series=int(out["series_id"].nunique()), n_points=int(len(out)),

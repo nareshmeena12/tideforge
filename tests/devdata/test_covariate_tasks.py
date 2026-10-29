@@ -90,3 +90,22 @@ def test_same_source_task(tmp_path):
     m = T.build_task("infodengue_weather", T.load_tasks()["infodengue_weather"], raw, staging, srcs)
     out = pd.read_parquet(staging / "covtasks" / "infodengue_weather" / "W.parquet")
     assert out["tempmin"].tolist() == [23.2, 25.4] and m["covariates"]["umidmed"]["oracle"] is True
+    task = dict(T.load_tasks()["infodengue_weather"], covariates={"tempmin": {"role": "known", "oracle": True},
+                                                                  "holiday": {"country": "BR", "role": "known", "oracle": False}})
+    m2 = T.build_task("infodengue_holidays", task, raw, staging, srcs)
+    out2 = pd.read_parquet(staging / "covtasks" / "infodengue_holidays" / "W.parquet")
+    assert "holiday" in out2 and out2["tempmin"].tolist() == [23.2, 25.4] and set(m2["covariates"]) == {"tempmin", "holiday"}
+
+
+def test_batch2_tasks_are_well_formed():
+    srcs, b = load_sources()
+    tasks = T.load_tasks()
+    assert len(tasks) == 25
+    for name, t in tasks.items():
+        assert t["target"]["source"] in srcs, name
+        for c, v in t["covariates"].items():
+            assert v["role"] in ("known", "past"), (name, c)
+            if c == "temperature":
+                assert v["role"] == "known" and v["oracle"] is True, name        # weather: known + oracle
+            if c == "holiday":
+                assert v["oracle"] is False and v["country"], name

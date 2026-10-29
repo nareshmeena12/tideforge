@@ -7,13 +7,22 @@ from tideforge.devdata import split
 
 
 def test_committed_split_is_valid_and_reproducible():
+    """The first rows are the whole-catalog rule applied to their ids; every later append equals extend() on what came
+    before (catalog additions after v1, e.g. D401-D403 on 2026-10-29)."""
     df = split.load()
     assert split.check(df) == []
     assert set(df["dataset_id"]) == set(cat.counted().index)
-    again = split.build_v1(date="x")
     cols = [c for c in split.COLUMNS if c != "added"]
+    dates = sorted(df["added"].unique())
+    v1 = df[df["added"] == dates[0]]
+    again = split.assign(split.units(sorted(v1["dataset_id"])))
     assert again[cols].sort_values("dataset_id").reset_index(drop=True).equals(
-        df[cols].sort_values("dataset_id").reset_index(drop=True))
+        v1[cols].sort_values("dataset_id").reset_index(drop=True))
+    for d in dates[1:]:
+        before = df[df["added"] < d]
+        new = split.extend(before, sorted(df.loc[df["added"] == d, "dataset_id"]), date=d)
+        assert new[cols].sort_values("dataset_id").reset_index(drop=True).equals(
+            df.loc[df["added"] == d, cols].sort_values("dataset_id").reset_index(drop=True))
 
 
 def test_groups_share_one_role():
@@ -25,10 +34,13 @@ def test_groups_share_one_role():
 
 def test_locked_quota_per_domain():
     assert [split.locked_quota(n) for n in (1, 2, 3, 4, 5, 6, 7, 10)] == [0, 1, 1, 1, 1, 2, 2, 3]
-    u = split.load().drop_duplicates("unit_id")
+    df = split.load()
+    u = df.drop_duplicates("unit_id")
     for d, g in u.groupby("unit_domain"):
+        assert (g["role"] == "locked").sum() == split.locked_quota(len(g)), d
+    v1 = df[df["added"] == df["added"].min()].drop_duplicates("unit_id")       # appended units continue the positions
+    for d, g in v1.groupby("unit_domain"):
         locked = g[g["role"] == "locked"]
-        assert len(locked) == split.locked_quota(len(g)), d
         assert sorted(locked["position"]) == list(range(len(locked))), d       # the first units in hash order
 
 

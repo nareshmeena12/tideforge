@@ -366,3 +366,6 @@ D303,google_search,Web-attention,6,tuning,2026-10-27
 D139,D139,Web-attention,7,tuning,2026-10-27
 D323,D323,Web-attention,8,tuning,2026-10-27
 D141,D141,Web-attention,9,tuning,2026-10-27
+D402,D402,Aviation-tourism,15,tuning,2026-10-29
+D401,D401,Energy-load,16,locked,2026-10-29
+D403,D403,Energy-load,17,tuning,2026-10-29

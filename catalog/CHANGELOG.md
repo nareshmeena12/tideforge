@@ -3,6 +3,16 @@
 Every hand change to the catalog files, newest first. The generators (build_catalog.py, expand_catalog.py) are changed in
 the same commit so that a rebuild keeps the change.
 
+## 2026-10-29
+
+- D401 NESO historic demand data (GB), D402 ANAC Voo Regular Ativo (BR), D403 CEA state power supply position (IN, standby):
+  new rows for batch 2's held-out countries (owner OK 2026-10-29), appended to expand_catalog.py's list so earlier ids keep
+  their numbers. Only these three rows were added to dataset_catalog_v2.csv by hand from a rebuild: a full rebuild today
+  would undo the 2026-10-27 URL fixes of D026-D029, which were made in the CSV but not in the generator (a drift found on
+  2026-10-29, not fixed here).
+- aggregator_rules.csv: D001 / D002 (OPSD / ENTSO-E) drop Great Britain for D401 (NESO), as they do for D004 (Elexon).
+- split_v1.csv: extended with D401 (Energy-load, locked), D402 (Aviation-tourism, tuning), D403 (Energy-load, tuning).
+
 ## 2026-10-27
 
 - D027 Pecan Street: access_class registration (unchanged) and counted size = the free University Access tier: 75 series,

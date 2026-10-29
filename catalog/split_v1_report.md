@@ -2,13 +2,13 @@
 
 Rule: per domain, units ranked by sha256(unit_id); locked_quota(n) = round(0.25 n), >= 1 when n >= 2; one-unit domains are tuning-only.
 
-Overall: 81 of 316 units locked (25.6%); 98 of 367 datasets (26.7%).
+Overall: 82 of 319 units locked (25.7%); 99 of 370 datasets (26.8%).
 
 | Domain | Units | Locked units | Locked share (units) | Datasets | Locked datasets |
 |---|---|---|---|---|---|
 | Agriculture-commodities | 7 | 2 | 29% | 9 | 2 |
 | Air-quality | 5 | 1 | 20% | 6 | 1 |
-| Aviation-tourism | 15 | 4 | 27% | 15 | 4 |
+| Aviation-tourism | 16 | 4 | 25% | 16 | 4 |
 | Biology-growth | 10 | 3 | 30% | 10 | 3 |
 | Buildings-heat | 19 | 5 | 26% | 19 | 5 |
 | Cloud-servers | 19 | 5 | 26% | 22 | 8 |
@@ -16,7 +16,7 @@ Overall: 81 of 316 units locked (25.6%); 98 of 367 datasets (26.7%).
 | EV-parking | 8 | 2 | 25% | 8 | 2 |
 | Ecology | 9 | 2 | 22% | 9 | 2 |
 | Energy-gen | 16 | 4 | 25% | 17 | 4 |
-| Energy-load | 16 | 4 | 25% | 23 | 4 |
+| Energy-load | 18 | 5 | 28% | 25 | 5 |
 | Epidemics-health | 17 | 4 | 24% | 21 | 6 |
 | Events-entertainment | 10 | 3 | 30% | 10 | 3 |
 | Government-stats | 2 | 1 | 50% | 2 | 1 |

@@ -322,6 +322,10 @@ N = [
 ("Gas sensor array under dynamic mixtures (UCI)","Industrial-PHM","sensor-drift;step-responses","100Hz","direct download","CC BY 4.0","https://archive.ics.uci.edu/dataset/322/gas+sensor+array+under+dynamic+gas+mixtures","no","clean?",32,1.3e8,""),
 ("Pump sensor data (52 sensors, Kaggle)","Industrial-PHM","failures;recovery;sensor-dropout","1min","Kaggle","check page","https://www.kaggle.com/datasets/nphantawee/pump-sensor-data","no","clean?",52,1.1e7,""),
 ("Mining flotation plant process data","Industrial-PHM","control;lagged-quality","20s/H","Kaggle","CC0","https://www.kaggle.com/datasets/edumagalhaes/quality-prediction-in-a-mining-process","no","clean?",23,1.7e7,""),
+# Batch 2 held-out countries (owner 2026-10-29); appended last so earlier ids keep their numbers (D401-D403)
+("NESO historic demand data (Great Britain)","Energy-load","weekly;holidays;embedded-solar;temperature","30min","direct download","NESO Open Data Licence","https://neso.energy/data-portal/historic-demand-data","yes","clean?",8,1.3e6,"yearly CSVs (api.neso.energy, resource list via CKAN datapackage_show?id=historic-demand-data); value-level check vs fev entsoe (does entsoe hold GB?) on Perlmutter; Elexon D004 is the same demand, not a fallback"),
+("ANAC Voo Regular Ativo (Brazil, every scheduled flight)","Aviation-tourism","weekly;holidays;carnival;COVID","event->D","direct download","BR federal open data (check record)","https://sistemas.anac.gov.br/dadosabertos/Voos%20e%20opera%C3%A7%C3%B5es%20a%C3%A9reas/Voo%20Regular%20Ativo%20(VRA)/","yes","clean?",500,4e6,"yearly folders 2000-2026 (listing fetched 2026-10-29); daily departures per airport; licence of the dados.gov.br record to confirm (Decreto 8.777/2016 open-data policy)"),
+("CEA state power supply position (India, data.gov.in)","Energy-load","festival;monsoon;growth","M","API (free key)","GODL India","https://www.data.gov.in/","no","clean?",36,8000,"standby second IN source if Grid-India terms forbid automated access: monthly state peak demand / met 2006-2026 (Ministry of Power / CEA)"),
 ]
 
 # ------------------------------------------------------------------ build

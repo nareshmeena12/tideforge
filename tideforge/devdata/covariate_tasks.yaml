@@ -63,3 +63,221 @@ infodengue_weather:
     tempmax: {role: known, oracle: true}
   notes: "the weather columns of the same InfoDengue CSVs (weekly means per municipality, observed); full header seen in
           probe 2 (2026-10-27)"
+
+# ------------------------------------------------------------------ batch 2 (owner OK 2026-10-29)
+
+neso_demand_weather:
+  target: {source: D401, freq: 30min}
+  join: point_weather
+  point: {lat: 51.5072, lon: -0.1276}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Europe/London
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: GB, subdiv: ENG, role: known, oracle: false}
+  notes: "London stations only (a population-weighted GB mean is a follow-up); locked role (split)"
+
+tfl_cycle_weather:
+  target: {source: D182, freq: D}
+  join: point_weather
+  point: {lat: 51.5072, lon: -0.1276}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Europe/London
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: GB, subdiv: ENG, role: known, oracle: false}
+  notes: ""
+
+grid_india_calendar:
+  target: {source: D014, freq: D}
+  join: calendar
+  tz: Asia/Kolkata
+  covariates:
+    holiday: {country: IN, role: known, oracle: false}
+  notes: "weather deferred: the targets span several regions and point_weather takes one point; per-series points after the probe gives the series ids; dropped with D014 if Grid-India's terms forbid automated access"
+
+agmarknet_price_holidays:
+  target: {source: D373, freq: D}
+  join: same_source
+  tz: Asia/Kolkata
+  covariates:
+    modal_price: {role: past, oracle: false}
+    holiday: {country: IN, role: known, oracle: false}
+  notes: "column name to confirm in the probe"
+
+seoul_bike_weather:
+  target: {source: D384, freq: h}
+  join: point_weather
+  point: {lat: 37.5665, lon: 126.978}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Asia/Seoul
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: KR, role: known, oracle: false}
+  notes: ""
+
+kpx_demand_weather:
+  target: {source: D219, freq: h}
+  join: point_weather
+  point: {lat: 37.5665, lon: 126.978}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Asia/Seoul
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: KR, role: known, oracle: false}
+  notes: "Seoul stations stand for the national demand"
+
+melbourne_pedestrians_weather:
+  target: {source: D383, freq: h}
+  join: point_weather
+  point: {lat: -37.8136, lon: 144.9631}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Australia/Melbourne
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: AU, subdiv: VIC, role: known, oracle: false}
+  notes: "pretrain-flagged target"
+
+melbourne_parking_weather:
+  target: {source: D052, freq: h}
+  join: point_weather
+  point: {lat: -37.8136, lon: 144.9631}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Australia/Melbourne
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: AU, subdiv: VIC, role: known, oracle: false}
+  notes: ""
+
+anac_flights_calendar:
+  target: {source: D402, freq: D}
+  join: calendar
+  tz: America/Sao_Paulo
+  covariates:
+    holiday: {country: BR, role: known, oracle: false}
+  notes: "national holidays; carnival is in the holidays package as optional days: confirm"
+
+kr_ev_calendar:
+  target: {source: D047, freq: h}
+  join: calendar
+  tz: Asia/Seoul
+  covariates:
+    holiday: {country: KR, role: known, oracle: false}
+  notes: "weather deferred: the targets span several regions and point_weather takes one point; per-series points after the probe gives the series ids"
+
+treasury_dts_calendar:
+  target: {source: D371, freq: D}
+  join: calendar
+  tz: America/New_York
+  covariates:
+    holiday: {country: US, role: known, oracle: false}
+  notes: "replaces the theme-park task (D200 deferred: no historic access)"
+
+nyc_311_weather:
+  target: {source: D340, freq: D}
+  join: point_weather
+  point: {lat: 40.7128, lon: -74.006}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: America/New_York
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: US, subdiv: NY, role: known, oracle: false}
+  notes: ""
+
+tsa_calendar:
+  target: {source: D188, freq: D}
+  join: calendar
+  tz: America/New_York
+  covariates:
+    holiday: {country: US, role: known, oracle: false}
+  notes: ""
+
+steel_energy_sensors:
+  target: {source: D394, freq: 15min}
+  join: same_source
+  tz: Asia/Seoul
+  covariates:
+    Lagging_Current_Reactive.Power_kVarh: {role: past, oracle: false}
+    CO2(tCO2): {role: past, oracle: false}
+  notes: "Load_Type / WeekStatus are categorical (not numeric lanes yet); column names to confirm"
+
+sf_fire_weather:
+  target: {source: D343, freq: D}
+  join: point_weather
+  point: {lat: 37.7749, lon: -122.4194}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: America/Los_Angeles
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: US, subdiv: CA, role: known, oracle: false}
+  notes: "replaces the beehive task (D290 is Kaggle-only)"
+
+cgmacros_meals:
+  target: {source: D103, freq: 15min}
+  join: same_source
+  covariates:
+    carbs: {role: known, oracle: true}
+    heart_rate: {role: past, oracle: false}
+  notes: "meals as logged stand for planned meals (known + oracle); column names to confirm"
+
+petrobras_3w_sensors:
+  target: {source: D391, freq: min}
+  join: same_source
+  covariates:
+    P-TPT: {role: past, oracle: false}
+    T-TPT: {role: past, oracle: false}
+  notes: "target P-PDG (downhole pressure); other sensors past; names to confirm"
+
+telecom_milan_weather:
+  target: {source: D144, freq: h}
+  join: point_weather
+  point: {lat: 45.4642, lon: 9.19}
+  station_source: D054
+  station_index: {id: GHCN_ID, lat: LATITUDE, lon: LONGITUDE}
+  n_stations: 3
+  max_km: 40
+  tz: Europe/Rome
+  covariates:
+    temperature: {column: temperature, role: known, oracle: true}
+    holiday: {country: IT, role: known, oracle: false}
+  notes: ""
+
+ons_brazil_calendar:
+  target: {source: D217, freq: h}
+  join: calendar
+  tz: America/Sao_Paulo
+  covariates:
+    holiday: {country: BR, role: known, oracle: false}
+  notes: "weather deferred: the targets span several regions and point_weather takes one point; per-series points after the probe gives the series ids"
+
+stats19_calendar:
+  target: {source: D345, freq: D}
+  join: calendar
+  tz: Europe/London
+  covariates:
+    holiday: {country: GB, role: known, oracle: false}
+  notes: "replaces the Eurocontrol task (holidays per airport country are not supported)"
