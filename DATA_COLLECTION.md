@@ -79,6 +79,12 @@ This cloud session cannot reach most data hosts (only GitHub is allowed), so dow
 9. **Tasks and windows.** For each frequency, three horizons (short / medium / long, as TIME does) and the last 2-3
    rolling windows per series. From these, sample the score set (~75k windows, equal weight per dataset) and the fast
    subset (~15k windows).
+   **Small datasets (owner 2026-10-29):** a dataset with fewer than 30 windows (in the fast or the full set) is pooled
+   with the other small datasets of its domain into one `<domain>_misc` unit for weighting: the unit counts as one
+   dataset of the domain, and its members share that unit's weight equally (tideforge/devdata/build.py MIN_WINDOWS; the
+   pools are in the manifest under weights.<role>.pooled and printed by the build). Expected in dev-v1 (estimates from
+   the catalog's series counts, confirmed by the build): D188 TSA (1 series), D219 KPX (5), D174 FI-2010 (5), D394 steel
+   (6), D279 Santa Fe (6) if unblocked, and any other source with fewer than ~4 series of one frequency.
 
 **Decisions 2026-10-27 (owner):**
 - Step 8: the split unit is a group (`catalog/split_groups.csv`: same provider and network, or copies), not a dataset. The
@@ -132,7 +138,12 @@ many series under the caps:
 Some of these are in Chronos / LOTSA pre-training corpora (flagged `pretrain` in the catalog). They are fine for testing
 our synthetic-only model, but reference models have seen them, so comparisons with those models on them are biased.
 
-**Decision 2026-10-27 (owner): size target.** At least 200 datasets across 15+ domains, the caps unchanged (500 series and the
+**Decision 2026-10-29 (owner): dev versions.** dev-v1 = batches 1 + 2 (70 datasets, 30 domains), built now so Phase 2 does
+not wait for the 200 target; batch 3+ becomes dev-v2, whose target is the >= 200 below. Runs are compared only within one
+version; finished runs are rescored on dev-v2 from their checkpoints (`python -m tideforge.train.finish --ckpt
+<run>/final.pt --version dev-v2`).
+
+**Decision 2026-10-27 (owner): size target (dev-v2's since 2026-10-29).** At least 200 datasets across 15+ domains, the caps unchanged (500 series and the
 last 16k points per series), landing around 1B points. Diversity of datasets matters more than points: the score weights
 datasets equally and caps domains, so a new domain or a new dataset in a thin domain is worth more than another large source
 in a full one. Batches are planned domain-first: thin domains before deep ones.
@@ -155,6 +166,33 @@ the domains batch 1 does not touch, thinnest first, 1-3 sources each:
   CGMacros, D104 BIG IDEAs glycemic. Industrial-PHM [21]: D202 C-MAPSS, D391 3W Petrobras, D394 steel energy (UCI).
 That is about 45 sources in 19 new domains (30 with batch 1). Each still goes through probe -> fetch -> ingest -> audit; the
 split groups and aggregator rules apply (e.g. D374 sits with D375 FPMA; D202 with N-CMAPSS).
+
+**Batch 2 as written (owner OK 2026-10-29; tideforge/devdata/sources.yaml `batch2`, probe list docs/BATCH2_PROBES.md).**
+49 sources: the plan's 45 minus 5, plus 9 for the held-out countries; 1 standby.
+- Licences / access read 2026-10-29 (the plan's flagged ones), recorded in each entry's notes:
+  - dropped: D355 Hass Avocado (detailed data needs an account; "All Rights Reserved") and D049 UK AC chargers (no public
+    dataset: the raw sessions are "by request" from the authors).
+  - deferred: D034 NDIC well production (well-level data appears to be behind NDIC's Premium Services: unconfirmed),
+    D200 queue-times (the free API is real-time only, attribution required; historic access not documented), D290
+    beehive (Kaggle only; no Kaggle token).
+  - kept: D339 Eurocontrol (cite EUROCONTROL, non-commercial, no modification without permission: research evaluation
+    only, files kept as downloaded), D251 BWDF (paper CC BY 4.0; the data licence to read in the supplement), D110
+    muGrowthDB (public, no licence named), D289 BioDare2 (per-dataset licences: open ones only), D162 Zillow (page 403 from
+    the dev machine: read in a browser before ingest).
+- Held-out countries (G2.4), human-activity sources by split role:
+  GB D401 NESO (new; locked by the split rule), D182 TfL cycle hire (tuning), D345 STATS19 (tuning; added because D401 is
+  locked); IN D014 Grid-India (tuning; only if its terms allow automated access, else dropped for the standby D403 CEA
+  monthly) and D373 Agmarknet (tuning); KR D384 Seoul bike (tuning), D219 KPX (tuning), D047 EV charging (tuning), D394
+  steel (locked); AU D052 Melbourne parking, D383 Melbourne pedestrians (tuning; D383 pretrain-flagged; AEMO is excluded,
+  TIME OpenElectricity_NEM); BR D217 ONS (batch 1, tuning) and D402 ANAC VRA daily flights (new, tuning; licence of the
+  dados.gov.br record to confirm). D004 Elexon is the same GB demand as D401, not a fallback.
+- New catalog rows D401-D403 (catalog/CHANGELOG.md); D001 / D002 (OPSD / ENTSO-E) drop GB for D401.
+- Blocked before ingest: D279, D202, D110 have no calendar time (index, engine cycle, time since inoculation); they need an
+  index frequency with season 1 (owner decision).
+- Covariate tasks: 20 new (25 in total). Three approved weather joins are calendar-only for now (Grid-India regions, ONS
+  Brazil subsystems, Korean EV: point_weather takes one point; per-series points after the probe), and three tasks were
+  replaced (theme parks -> Treasury DTS calendar, beehive -> SF Fire weather, Eurocontrol -> STATS19 calendar; Olist ->
+  ANAC calendar).
 
 ## 5. Effort (estimate)
 

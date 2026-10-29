@@ -11,6 +11,10 @@
 - Weights, per role (tuning / locked) separately: every dataset equal, no domain above DOMAIN_CAP of the weight (water-filling:
   capped domains get the cap, the rest is shared by the others in proportion to their dataset counts). Within a dataset its
   frequencies and terms share its weight equally, and windows share their task's weight.
+- Small datasets (owner 2026-10-29): a dataset with fewer than MIN_WINDOWS windows available in its role (so fewer than
+  MIN_WINDOWS in the fast or the score set) is pooled with the other small datasets of its domain into one unit
+  "<domain>_misc", which counts as ONE dataset of the domain; its members share that unit's weight equally. The pools are
+  in the manifest (weights.<role>.pooled) and printed.
 - Score set and fast subset: per dataset a quota proportional to its weight (at least 1 window), windows picked by
   sha256 of their key (frozen); each picked window carries weight / picked so every dataset keeps its weight.
 - The version folder holds copies of the staged files it uses (so later ingests never change it), the window tables and
@@ -39,6 +43,7 @@ from tideforge.devdata.schema import SOURCES
 
 N_WINDOWS = 3
 DOMAIN_CAP = 0.10
+MIN_WINDOWS = 30
 MIN_DOMAINS = 15
 SIZES = {"tuning": {"score": 75000, "fast": 15000}, "locked": {"score": 25000, "fast": 5000}}
 MANIFESTS = CAT / "manifests"
@@ -59,6 +64,21 @@ def domain_weights(n_by_domain: dict[str, int], cap: float = DOMAIN_CAP) -> dict
             w.update({d: left * n / tot for d, n in free.items()})
             return w
         fixed |= over
+
+
+def weight_units(ds: list[dict], win: pd.DataFrame, min_windows: int | None = None) -> tuple[dict, dict]:
+    """(dataset -> weighting unit, {"<domain>_misc": [datasets]}): datasets with < min_windows windows are pooled per domain."""
+    min_windows = MIN_WINDOWS if min_windows is None else min_windows
+    n = win["dataset_id"].value_counts().to_dict()
+    units, pooled = {}, {}
+    for x in sorted(ds, key=lambda x: x["dataset_id"]):
+        if n.get(x["dataset_id"], 0) < min_windows:
+            u = f"{x['domain']}_misc"
+            units[x["dataset_id"]] = u
+            pooled.setdefault(u, []).append(x["dataset_id"])
+        else:
+            units[x["dataset_id"]] = x["dataset_id"]
+    return units, pooled
 
 
 def series_windows(v: np.ndarray, H: int) -> list[int]:
@@ -150,17 +170,21 @@ def build(staging: Path, out: Path, version: str, pipeline_test: bool = False, s
         ds = [x for x in datasets if x["role"] == role]
         if not ds:
             continue
-        n_dom = pd.Series([x["domain"] for x in ds]).value_counts().to_dict()
+        rw = win[win["role"] == role]
+        units, pooled = weight_units(ds, rw)
+        n_dom = pd.Series([u for u in {units[x["dataset_id"]]: x["domain"] for x in ds}.values()]).value_counts().to_dict()
         try:
             dw = domain_weights(n_dom)
         except ValueError as e:
             if not pipeline_test:
                 raise
             say(f"{role}: {e}; pipeline test: weights without the cap")
-            dw = {k: v / len(ds) for k, v in n_dom.items()}
-        w = {x["dataset_id"]: dw[x["domain"]] / n_dom[x["domain"]] for x in ds}
-        weights[role] = dict(datasets=w, domains=dw)
-        rw = win[win["role"] == role]
+            dw = {k: v / sum(n_dom.values()) for k, v in n_dom.items()}
+        size = pd.Series(list(units.values())).value_counts().to_dict()
+        w = {x["dataset_id"]: dw[x["domain"]] / n_dom[x["domain"]] / size[units[x["dataset_id"]]] for x in ds}
+        weights[role] = dict(datasets=w, domains=dw, pooled=pooled)
+        for u, ids in pooled.items():
+            say(f"{role}: {u} pools {len(ids)} dataset(s) with < {MIN_WINDOWS} windows: {', '.join(ids)}")
         for name, total in SIZES[role].items():
             s = sample(rw, w, total)
             s.to_parquet(vdir / f"{role}_{name}.parquet", index=False)
@@ -188,7 +212,8 @@ def build(staging: Path, out: Path, version: str, pipeline_test: bool = False, s
     man = dict(version=version, pipeline_test=pipeline_test, created=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                git=git_head(), split_sha256=sha256_file(S.SPLIT_V1), sources_sha256=sha256_file(SOURCES),
                horizons_sha256={p.name: sha256_file(p) for p in (TIME_HORIZONS, HORIZONS_EXTRA) if p.exists()},
-               rules=dict(n_windows=N_WINDOWS, domain_cap=DOMAIN_CAP, min_domains=MIN_DOMAINS, sizes=SIZES),
+               rules=dict(n_windows=N_WINDOWS, domain_cap=DOMAIN_CAP, min_domains=MIN_DOMAINS, sizes=SIZES,
+                          min_windows=MIN_WINDOWS),
                n_domains=len(domains), domains=domains, term_skips=skipped, weights=weights, sets=sets, datasets=datasets,
                covariate_tasks=sorted({c["task"].iloc[0] for c in cov}) if cov else [],
                totals=dict(datasets=len(datasets), series=int(sum(t["n_series"] for x in datasets for t in x["tasks"].values())),

@@ -66,3 +66,33 @@ def test_build_pipeline_test(tmp_path, horizons, monkeypatch):
     assert (tmp_path / "dev" / "batch1-test" / "data" / "ghcn_daily" / "h.parquet").exists()
     with pytest.raises(FileExistsError):
         B.build(staging, tmp_path / "dev", "batch1-test", pipeline_test=True, say=lambda *a: None)
+
+
+def test_small_datasets_are_pooled_per_domain():
+    ds = [dict(dataset_id=i, domain=d) for i, d in (("a", "X"), ("b", "X"), ("c", "X"), ("d", "Y"), ("e", "Y"))]
+    win = pd.DataFrame({"dataset_id": ["a"] * 100 + ["b"] * 10 + ["c"] * 29 + ["d"] * 30 + ["e"] * 5})
+    units, pooled = B.weight_units(ds, win)
+    assert pooled == {"X_misc": ["b", "c"], "Y_misc": ["e"]}
+    assert units == {"a": "a", "b": "X_misc", "c": "X_misc", "d": "d", "e": "Y_misc"}
+
+
+def test_build_weights_pooled_unit_as_one_dataset(tmp_path, horizons, monkeypatch):
+    """Weather: D053 (6 series) + D054, D057 (1 series each, below the patched minimum) -> units D053 and Weather-climate_misc;
+    Hydrology: D071. Pipeline test (2 domains, no cap): domain weight by units, 2/3 and 1/3; the misc members share 1/3."""
+    monkeypatch.setattr(B, "MANIFESTS", tmp_path / "manifests")
+    staging = tmp_path / "staging"
+    _stage(staging, "D053", "ghcn_daily", "Weather-climate", n_series=6)
+    _stage(staging, "D054", "ghcn_hourly", "Weather-climate", n_series=1)
+    _stage(staging, "D057", "ndbc", "Weather-climate", n_series=1)
+    _stage(staging, "D071", "camels_us", "Hydrology", n_series=6)
+    probe = B.build(staging, tmp_path / "dev", "probe", pipeline_test=True, say=lambda *a: None)
+    n = {x["dataset_id"]: x["windows"] for x in probe["datasets"]}
+    assert n["D054"] == n["D057"] < n["D053"]
+    monkeypatch.setattr(B, "MIN_WINDOWS", n["D054"] + 1)
+    msgs = []
+    man = B.build(staging, tmp_path / "dev", "pool-test", pipeline_test=True, say=msgs.append)
+    w = man["weights"]["tuning"]
+    assert w["pooled"] == {"Weather-climate_misc": ["D054", "D057"]}
+    assert w["datasets"] == pytest.approx({"D053": 1 / 3, "D054": 1 / 6, "D057": 1 / 6, "D071": 1 / 3})
+    assert sum(w["datasets"].values()) == pytest.approx(1.0) and any("Weather-climate_misc pools 2" in m for m in msgs)
+    assert man["rules"]["min_windows"] == n["D054"] + 1

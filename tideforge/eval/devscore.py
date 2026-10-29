@@ -19,7 +19,7 @@ Metrics and aggregation: tideforge.eval.devmetrics (TIME's definitions). The bas
 The locked role needs --locked and --why; every locked run adds a LOOKS.md row. Runs carry the version and the set sha256;
 compare refuses runs from different versions or sets.
 `ranks` is a sanity check (EXPERIMENTS.md E0.5), never a gate: Spearman and Kendall between the dev ranking and fev / TIME,
-with bootstrap CIs over models.
+with bootstrap CIs over models; reported on all datasets and again without the catalog's pretrain-flagged datasets.
 """
 from __future__ import annotations
 
@@ -378,19 +378,39 @@ def rank_corr(dev: dict[str, float], ref: dict[str, float], n_boot: int = M.N_BO
     return out
 
 
+def pretrain_ids() -> set[str]:
+    """Catalog datasets flagged `pretrain` (in Chronos / LOTSA corpora, so public models may have seen them)."""
+    from tideforge.devdata import catalog as cat
+    c = cat.catalog()
+    return set(c.index[c["overlap"] == "pretrain"])
+
+
+def overall_without(run: dict, win: pd.DataFrame, metric: str, drop: set[str]) -> float:
+    """The run's overall score recomputed without the datasets in `drop` (weights renormalised over the rest)."""
+    mode = "on" if run["cov"] else "main"
+    w = win[(win["mode"] == mode) & ~win["dataset_id"].isin(drop)]
+    return M.overall(M.dataset_scores(M.pair_ratios(w)), weights_of(run, w), ci=False)[metric][0]
+
+
 def cmd_ranks(a) -> int:
-    """--ref CSV: model, benchmark (fev / TIME), score, higher_is_better (fev skill: 1; TIME MASE: 0)."""
-    dev = {}
+    """--ref CSV: model, benchmark (fev / TIME), score, higher_is_better (fev skill: 1; TIME MASE: 0). Reported twice: all
+    datasets, and without the pretrain-flagged ones (owner 2026-10-29)."""
+    drop = pretrain_ids()
+    dev, dev_np, n_drop = {}, {}, 0
     for d in a.runs:
-        r, _ = load_run(d)
+        r, w = load_run(d)
         dev[r["model"]] = r["scores"]["on" if r["cov"] else "main"]["overall"][a.metric][0]
+        dev_np[r["model"]] = overall_without(r, w, a.metric, drop)
+        n_drop = int(w["dataset_id"].isin(drop).groupby(w["dataset_id"]).any().sum())
     ref = pd.read_csv(a.ref)
     print("rank correlation, dev vs public boards: a SANITY CHECK, not a gate (EXPERIMENTS.md E0.5)")
-    for b, g in ref.groupby("benchmark"):
-        sc = {r.model: (-r.score if r.higher_is_better else r.score) for r in g.itertuples()}
-        c = rank_corr(dev, sc)
-        print(f"  dev {a.metric} vs {b}: {c['models']} models; Spearman {c['spearman'][0]:.3f} [{c['spearman'][1]:.3f}, "
-              f"{c['spearman'][2]:.3f}], Kendall {c['kendall'][0]:.3f} [{c['kendall'][1]:.3f}, {c['kendall'][2]:.3f}]")
+    for label, scores in (("all datasets", dev), (f"without {n_drop} pretrain-flagged dataset(s)", dev_np)):
+        for b, g in ref.groupby("benchmark"):
+            sc = {r.model: (-r.score if r.higher_is_better else r.score) for r in g.itertuples()}
+            c = rank_corr(scores, sc)
+            print(f"  [{label}] dev {a.metric} vs {b}: {c['models']} models; Spearman {c['spearman'][0]:.3f} "
+                  f"[{c['spearman'][1]:.3f}, {c['spearman'][2]:.3f}], Kendall {c['kendall'][0]:.3f} [{c['kendall'][1]:.3f}, "
+                  f"{c['kendall'][2]:.3f}]")
     return 0
 
 

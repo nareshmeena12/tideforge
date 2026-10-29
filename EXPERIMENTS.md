@@ -73,6 +73,9 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
   order_corr (known-before-past kept, sorted within each role) and both; groups ON, fev covariate tasks only
   (tideforge/eval/cov_variants.py). Order matters only where the lane cap drops covariates: 17 of fev-bench's 42 covariate
   tasks (tasks.yaml), so order_corr is kept.
+- 2026-10-29 (owner, E0.5): the dev rank correlation is also reported without the catalog's pretrain-flagged datasets
+  (e.g. D383 Melbourne pedestrians is in the Chronos / LOTSA corpora, so those models may have seen it):
+  `devscore ranks` prints both.
 - 2026-10-29 (owner, E0.5): public models = Chronos-2, TimesFM-2.5, Toto-2.0 4m / 22m / 2.5B, TiRex, TiRex-2, Timestral-5M /
   -28M (plus ft3_main and seasonal naive). Pins in tideforge/eval/public_models/__init__.py (package versions or git commits,
   HF weight commits); the `public` extra shares the core env, Toto-2.0 and TiRex-2 have their own venvs ($TF_ROOT/venvs).
@@ -204,6 +207,14 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
   transit, footfall) per held-out country (GB, IN, KR, AU, BR), checked against the benchmark exclusions and tagged with
   their country. Calendar effects show only in human-activity series, so GHCN weather stations do not count. Today the
   tags give GB 0, IN 0, KR 0, AU 1, BR 2 datasets.
+- 2026-10-29 (owner): batch 2 gives the held-out countries, by split role (DATA_COLLECTION.md, "Batch 2 as written"):
+  - GB: D182 TfL cycle hire and D345 STATS19 (tuning); D401 NESO demand (locked).
+  - IN: D014 Grid-India (only if its terms allow automated access; else the standby D403) and D373 Agmarknet.
+  - KR: D384 Seoul bike, D219 KPX and D047 EV charging (tuning); D394 steel (locked).
+  - AU: D052 Melbourne parking and D383 Melbourne pedestrians.
+  - BR: D217 ONS and D402 ANAC flights.
+
+  That is at least 2 tuning sources per country once D014's terms are settled. G2.4 runs on dev-v1 (batches 1 + 2).
 - 2026-10-28: the calendar table (tools/build_calendars.py, holidays 0.107) is committed with its sha256; the builder's
   --check fails when a rebuild differs. The holidays package lacks some lunisolar dates (Diwali: IN 2001-2035, LK 2004-2026;
   NP's Tihar 2010-2035); each calendar has a valid year range and windows are placed inside it, never on invented dates.
