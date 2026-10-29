@@ -100,6 +100,11 @@ tests for the real track and the Perlmutter scripts. Rules:
 5. The local-only sources for `reference/`: `tide_v5_ft3.py`, `tide_v5_pretrain_1T.py`, `time_fev_eval.py` (not in
    tidemark's git, so not in the clone). Only needed if a question cannot be answered from `third_party/`.
 
+## First-Perlmutter checklist
+
+- Rerun the E0.2 smoke: the scorers now load checkpoints through `tideforge.model.load` (TM.load), not tidemark's
+  `score_ft3.load_ft3` (added 2026-10-29 with M1).
+
 ## Layout
 
 ```
