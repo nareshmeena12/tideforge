@@ -146,6 +146,13 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G1.12 | Static / categorical covariates passed as constant known lanes (no model change). |
 | G1.13 | Model M1: known covariates see the whole window, with a firewall (covariates never read targets). Then the 2x2: B0 / best G1 data / M1 / both. |
 | G1.14 | G1.1 + G1.8 together (planned 2x2 with B0, G1.1, G1.8; exception to rule 1). |
+- 2026-10-29 (owner): G1.13 / M1 = mechanism (b), `model: {known_attn: mask}` (tideforge/model/m1.py): known lanes' time
+  attention is bidirectional within their segment, and group attention gets a firewall (target -> target / past / known;
+  past -> past / known; known -> known). 0 extra parameters. Today's ft3 group attention is SYMMETRIC: covariates read
+  targets, so there is no firewall; that is harmless only because every token is causal. (a), an extra cross-attention
+  per layer (+1,049,600 params, +19.3%), is a later capacity experiment, run only if (b) wins. Configs: G1.13a = B0 + M1,
+  G1.13b = best G1 data + M1 (G1.8 as a placeholder), and G1.13c = B0 + M1 with `known_lookahead: 32`. G1.13c runs only if
+  G1.13a improves dev but not fev (the pattern of a train / inference mismatch). Details: experiments/G1.13.md.
 - 2026-10-29 (owner): 17 of fev-bench's 42 covariate tasks exceed the lane cap (rohlik x4, walmart, solar x2, kdd_cup x3, m5 x3, uk_covid x4; cap 7 with one target, 4 with several), so the model never sees all their covariates. "More lanes" becomes a candidate model change (M3) after E0.10's order_corr shows how
   much choosing the kept covariates matters.
 
