@@ -19,6 +19,7 @@ sys.path[:0] = [str(REPO), str(REPO / "third_party" / "tidemark_e21cbf0")]
 import tideforge.gen as G
 from tideforge.expcfg import gc_from_cli
 from tideforge.gen.primitives import PERIOD_BANK_EXT
+from tideforge.diagnose.features import shape_features
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--exp")
@@ -41,53 +42,7 @@ print("family shares (% of series):")
 for k, v in sorted(W.items(), key=lambda x: -x[1]):
     print(f"   {k:18s} {100*v/tot:5.1f}")
 
-def feats(x):
-    x = x.astype(np.float64); L = len(x); t = np.arange(L)
-    f = {}
-    sd = x.std()
-    f["flat"] = sd < 1e-9 * (abs(x).mean() + 1)
-    if f["flat"]:
-        return f
-    d = np.diff(x)
-    f["zero_frac"] = float(np.mean(x == 0))
-    f["integer"] = bool(np.all(np.abs(x - np.round(x)) < 1e-6))
-    # trend: R^2 of linear fit
-    A = np.vstack([t, np.ones(L)]).T
-    coef, *_ = np.linalg.lstsq(A, x, rcond=None)
-    r = x - A @ coef
-    f["trend_r2"] = 1 - r.var() / x.var()
-    # seasonality: ACF of linearly detrended series, best lag in [2, L/3]
-    rr = r - r.mean(); den = (rr * rr).sum() + 1e-12
-    F = np.fft.rfft(rr, n=2 * L); ac = np.fft.irfft(F * np.conj(F))[:L] / den
-    hi = max(3, L // 3)
-    lag = int(np.argmax(ac[2:hi])) + 2
-    f["acf_peak"] = float(ac[lag]); f["period"] = lag
-    # local maximum check (a real cycle, not a slow decay)
-    f["seasonal"] = bool(ac[lag] > 0.5 and ac[lag] > ac[max(lag - 1, 1)] and ac[lag] >= ac[min(lag + 1, L - 1)])
-    f["cycles"] = L / lag
-    # spectral slope of the periodogram (log-log), persistence
-    P = np.abs(np.fft.rfft(rr)) ** 2
-    fr = np.fft.rfftfreq(L)[1:]; P = P[1:]
-    ok = P > 0
-    f["spec_slope"] = float(np.polyfit(np.log(fr[ok]), np.log(P[ok]), 1)[0]) if ok.sum() > 5 else np.nan
-    # roughness, jumps, tails, heteroskedasticity
-    f["rough"] = float(d.std() / sd)
-    mad = np.median(np.abs(d - np.median(d))) + 1e-12
-    f["n_jumps"] = int(np.sum(np.abs(d) > 8 * 1.4826 * mad)) if mad > 1e-9 else 0
-    k = ((d - d.mean()) ** 4).mean() / (d.var() ** 2 + 1e-30)
-    f["kurt_diff"] = float(k)
-    h = L // 2
-    f["var_ratio"] = float(np.log((x[h:].std() + 1e-12) / (x[:h].std() + 1e-12)))
-    # SHORT seasons (G3.4): the dominant frequency of the detrended series (periodogram zero-padded 4x, steps of 0.25
-    # cycles per window) lies in [1.5, 3) cycles and holds >= 25% of the power; the ACF detector above needs >= 3 cycles
-    Pz = np.abs(np.fft.rfft(rr, n=4 * L)) ** 2
-    cyc = np.arange(len(Pz)) / 4.0
-    band = cyc >= 1.0
-    kpk = int(np.argmax(np.where(band, Pz, 0)))
-    f["short_season"] = bool(1.5 <= cyc[kpk] < 3.0 and Pz[kpk] >= 0.25 * Pz[band].sum() / 4.0)
-    # exact repetition at the detected lag
-    f["exact_repeat"] = bool(np.mean(np.abs(x[lag:] - x[:-lag])) < 1e-3 * sd)
-    return f
+feats = shape_features         # tideforge/diagnose/features.py (moved there unchanged, 2026-10-29)
 
 rows = []
 for L in (128, 512, 2048, 8192):

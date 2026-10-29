@@ -94,6 +94,10 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
 D1-D6 can reorder Phase 2. Record any reordering in this file with the date and the reason.
 - 2026-10-29 (owner, rule correction): D2-D6 run on the dev TUNING set and fev, never on TIME (D2 above said "on TIME"):
   designing generators around TIME's worst windows would be selecting on TIME. TIME stays the final check.
+- 2026-10-29: D2-D6 tools in tideforge/diagnose/ (features shared with gen_audit; fixable, repair, rules, coverage, realism).
+  D3 needs devscore --save-forecasts. D5 / D6 compare on the season detected from each series (synthetic rows have no
+  frequency). D6 folds real windows by dataset and synthetic rows at random within each family (leave-family-out would
+  measure generalisation to unseen families, not which family is easy to spot).
 - 2026-10-27 (owner, from D1): G1 stays first; its scenarios in the order G1.3 load, G1.4 price, G1.5 retail (the worst
   covariate tasks are load, price and retail).
 
