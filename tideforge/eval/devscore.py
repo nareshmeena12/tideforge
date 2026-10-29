@@ -35,6 +35,7 @@ from tideforge.devdata.freqs import seasonality
 from tideforge.devdata.ingest import sha256_file
 from tideforge.eval import devmetrics as M
 from tideforge.eval import looks
+from tideforge.eval import noise as NZ
 from tideforge.eval.naive_time import SeasonalNaiveTIME
 from tideforge.probes.common import Cell
 
@@ -309,10 +310,11 @@ def rule5(a_run, a_win, b_run, b_win, metric: str, noise: dict | None, own: str 
     out = []
     p = M.paired(M.dataset_scores(M.pair_ratios(aw)), M.dataset_scores(M.pair_ratios(bw)), w, metric)
     gain = 1 - p["ratio"]
-    if noise is None or metric not in noise:
+    fl = NZ.floor(noise, metric)                     # the 3-seed RANGE (pre-registered in E0.7 Part A); the sd is not used
+    if fl is None:
         out.append(f"UNKNOWN  (1) beats B by more than the seed noise: gain {gain:+.4f}; {NOISE_UNKNOWN}")
     else:
-        out.append(f"{'PASS' if gain > noise[metric] else 'FAIL':8s} (1) gain {gain:+.4f} vs seed noise {noise[metric]:.4f}")
+        out.append(f"{'PASS' if gain > fl else 'FAIL':8s} (1) gain {gain:+.4f} vs seed noise {fl:.4f} (range over seeds)")
     if own:
         k, _, val = own.partition("=")
         sa, sb = aw[aw[k].astype(str) == val], bw[bw[k].astype(str) == val]

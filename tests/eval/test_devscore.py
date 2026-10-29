@@ -78,9 +78,9 @@ def test_compare_and_rule5(devroot, tmp_path, tb, capsys):
     out = capsys.readouterr().out
     assert D.NOISE_UNKNOWN in out and "(2) own slice domain=Hydrology" in out and "(3)" in out
     noise = tmp_path / "e07.json"
-    noise.write_text(json.dumps({"MASE": 0.5}))
+    noise.write_text(json.dumps({"stat": "range", "dev": {"metrics": {"MASE": {"range": 0.5, "sd": 0.1}}}}))
     D.main(["compare", "--a", str(r / "naive"), "--b", str(r / "naive_time"), "--noise", str(noise)])
-    assert "vs seed noise 0.5000" in capsys.readouterr().out
+    assert "vs seed noise 0.5000 (range" in capsys.readouterr().out
     run = json.loads((r / "naive" / "run.json").read_text())
     run["version"] = "other"
     (r / "naive" / "run.json").write_text(json.dumps(run))
@@ -138,3 +138,40 @@ def test_forecasts_roundtrip(tmp_path):
     for i, (it, m, q) in enumerate(keep):
         assert f["dataset_id"][i] == it["dataset_id"] and f["mode"][i] == m and f["S"][i] == 7
         assert np.allclose(f["q"][i], q, atol=1e-6) and np.allclose(f["y"][i], it["y"], atol=1e-6)
+
+
+def test_noise_file_range_is_the_floor(devroot, tmp_path, tb, capsys):
+    from tideforge.eval import noise as NZ
+    _score(devroot, tmp_path / "runs")
+    _score(devroot, tmp_path / "runs", model="naive")
+    r = tmp_path / "runs" / "toy-v1" / "tuning_fast"
+    probes = []
+    for i, v in enumerate((0.30, 0.34, 0.31)):
+        f = tmp_path / f"p{i}.csv"
+        pd.DataFrame([dict(probe="P1", cell="c", mode="hidden", view="all", metric="MASE", value=v)]).to_csv(f, index=False)
+        probes.append(str(f))
+    out = tmp_path / "noise" / "e07.json"
+    d = NZ.write(out, probe_csvs=probes)                        # probes first (dev set not built yet) ...
+    assert "dev" not in d and NZ.floor(d, "MASE") is None
+    assert d["probes"]["metrics"]["P1/c/hidden/all/MASE"]["range"] == pytest.approx(0.04)
+    d = NZ.write(out, dev_runs=[str(r / "naive"), str(r / "naive_time")])   # ... dev later; probes kept
+    m = d["dev"]["metrics"]["MASE"]
+    assert d["stat"] == "range" and "P1/c/hidden/all/MASE" in d["probes"]["metrics"]
+    assert m["range"] == pytest.approx(max(m["values"]) / min(m["values"]) - 1) and NZ.floor(d, "MASE") == m["range"]
+    D.main(["compare", "--a", str(r / "naive"), "--b", str(r / "naive_time"), "--noise", str(out)])
+    assert f"vs seed noise {m['range']:.4f} (range over seeds)" in capsys.readouterr().out
+
+
+def test_noise_probe_part_and_floor(tmp_path):
+    from tideforge.eval import noise as NZ
+    probes = []
+    for i, v in enumerate((0.30, 0.34, 0.31)):
+        f = tmp_path / f"p{i}.csv"
+        pd.DataFrame([dict(probe="P1", cell="c", mode="hidden", view="all", metric="MASE", value=v)]).to_csv(f, index=False)
+        probes.append(str(f))
+    d = NZ.write(tmp_path / "e07.json", probe_csvs=probes)
+    s = d["probes"]["metrics"]["P1/c/hidden/all/MASE"]
+    assert s["range"] == pytest.approx(0.04) and s["sd"] > 0 and NZ.floor(d, "MASE") is None
+    assert NZ.floor({"dev": {"metrics": {"MASE": {"range": 0.02, "sd": 0.9}}}}, "MASE") == 0.02   # the range, never the sd
+    with pytest.raises(SystemExit, match="at least 2"):
+        NZ.write(tmp_path / "x.json", probe_csvs=probes[:1])
