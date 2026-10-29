@@ -6,3 +6,9 @@ Requirements fixed before the T3 port (owner, 2026-10-27):
   NaN can only come from a switch at final_blocks (H8, tideforge/gen/_hooks.py).
 - tideforge.gen.configure(gc, seed=..., stream=...) is called in every DataLoader worker and DDP rank (gen.WorkerInit).
 """
+
+
+def thirdparty_ft3():
+    """ft3_core from the pinned third_party copy (sys.path set up the way tideforge.eval.thirdparty does)."""
+    from tideforge.eval import thirdparty
+    return thirdparty.ft3_core()

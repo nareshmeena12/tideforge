@@ -1,0 +1,9 @@
+id: G4.3f
+base: b0
+gen:
+  gen_additions: {breaks: true}
+switches:
+  breaks_late: {lo: 0.7, hi: 0.9}
+seeds: [0]
+notes: >-
+  FALLBACK (generator side, owner 2026-10-28): breaks (rate 0.2) placed at 0.7-0.9 of the block; see the simulated-crop check in the test and the report

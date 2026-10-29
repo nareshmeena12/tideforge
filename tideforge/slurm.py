@@ -12,6 +12,11 @@ Jobs:
 QOS limits (Perlmutter GPU nodes: 4 GPUs, 128 cores): shared at most half a node (2 GPUs, 64 cores), regular a full node.
 check() refuses a job above them; main() prints each job's estimated GPU-hours (estimates, from UNITS_H) and the
 allocated maximum (GPUs x time limit).
+  t3_e07.sbatch      E0.7 + E0.8: one regular node, one 5M run per GPU (TRAIN_JOBS: 3 B0 seeds + E0.8 seed 0, owner
+                     2026-10-29: no idle slot). SIGUSR1 two minutes before the limit is forwarded to the four trainers (each
+                     saves last.pt and exits 3), then the job requeues itself; finished runs stop at once on restart.
+                     GPU-h estimate: 100B points / TRAIN_PTS_PER_S per run (E0.9's measured deterministic-mode rate once it
+                     exists; before that ESTIMATE_PTS_PER_S, an estimate), printed by main() before anything is submitted.
 Submit from the log folder (the job's output lands there as <job name>-<job id>.out):
     cd $TF_ROOT/logs && sbatch $SCRATCH/tideforge/repo/scripts/perlmutter/e03_score.sbatch
 """
@@ -66,6 +71,61 @@ echo "$(date) E0.3 JOB DONE"
 }
 
 
+# ---- 5M training node jobs: (experiment, seed) per GPU slot
+TRAIN_PTS_PER_S = None              # E0.9's deterministic-mode points/s per GPU (tideforge.train.throughput report): fill in
+ESTIMATE_PTS_PER_S = 3.0e7          # ESTIMATE until E0.9 runs (model ~1.1 MFLOP / point at 15-30% of A100 bf16 + generation)
+TRAIN_POINTS = 100e9
+TRAIN_JOBS = {
+    "t3_e07": dict(qos="regular", gpus=4, cpus=128, time="12:00:00", runs=[("E0.7", 0), ("E0.7", 1), ("E0.7", 2), ("E0.8", 0)],
+                   what="E0.7 (5M B0, seeds 0-2) and E0.8 (white-noise control, seed 0): one run per GPU, then finish each"),
+}
+
+TRAIN_BODY = """mkdir -p "$TF_ROOT/runs" "$TF_ROOT/logs"
+git -C "$TF_REPO" log --oneline -1
+PIDS=()
+forward() {{
+    echo "$(date) SIGUSR1: asking the trainers to save and stop"
+    for p in "${{PIDS[@]}}"; do kill -USR1 "$p" 2>/dev/null; done
+    wait
+    scontrol requeue "$SLURM_JOB_ID"; exit 0
+}}
+trap forward USR1
+{launch}
+RC=0
+for p in "${{PIDS[@]}}"; do wait "$p"; c=$?; [ "$c" -eq 0 ] || RC=$c; done
+if [ "$RC" -eq 3 ]; then echo "$(date) a trainer stopped to be requeued"; scontrol requeue "$SLURM_JOB_ID"; exit 0; fi
+[ "$RC" -eq 0 ] || {{ echo "$(date) a run FAILED (exit $RC): see $TF_ROOT/logs/{name}_*.log"; exit 1; }}
+echo "$(date) {name} JOB DONE"
+"""
+LAUNCH = ('CUDA_VISIBLE_DEVICES={gpu} python -m tideforge.train.trainer --exp {exp} --seed {seed} --out "$TF_ROOT/runs" '
+          '> "$TF_ROOT/logs/{name}_{exp}_s{seed}.log" 2>&1 &')
+
+
+def train_estimate(name: str) -> str:
+    j = TRAIN_JOBS[name]
+    rate, kind = (TRAIN_PTS_PER_S, "measured (E0.9)") if TRAIN_PTS_PER_S else (ESTIMATE_PTS_PER_S, "ESTIMATE (E0.9 not in yet)")
+    h = TRAIN_POINTS / rate / 3600
+    if h * 1.15 > hours(j["time"]):
+        raise ValueError(f"{name}: a run needs about {h:.1f} h (+15% for validation / checkpoints), above the {j['time']} limit; "
+                         "the job would requeue (allowed, but raise the limit)")
+    n = len(j["runs"])
+    return (f"{name}: {n} runs x {h:.1f} h = {n * h:.1f} GPU-h busy (rate {rate:.2e} pts/s per GPU, {kind}); node "
+            f"wall time about {h:.1f} h; allocated at most {j['gpus'] * hours(j['time']):.1f} GPU-h "
+            f"({j['gpus']} x {j['time']}, QOS {j['qos']})")
+
+
+def render_train(name: str) -> str:
+    j = TRAIN_JOBS[name]
+    check(j)
+    if len(j["runs"]) > j["gpus"]:
+        raise ValueError(f"{name}: {len(j['runs'])} runs for {j['gpus']} GPUs (one run per GPU at 5M)")
+    launch = "".join(LAUNCH.format(gpu=i, exp=e, seed=sd, name=name) + "\nPIDS+=($!)\n" for i, (e, sd) in enumerate(j["runs"]))
+    head = HEADER.format(account=ACCOUNT, name=name, **{k: v for k, v in j.items() if k not in ("body", "runs")})
+    head = head.split("# two minutes before the time limit")[0]          # the scorer's trap: replaced by forward() below
+    head += "# two minutes before the time limit: SIGUSR1 is forwarded to the trainers (save + exit 3), then requeue\n"
+    return head + TRAIN_BODY.format(launch=launch.rstrip("\n"), name=name)
+
+
 def hours(time: str) -> float:
     h, m, s = (int(x) for x in time.split(":"))
     return h + m / 60 + s / 3600
@@ -114,9 +174,10 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)
     bad = []
-    for name in JOBS:
-        print(estimate(name))
-        p, text = OUT / f"{name}.sbatch", render(name)
+    jobs = [(n, estimate, render) for n in JOBS] + [(n, train_estimate, render_train) for n in TRAIN_JOBS]
+    for name, est, rend in jobs:
+        print(est(name))
+        p, text = OUT / f"{name}.sbatch", rend(name)
         if a.check:
             if not p.exists() or p.read_text(encoding="utf-8") != text:
                 bad.append(p.name)

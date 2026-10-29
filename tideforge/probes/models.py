@@ -6,7 +6,7 @@
 
 mode: "main" (no covariates in the cell), "on" (covariates shown, ft3 groups ON) or "hidden" (targets only, groups hidden).
 Adapters: Ft3 (ft3_main and any ft3 checkpoint, through the scorer's path: tideforge.eval.thirdparty -> fill_season ->
-ft3_core.forecast_left_padded / forecast_groups, under a NaN variant of tideforge.eval.nan_variants), M5 (stub until T3),
+ft3_core.forecast_left_padded / forecast_groups, under a NaN variant of tideforge.eval.nan_variants), M5 (5M checkpoints of tideforge/train, same path as Ft3),
 Oracle (the stored true quantiles) and Naive (seasonal naive with empirical residual quantiles).
 """
 from __future__ import annotations
@@ -96,17 +96,6 @@ class Naive(Model):
         return np.sort(q.reshape(n, k, 9, H), axis=2)
 
 
-class M5(Model):
-    """5M checkpoints (the ab5m_cpm recipe): filled in with the T3 port."""
-    name = "m5"
-
-    def __init__(self, ckpt: str | Path, device: str = "cuda"):
-        self.ckpt, self.device = ckpt, device
-
-    def predict_cell(self, cell, mode="main", view="main"):
-        raise NotImplementedError("5M adapter: written with the T3 recipe port")
-
-
 class Ft3(Model):
     """An ft3 checkpoint through the scorer's path. mode "on": ft3_core.forecast_groups with the cell's covariates (past and
     known lanes, as fev's groups mode passes them); "hidden" / "main": forecast_left_padded on the targets (groups hidden).
@@ -151,6 +140,17 @@ class Ft3(Model):
         return np.sort(q, axis=2)
 
 
+class M5(Ft3):
+    """5M checkpoints of the ab5m_cpm recipe (tideforge/train): written in ft3_main.pt's format (model + cfg; MaskedLossDecoder
+    has the same parameters and state-dict keys as ft3's CausalPatchDecoder), so they go through the scorer's path exactly like
+    ft3_main (Ft3)."""
+
+    def __init__(self, ckpt: str | Path, device: str = "cuda", nan_variant: str = "baseline"):
+        if ckpt is None:
+            raise ValueError("model 'm5' needs --ckpt (a tideforge/train checkpoint: final.pt or ckpt_<N>B.pt)")
+        super().__init__(ckpt, device, nan_variant, name="m5")
+
+
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
     with open(p, "rb") as f:
@@ -165,7 +165,7 @@ def make(name: str, ckpt: str | None = None, device: str = "cuda", nan_variant: 
     if name == "naive":
         return Naive()
     if name == "m5":
-        return M5(ckpt, device)
+        return M5(ckpt, device, nan_variant)
     if ckpt is None:
         raise ValueError(f"model {name!r} needs --ckpt")
     return Ft3(ckpt, device, nan_variant, name=name)

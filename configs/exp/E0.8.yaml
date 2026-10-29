@@ -1,0 +1,8 @@
+id: E0.8
+base: b0
+switches:
+  white_noise: {share: 0.10, mode: add}
+seeds: [0]
+notes: >-
+  negative control: 10% of the rows are i.i.d. white noise (add mode: every other family loses 10% of its rows in
+  proportion). Measures what dilution alone costs at 5M.

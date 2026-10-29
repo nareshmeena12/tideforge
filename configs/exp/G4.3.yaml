@@ -1,9 +1,9 @@
 id: G4.3
 base: b0
-gen:
-  gen_additions: {breaks: true}
-switches:
-  breaks_late: {lo: 0.7, hi: 0.9}
+train:
+  crop_breaks: {p: 0.2, lo: 0.7, hi: 0.9}
 seeds: [0]
 notes: >-
-  breaks (rate 0.2) placed at 0.7-0.9 of the block; see the simulated-crop check in the test and the report
+  breaks placed at crop time (T3 batcher): a share 0.2 of the series gets a break (g4_breaks.breaks: level, slope, amplitude,
+  shock or level + amplitude) at U(0.7, 0.9) x its ACTUAL context, i.e. in the last 10-30% of it. The generator's breaks layer
+  stays off (gen = B0). G4.3f is the generator-side fallback (breaks_late: 46.3% of breaks in that part of the context).

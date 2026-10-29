@@ -43,9 +43,13 @@ def test_ft3_gaps_under_nan_variants(ckpt, variant):
     _check(Ft3(ckpt, "cpu", variant).predict_cell(cell, "main", "main"), cell)
 
 
-def test_make_and_m5_stub(ckpt):
+def test_make_and_m5(ckpt):
     assert make("oracle").name == "oracle" and make("naive").name == "naive"
-    with pytest.raises(NotImplementedError):
-        M5("x").predict_cell(None)
+    with pytest.raises(ValueError):
+        M5(None)
     with pytest.raises(ValueError):
         make("ft3main")
+    m = make("m5", ckpt, "cpu")                          # any checkpoint in ft3_main's format loads (tests/train: a 5M one)
+    assert m.name == "m5"
+    cell = P6.build(3).cell("random")
+    _check(m.predict_cell(cell, "main", "main"), cell)

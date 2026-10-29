@@ -27,18 +27,27 @@ def _install_rate(p, inst):
     inst.set_profile("breaks_p", lambda _: float(p["p"]))
 
 
-def breaks(x: torch.Tensor, p: float, g: torch.Generator, lo: float = 0.05, hi: float = 0.95, pred: int = 0):
-    """families._L_breaks with every draw from g and the break time U(lo, hi) x (L - pred). Returns (x, tb (B, 2) or -1)."""
+def breaks(x: torch.Tensor, p: float, g: torch.Generator, lo: float = 0.05, hi: float = 0.95, pred: int = 0, E=None):
+    """families._L_breaks with every draw from g and the break time U(lo, hi) x (L - pred). Returns (x, tb (B, 2) or -1).
+    E (B,) tensor (T3 crop-time breaks): each row's own length (its context); the break time is U(lo, hi) x E and the row's
+    mean / sd come from its first E points only. E=None: the generator-side behaviour, unchanged."""
     B, L = x.shape
     dev = x.device
-    E = max(8, L - pred)
     tbs = torch.full((B, 2), -1.0, device=dev)
     if L < 8:
         return x, tbs
     t = torch.arange(L, device=dev, dtype=torch.float32).unsqueeze(0)
     gate = bern(g, (B, 1), p, dev)
-    sd = x.std(1, keepdim=True) + 1e-6
-    m = x.mean(1, keepdim=True)
+    if E is None:
+        E = max(8, L - pred)
+        sd = x.std(1, keepdim=True) + 1e-6
+        m = x.mean(1, keepdim=True)
+    else:
+        E = E.to(dev).float().view(B, 1)
+        inside = t < E
+        cnt = inside.sum(1, keepdim=True).clamp(min=1)
+        m = torch.where(inside, x, torch.zeros_like(x)).sum(1, keepdim=True) / cnt
+        sd = torch.sqrt((torch.where(inside, x - m, torch.zeros_like(x)) ** 2).sum(1, keepdim=True) / cnt) + 1e-6
     one = torch.ones(B, 1, device=dev)
     n_b = torch.where(bern(g, (B, 1), 0.3, dev), 2 * one, one)
     for j in range(2):

@@ -61,6 +61,14 @@ Status of this file: plan agreed on 2026-10-27. Each experiment gets its own log
 2026-10-27 (owner confirmed): the E0.2 gate is six numbers: groups ON fev 43.78, TIME MASE 0.680 / CRPS 0.571; groups OFF
 fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in score_groups.GATE.
 
+- 2026-10-29 (owner, T3): the 5M recipe is configs/train/ab5m_cpm.yaml (every value with its source). 1024 rows per step
+  (8.30M real points, about 12k steps per 100B) is INFERRED (ft3 / ft3_main's value), not known from ab5m, whose scripts are
+  lost. Weight decay 0.01 (what ft3's trainer used: AdamW's default), betas (0.9, 0.95), LR peak / 25 -> 5e-4 over 2% of the
+  points -> cosine to 0; validation every 500 steps. 5,447,968 parameters (asserted). Generation runs in deterministic mode on
+  the main thread between steps, never overlapping model kernels; E0.9 measures what not overlapping costs.
+- 2026-10-29 (owner, T3): E0.7's node job runs the 3 B0 seeds and E0.8 seed 0 (white_noise switch, add mode 10%), one per
+  GPU. The synthetic holdout loss is a training monitor only (it is B0's own generator); decisions use dev and probes.
+  G4.3 is now crop-time breaks (train.crop_breaks); the generator-side breaks_late version is G4.3f (fallback).
 - 2026-10-29 (owner): E0.10 runs in e03_score.sbatch's queue with E0.3 (one look event, one LOOKS row per variant): target_enc,
   order_corr (known-before-past kept, sorted within each role) and both; groups ON, fev covariate tasks only
   (tideforge/eval/cov_variants.py). Order matters only where the lane cap drops covariates: 17 of fev-bench's 42 covariate

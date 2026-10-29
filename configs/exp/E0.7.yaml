@@ -1,0 +1,5 @@
+id: E0.7
+base: b0
+seeds: [0, 1, 2]
+notes: >-
+  5M baseline B0 (ab5m_cpm recipe + gen b0()), 3 seeds; the seed spread is the noise floor for every later decision.

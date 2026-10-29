@@ -27,7 +27,8 @@ REPO = Path(__file__).resolve().parents[1]
 EXP_DIR = REPO / "configs" / "exp"
 KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train"}
 # train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
-TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict}
+TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict, "crop_breaks": dict, "max_steps": int, "pack_rows": int,
+              "deterministic_gen": bool, "smoke_points": float, "target_points": float}
 LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
 

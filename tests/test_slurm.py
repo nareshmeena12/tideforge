@@ -34,3 +34,21 @@ def test_e03_default_is_a_full_regular_node_and_fits_its_time():
 def test_e03_units_match_the_launcher():
     sh = (slurm.OUT / "e03_nan.sh").read_text(encoding="utf-8")
     assert 'UNITS="' + " ".join(slurm.UNITS_H["e03_score"]) + '"' in sh
+
+
+def test_train_node_job():
+    from tideforge import slurm as SL
+    text = SL.render_train("t3_e07")
+    assert text.count("python -m tideforge.train.trainer") == 4 and "CUDA_VISIBLE_DEVICES=3" in text
+    assert "--exp E0.8 --seed 0" in text and "trap forward USR1" in text and "time limit close, requeueing" not in text
+    line = SL.train_estimate("t3_e07")
+    assert "GPU-h" in line and ("ESTIMATE" in line or "measured" in line)
+    job = dict(SL.TRAIN_JOBS["t3_e07"], runs=[("E0.7", s) for s in range(5)])
+    SL.TRAIN_JOBS["t3_x"] = job
+    try:
+        import pytest
+        with pytest.raises(ValueError, match="one run per GPU"):
+            SL.render_train("t3_x")
+    finally:
+        del SL.TRAIN_JOBS["t3_x"]
+    assert SL.main(["--check"]) == 0

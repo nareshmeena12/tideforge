@@ -1,0 +1,8 @@
+id: E0.9
+base: b0
+train:
+  max_steps: 300
+seeds: [0]
+notes: >-
+  end-to-end 5M training throughput, 300 steps, run twice (trainer --gen-mode det and --gen-mode default); points/s and
+  the generation share (gen_frac) per mode from metrics.jsonl (tideforge.train.throughput report).
