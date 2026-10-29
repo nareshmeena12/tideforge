@@ -103,11 +103,10 @@ def test_rank_corr():
     assert c["spearman"][0] == pytest.approx(-1.0)
 
 
-def test_public_registry_is_stubs():
+def test_public_models_are_registered():
     assert {"chronos2", "timesfm25", "toto2_4m", "timestral5m"} <= set(public_models.REGISTRY)
-    m = D.make_model("chronos2", device="cpu")
-    with pytest.raises(NotImplementedError, match="owner's OK"):
-        m.predict_cell(None)
+    m = D.make_model("chronos2", device="cpu")              # lazy: no package is imported until the first forecast
+    assert D.max_context(m) == 8192 and m.covariates == "past+known"
 
 
 def test_save_forecasts_matches_the_scores(devroot, tmp_path, tb):

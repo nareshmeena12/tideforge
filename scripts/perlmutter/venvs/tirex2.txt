@@ -1,0 +1,6 @@
+# $TF_ROOT/venvs/tirex2 (Python >= 3.11; tirex-2 needs torch >= 2.8, numpy >= 2.1.3). Built by e05_public.sh install tirex2.
+torch==2.8.0
+tirex-2 @ git+https://github.com/NX-AI/tirex-2@12aa6dd583a7a5e641801db6d292708200c02776
+numpy==2.1.3
+scipy==1.14.1
+huggingface_hub==0.35.3

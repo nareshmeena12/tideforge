@@ -12,6 +12,9 @@ Jobs:
 QOS limits (Perlmutter GPU nodes: 4 GPUs, 128 cores): shared at most half a node (2 GPUs, 64 cores), regular a full node.
 check() refuses a job above them; main() prints each job's estimated GPU-hours (estimates, from UNITS_H) and the
 allocated maximum (GPUs x time limit).
+  e05_public.sbatch  E0.5 wrapper check (scripts/perlmutter/e05_public.sh fevcheck): the 9 public models on 5 fixed fev tasks
+                     against fev's published per-task numbers, a queue over the 4 GPUs of a regular node, one model per GPU
+                     (UNITS_H: estimates). Install, weights and the GPU check come first (e05_public.sh install / weights / check).
   t3_e07.sbatch      E0.7 + E0.8: one regular node, one 5M run per GPU (TRAIN_JOBS: 3 B0 seeds + E0.8 seed 0, owner
                      2026-10-29: no idle slot). SIGUSR1 two minutes before the limit is forwarded to the four trainers (each
                      saves last.pt and exits 3), then the job requeues itself; finished runs stop at once on restart.
@@ -56,7 +59,11 @@ QOS = {"shared": dict(gpus=2, cpus=64, hours=48), "regular": dict(gpus=4, cpus=1
 
 # E0.3 units (variant:mode, the order e03_nan.sh queues them) and their estimated hours on one A100 (estimates, not measured)
 UNITS_H = {"e03_score": {"nofill_delete:on": 2.5, "nofill_mask:on": 2.5, "nofill_delete:off": 2.0, "nofill_mask:off": 2.0,
-                         "cov_mask:on": 1.5, "target_enc:on": 1.0, "order_corr:on": 1.0, "both:on": 1.0}}
+                         "cov_mask:on": 1.5, "target_enc:on": 1.0, "order_corr:on": 1.0, "both:on": 1.0},
+           # E0.5 wrapper check: 5 fev tasks per model, one model per GPU (e05_public.sh ALL order, longest first). ESTIMATES:
+           # task loading dominates the small models; TiRex includes its first-load kernel build
+           "e05_public": {"chronos2": 0.4, "timesfm25": 0.4, "toto2_2p5b": 0.6, "toto2_22m": 0.25, "toto2_4m": 0.25,
+                          "tirex": 0.5, "tirex2": 0.4, "timestral28m": 0.25, "timestral5m": 0.25}}
 
 JOBS = {
     "e03_score": dict(
@@ -67,6 +74,14 @@ JOBS = {
 wait $! || { echo "$(date) E0.3 scoring FAILED"; exit 1; }
 bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" table
 echo "$(date) E0.3 JOB DONE"
+"""),
+    "e05_public": dict(
+        qos="regular", gpus=4, cpus=128, time="03:00:00",
+        what="E0.5 wrapper check: 9 public models x 5 fixed fev tasks vs fev's published per-task numbers (2%), one model per "
+             "GPU (the 2.5B model alone on its GPU); then the table (LOOKS rows: e05_public.sh table --looks, after review).",
+        body="""bash "$TF_REPO/scripts/perlmutter/e05_public.sh" fevcheck &
+wait $! || { echo "$(date) E0.5 wrapper check: a model FAILED or is outside 2% (see the table above)"; exit 1; }
+echo "$(date) E0.5 JOB DONE"
 """),
 }
 

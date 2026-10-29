@@ -73,6 +73,15 @@ fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in s
   order_corr (known-before-past kept, sorted within each role) and both; groups ON, fev covariate tasks only
   (tideforge/eval/cov_variants.py). Order matters only where the lane cap drops covariates: 17 of fev-bench's 42 covariate
   tasks (tasks.yaml), so order_corr is kept.
+- 2026-10-29 (owner, E0.5): public models = Chronos-2, TimesFM-2.5, Toto-2.0 4m / 22m / 2.5B, TiRex, TiRex-2, Timestral-5M /
+  -28M (plus ft3_main and seasonal naive). Pins in tideforge/eval/public_models/__init__.py (package versions or git commits,
+  HF weight commits); the `public` extra shares the core env, Toto-2.0 and TiRex-2 have their own venvs ($TF_ROOT/venvs).
+  TimesFM-2.5 is scored in hidden mode only (covariates only through XReg / jax, not installed); Toto-2.0 and TiRex have no
+  covariate input (hidden only); devscore --cov records "covariates: none (hidden only)" for them. Toto-2.0 runs in fp32 (its
+  card states fp32 weights, nothing about bf16). TiRex must run its xlstm CUDA kernels: no torch fallback (the adapter
+  refuses). Wrapper check: 5 fixed fev tasks (epf_de, uci_air_quality_1D, ETT_1W, australian_tourism, ercot_1D), every task
+  within 2% of the model's published test_error in fev's results CSV; one LOOKS row per model. The published rows used fev
+  0.8.0 / 0.9.0 / 0.11.0.dev0 depending on the model: the check records the installed version next to the published one.
 - 2026-10-27 (owner): B0 = ft3_main's generator mix (configs/ft3_main_cfg.json, `v0-b0-af75b1af`). ft3_main was fine-tuned
   from ft2_main, so B0 copies ft3's mix only, not ft2's history: experiments compare against B0, and B0 is never described as
   "ft3_main's training data".

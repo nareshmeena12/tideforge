@@ -230,6 +230,10 @@ def cmd_score(a) -> int:
     if not items:
         raise SystemExit("no windows in that set")
     model = make_model(a.model, a.ckpt, a.device)
+    covariates = getattr(model, "covariates", "past+known")
+    if a.cov and covariates == "none":                   # public models without covariate input: hidden mode only, recorded
+        modes = ("hidden",)
+        print(f"{a.model}: no covariate support, scored in hidden mode only")
     naive_q = predict(SeasonalNaiveTIME(), items, "main")
     keep = [] if a.save_forecasts else None
     tab = pd.concat([score_items(model, items, m, naive_q, keep) for m in modes], ignore_index=True)
@@ -240,10 +244,11 @@ def cmd_score(a) -> int:
         save_forecasts(d / "forecasts.npz", keep)
     run = dict(version=a.version, role=a.role, set="cov" if a.cov else a.set, cov=bool(a.cov), model=a.model, set_sha256=sha,
                ckpt_sha256=getattr(model, "ckpt_sha", None),
-               weights={} if a.cov else v.manifest["weights"][a.role]["datasets"])
+               weights={} if a.cov else v.manifest["weights"][a.role]["datasets"],
+               covariates=covariates if covariates != "none" else "none (hidden only)")
     w = weights_of(run, tab)
     run["scores"] = {m: summarise(tab[tab["mode"] == m], w) for m in modes}
-    if a.cov:
+    if a.cov and "on" in modes:
         g = M.paired(M.dataset_scores(M.pair_ratios(tab[tab["mode"] == "on"])),
                      M.dataset_scores(M.pair_ratios(tab[tab["mode"] == "hidden"])), w)
         run["on_vs_hidden"] = {k: g[k] for k in ("ratio", "lo", "hi", "datasets")}
