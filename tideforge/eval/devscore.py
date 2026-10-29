@@ -1,6 +1,7 @@
 """The dev scorer (T1b): score a model on a frozen dev version, report, compare two runs, rank-correlate with fev / TIME.
 
     python -m tideforge.eval.devscore score  --dev $TF_DATA/dev --version dev-v1 --set fast|full --model ft3main --ckpt PATH
+                                             [--save-forecasts]   (forecasts.npz next to windows.parquet, for D3; off by default)
                                              [--cov] [--role locked --locked --experiment E --why "..."] [--out runs/dev]
     python -m tideforge.eval.devscore report --run <run dir> [--cov-run <cov run dir>]
     python -m tideforge.eval.devscore compare --a <run> --b <run> [--noise runs/noise/e07.json] [--slice domain=Energy] [--metric MASE]
@@ -154,8 +155,11 @@ def predict(model, items: list, mode: str) -> list[np.ndarray]:
     return [out[id(it)] for it in items]
 
 
-def score_items(model, items: list, mode: str, naive_q: list | None = None) -> pd.DataFrame:
+def score_items(model, items: list, mode: str, naive_q: list | None = None, keep: list | None = None) -> pd.DataFrame:
+    """keep: if a list, (item, mode, q) is appended per window (for --save-forecasts)."""
     q = predict(model, items, mode)
+    if keep is not None:
+        keep.extend((it, mode, qi) for it, qi in zip(items, q))
     nq = q if (naive_q is None and isinstance(model, SeasonalNaiveTIME)) else (naive_q or predict(SeasonalNaiveTIME(), items, "main"))
     rows = []
     for it, qi, ni in zip(items, q, nq):
@@ -169,6 +173,26 @@ def score_items(model, items: list, mode: str, naive_q: list | None = None) -> p
 
 
 # ---------------------------------------------------------------------------------------------------------- runs
+
+def save_forecasts(path: Path, keep: list) -> None:
+    """forecasts.npz: per window (same key as windows.parquet: dataset_id, series_id, window, mode) the 9 quantiles and the
+    truth, concatenated over windows: q (sum H, 9), y (sum H,), start / H per window, and the season S (for D3)."""
+    H = np.array([len(it["y"]) for it, _, _ in keep], np.int64)
+    np.savez_compressed(
+        path, dataset_id=np.array([it["dataset_id"] for it, _, _ in keep]), series_id=np.array([str(it["series_id"]) for it, _, _ in keep]),
+        window=np.array([it["window"] for it, _, _ in keep], np.int64), mode=np.array([m for _, m, _ in keep]),
+        S=np.array([it["S"] for it, _, _ in keep], np.int64), H=H, start=np.concatenate([[0], np.cumsum(H)[:-1]]).astype(np.int64),
+        q=np.concatenate([np.asarray(q, np.float32).T for _, _, q in keep]), y=np.concatenate([np.asarray(it["y"], np.float32) for it, _, _ in keep]))
+
+
+def load_forecasts(path: str | Path) -> dict:
+    """forecasts.npz -> dict of key arrays plus "q" / "y" lists of (9, H) / (H,) per window."""
+    z = np.load(path)
+    out = {k: z[k] for k in ("dataset_id", "series_id", "window", "mode", "S", "H")}
+    out["q"] = [z["q"][s:s + h].T for s, h in zip(z["start"], z["H"])]
+    out["y"] = [z["y"][s:s + h] for s, h in zip(z["start"], z["H"])]
+    return out
+
 
 def run_dir(out: str | Path, version: str, role: str, set_: str, cov: bool, model: str) -> Path:
     return Path(out) / version / f"{role}_{'cov' if cov else set_}" / model
@@ -206,10 +230,13 @@ def cmd_score(a) -> int:
         raise SystemExit("no windows in that set")
     model = make_model(a.model, a.ckpt, a.device)
     naive_q = predict(SeasonalNaiveTIME(), items, "main")
-    tab = pd.concat([score_items(model, items, m, naive_q) for m in modes], ignore_index=True)
+    keep = [] if a.save_forecasts else None
+    tab = pd.concat([score_items(model, items, m, naive_q, keep) for m in modes], ignore_index=True)
     d = run_dir(a.out, a.version, a.role, a.set, a.cov, a.model)
     d.mkdir(parents=True, exist_ok=True)
     tab.to_parquet(d / "windows.parquet", index=False)
+    if keep is not None:
+        save_forecasts(d / "forecasts.npz", keep)
     run = dict(version=a.version, role=a.role, set="cov" if a.cov else a.set, cov=bool(a.cov), model=a.model, set_sha256=sha,
                ckpt_sha256=getattr(model, "ckpt_sha", None),
                weights={} if a.cov else v.manifest["weights"][a.role]["datasets"])
@@ -367,6 +394,7 @@ def main(argv=None) -> int:
     ap.add_argument("--version")
     ap.add_argument("--set", choices=tuple(SET_FILES), default="fast")
     ap.add_argument("--cov", action="store_true", help="score the dev-covariate set (groups ON and hidden)")
+    ap.add_argument("--save-forecasts", action="store_true", help="also write forecasts.npz (quantiles + truth per window, for D3)")
     ap.add_argument("--role", choices=("tuning", "locked"), default="tuning")
     ap.add_argument("--locked", action="store_true", help="required to score the locked role")
     ap.add_argument("--experiment")

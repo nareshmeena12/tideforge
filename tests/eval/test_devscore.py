@@ -108,3 +108,33 @@ def test_public_registry_is_stubs():
     m = D.make_model("chronos2", device="cpu")
     with pytest.raises(NotImplementedError, match="owner's OK"):
         m.predict_cell(None)
+
+
+def test_save_forecasts_matches_the_scores(devroot, tmp_path, tb):
+    import numpy as np
+    from tideforge.eval import devmetrics as M
+    assert _score(devroot, tmp_path / "runs", "--save-forecasts", model="naive") == 0
+    d = tmp_path / "runs" / "toy-v1" / "tuning_fast" / "naive"
+    run, win = D.load_run(d)
+    f = D.load_forecasts(d / "forecasts.npz")
+    assert len(f["q"]) == len(win)
+    key = win.set_index(["dataset_id", "series_id", "window", "mode"])
+    for i in range(0, len(win), max(1, len(win) // 7)):
+        r = key.loc[(f["dataset_id"][i], f["series_id"][i], int(f["window"][i]), f["mode"][i])]
+        assert f["q"][i].shape == (9, f["H"][i]) and len(f["y"][i]) == f["H"][i]
+        assert np.all(np.diff(f["q"][i], axis=0) >= -1e-6)
+    assert not (tmp_path / "runs" / "toy-v1" / "tuning_fast" / "naive_time" / "forecasts.npz").exists()
+
+
+def test_forecasts_roundtrip(tmp_path):
+    import numpy as np
+    rng = np.random.default_rng(0)
+    keep = []
+    for i, H in enumerate((3, 7, 1)):
+        it = dict(dataset_id=f"d{i % 2}", series_id=f"s{i}", window=i, S=7, y=rng.normal(size=H))
+        keep.append((it, "on" if i else "main", np.sort(rng.normal(size=(9, H)), 0)))
+    D.save_forecasts(tmp_path / "f.npz", keep)
+    f = D.load_forecasts(tmp_path / "f.npz")
+    for i, (it, m, q) in enumerate(keep):
+        assert f["dataset_id"][i] == it["dataset_id"] and f["mode"][i] == m and f["S"][i] == 7
+        assert np.allclose(f["q"][i], q, atol=1e-6) and np.allclose(f["y"][i], it["y"], atol=1e-6)
