@@ -37,3 +37,19 @@ def test_gc_from_cli():
     with pytest.raises(ValueError, match="which switch"):
         expcfg.gc_from_cli("defaults", switch=["test_post", "test_gaps"], param=["p=0.1"])
     assert expcfg.gc_from_cli(exp="EXAMPLE")[2] == "EXAMPLE"
+
+
+def test_model_section(tmp_path):
+    a, c = expcfg.load_exp("G1.13a"), expcfg.load_exp("G1.13c")
+    assert a.model == {"known_attn": "mask"} and c.model == {"known_attn": "mask", "known_lookahead": 32}
+    b0 = expcfg.load_exp("E0.7")
+    assert b0.model == {} and a.run_id() == b0.run_id().replace("E0.7", "G1.13a") + "-kamask"
+    assert c.run_id().endswith("-kamask-kl32")
+    p = tmp_path / "X1.yaml"
+    p.write_text("id: X1\nbase: defaults\nmodel: {known_attn: off}\n")
+    assert expcfg.load_exp(p).model == {}                     # spelling out off = B0's model and run id
+    for bad, err in (("{known_attn: whole}", ValueError), ("{lanes: 16}", KeyError), ("{known_lookahead: 32}", ValueError),
+                     ("{known_attn: mask, known_lookahead: 0}", ValueError)):
+        p.write_text(f"id: X1\nbase: defaults\nmodel: {bad}\n")
+        with pytest.raises(err):
+            expcfg.load_exp(p)

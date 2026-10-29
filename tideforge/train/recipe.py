@@ -8,6 +8,9 @@ train: keys an experiment may set (tideforge.expcfg.TRAIN_KEYS): long_row_frac (
 and the recipe's own batch / optim / run values for the throughput and smoke configs (E0.9: max_steps, ...). The run id hashes
 the generator config (its config_hash covers every switch parameter and the install plan), the merged train settings, the
 seed and the code version, so changing any of them gives a new id.
+model: the experiment's model options (tideforge.model.OPTIONS: known_attn, known_lookahead; M1). ft3_cfg() writes all of them
+into the cfg, so every checkpoint records them and tideforge.model.build / load rebuild the same model; the non-default ones
+join the run id (the experiment's model fragment) and the train hash. B0's ids are unchanged.
 """
 from __future__ import annotations
 
@@ -61,6 +64,8 @@ class Recipe:
         cfg.update(self.sections["batch"])
         g = self.exp.gen
         cfg.update(g.to_ft3_cfg())
+        from tideforge.model import OPTIONS
+        cfg.update(OPTIONS, **self.exp.model)
         cfg.update(group_prob=g.group_prob, group_lanes=g.group_lanes if g.group_lanes > 1 else cfg["group_lanes"],
                    val_corpus=self.sections["run"]["val_corpus"], val_group_prob=self.sections["run"]["val_group_prob"],
                    lr=self.sections["optim"]["peak_lr"], grad_clip=self.sections["optim"]["grad_clip"],
@@ -68,7 +73,10 @@ class Recipe:
         return cfg
 
     def train_hash(self) -> str:
-        s = json.dumps(dict(sections=self.sections, items=self.items), sort_keys=True, separators=(",", ":"), default=str)
+        d = dict(sections=self.sections, items=self.items)
+        if self.exp.model:
+            d["model_options"] = self.exp.model
+        s = json.dumps(d, sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha1(s.encode("utf-8")).hexdigest()[:8]
 
     def run_id(self, seed: int, code: str) -> str:

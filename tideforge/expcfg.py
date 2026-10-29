@@ -12,6 +12,9 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
 
     train:                        # batcher / training settings: stored and validated now, applied by T3 (5M recipe port)
       long_row_frac: 0.5
+    model:                        # model options (tideforge.model.OPTIONS), off when absent; non-default ones join the run id
+      known_attn: mask            # M1 (G1.13): off | mask
+      known_lookahead: 32         # M1's band in patches (G1.13c); absent = the whole window
 
 """
 from __future__ import annotations
@@ -25,12 +28,14 @@ from tideforge.gen.config import GenConfig, b0
 
 REPO = Path(__file__).resolve().parents[1]
 EXP_DIR = REPO / "configs" / "exp"
-KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train"}
+KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train", "model"}
 # train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
 TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict, "crop_breaks": dict, "max_steps": int, "pack_rows": int,
               "deterministic_gen": bool, "smoke_points": float, "target_points": float}
 LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
+# model: options (owner 2026-10-29, M1); the same names and defaults as tideforge.model.OPTIONS (a test checks it)
+MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None}
 
 
 @dataclass(frozen=True)
@@ -43,10 +48,18 @@ class Exp:
     notes: str = ""
     train: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict, compare=False)
+    model: dict = field(default_factory=dict)          # non-default model options only
 
     def run_id(self) -> str:
-        """'<ID>-<generator fragment>', e.g. 'G4.1-v0-breaks-1a2b3c4d' (the seed is appended by the launcher)."""
-        return f"{self.id}-{self.gen.run_id_fragment(self.base)}"
+        """'<ID>-<generator fragment>[-<model fragment>]', e.g. 'G4.1-v0-breaks-1a2b3c4d', 'G1.13c-v0-kamask-kl32' (the seed
+        is appended by the launcher)."""
+        return f"{self.id}-{self.gen.run_id_fragment(self.base)}{model_fragment(self.model)}"
+
+
+def model_fragment(model: dict) -> str:
+    """'-kamask-kl32' for {known_attn: mask, known_lookahead: 32}; '' when every option is off."""
+    short = {"known_attn": "ka", "known_lookahead": "kl"}
+    return "".join(f"-{short[k]}{model[k]}" for k in MODEL_KEYS if k in model)
 
 
 def base_config(name: str) -> GenConfig:
@@ -82,7 +95,26 @@ def load_exp(id_or_path: str | Path) -> Exp:
     base = base_config(base_name)
     gc = apply_changes(base, d.get("gen"), d.get("switches"))
     seeds = tuple(int(s) for s in d.get("seeds", [0]))
-    return Exp(d["id"], base_name, base, gc, seeds, str(d.get("notes", "") or ""), check_train(d.get("train"), p), d)
+    return Exp(d["id"], base_name, base, gc, seeds, str(d.get("notes", "") or ""), check_train(d.get("train"), p), d,
+               check_model(d.get("model"), p))
+
+
+def check_model(model: dict | None, where="") -> dict:
+    """The model: section with the default (off) values dropped, so a config that spells out 'known_attn: off' is B0's model
+    and gets B0's run id."""
+    model = dict(model or {})
+    if model.get("known_attn") is False:                  # YAML 1.1 reads a bare `off` as false
+        model["known_attn"] = "off"
+    bad = sorted(set(model) - set(MODEL_KEYS))
+    if bad:
+        raise KeyError(f"{where}: unknown model option(s) {bad}; known: {sorted(MODEL_KEYS)}")
+    ka = model.get("known_attn", "off")
+    if ka not in MODEL_KEYS["known_attn"]:
+        raise ValueError(f"{where}: model.known_attn must be one of {MODEL_KEYS['known_attn']}, not {ka!r}")
+    K = model.get("known_lookahead")
+    if K is not None and (isinstance(K, bool) or not isinstance(K, int) or K < 1 or ka == "off"):
+        raise ValueError(f"{where}: model.known_lookahead must be an int >= 1 and needs known_attn: mask")
+    return {k: v for k, v in model.items() if not (k == "known_attn" and v == "off") and v is not None}
 
 
 def check_train(train: dict | None, where="") -> dict:

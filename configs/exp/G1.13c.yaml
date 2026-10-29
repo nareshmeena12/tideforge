@@ -1,0 +1,9 @@
+id: G1.13c
+base: b0
+model:
+  known_attn: mask
+  known_lookahead: 32
+seeds: [0]
+notes: >-
+  M1 with a band: a known token reads at most 32 patches (= max_pass_patches) ahead. Runs ONLY if G1.13a improves dev but not
+  fev (the pattern a train / inference mismatch on the known lane's extent would produce; owner 2026-10-29).

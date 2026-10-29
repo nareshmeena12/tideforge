@@ -1,0 +1,14 @@
+id: G1.13b
+base: b0
+# placeholder: best G1 data, G1.8 until the G1 winner is known (copy that config's switches here then; new run id)
+switches:
+  sc_load: {share: 0.05}
+  sc_price: {share: 0.05}
+  sc_retail: {share: 0.05}
+  sc_pv: {share: 0.05}
+  sc_events: {share: 0.05}
+model:
+  known_attn: mask
+seeds: [0]
+notes: >-
+  G1.13 2x2, both: the best G1 data + M1. Switches = G1.8's for now (placeholder).

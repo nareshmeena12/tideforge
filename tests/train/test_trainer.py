@@ -123,7 +123,8 @@ def test_run_id_changes_with_every_setting():
     ids = {base.run_id(0, "c1")}
     for rid in (base.run_id(1, "c1"), base.run_id(0, "c2"), tiny("E0.8").run_id(0, "c1"),
                 tiny(long_row_frac=0.5).run_id(0, "c1"), tiny(pack_rows=32).run_id(0, "c1"),
-                tiny(lead_noise=dict(p_noisy=0.5)).run_id(0, "c1")):
+                tiny(lead_noise=dict(p_noisy=0.5)).run_id(0, "c1"), tiny("G1.13a").run_id(0, "c1"),
+                tiny("G1.13c").run_id(0, "c1")):
         assert rid not in ids
         ids.add(rid)
     with pytest.raises(KeyError):
@@ -138,3 +139,18 @@ def test_finish_without_dev_set(tmp_path):
                     results=str(res), device="cpu", log=lambda *a: None)
     assert row["dev"] == "dev set missing" and row["probes"] == "probes missing" and row["holdout_note"] == FN.HOLDOUT_NOTE
     assert row["run_id"] == r.run_id and res.read_text().count("\n") == 2
+
+
+def test_m1_run_trains_and_its_checkpoint_reloads_as_m1(tmp_path):
+    from tideforge.model.m1 import M1Decoder
+    r = run(tmp_path, tiny("G1.13a"))
+    assert type(r.model) is M1Decoder and r.cfg["known_attn"] == "mask" and r.cfg["known_lookahead"] is None
+    assert "-kamask" in r.run_id
+    assert r.train(max_steps=2) == TR.EXIT_DONE
+    info = json.loads((r.dir / "run.json").read_text())
+    assert info["model_options"] == {"known_attn": "mask", "known_lookahead": None}
+    m, cfg, _ = TM.load(r.dir / "final.pt", "cpu")
+    assert type(m) is M1Decoder and cfg["known_attn"] == "mask"
+    assert all(torch.equal(a, b) for a, b in zip(m.state_dict().values(), r.model.state_dict().values()))
+    b0 = run(tmp_path / "b0")
+    assert type(b0.model) is not M1Decoder and b0.cfg["known_attn"] == "off"

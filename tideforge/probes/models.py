@@ -107,11 +107,11 @@ class Ft3(Model):
         thirdparty.add_path()
         import tidemark.eval.score_twins as S_
         import tidemark.real.ft3_core as C
-        from tidemark.real.score_ft3 import load_ft3
+        from tideforge import model as TM
         self.C, self.S_ = C, S_
         import torch
         self.device = torch.device(device)                    # ft3_core reads device.type
-        self.model, self.cfg, _ = load_ft3(str(ckpt), self.device)
+        self.model, self.cfg, _ = TM.load(str(ckpt), self.device)   # built from the cfg's model options (M1)
         self.nan_variant, self.name = nan_variant, name
         self.max_ctx, self.batch = int(S_.MAX_CTX), int(S_.BATCH)
         self.ckpt_sha = sha256_file(Path(ckpt))

@@ -116,7 +116,8 @@ class Run:
     def info(self) -> dict:
         return dict(run_id=self.run_id, exp=self.rc.exp.id, seed=self.seed, code=self.code, recipe=self.rc.sections,
                     items=self.rc.items, gen=self.rc.exp.gen.diff(self.rc.exp.base), gen_hash=self.rc.exp.gen.config_hash(),
-                    deterministic_gen=self.det, n_params=self.n_params, device=str(self.device))
+                    model_options=TM.options_of(self.cfg), deterministic_gen=self.det, n_params=self.n_params,
+                    device=str(self.device))
 
     # ---------------------------------------------------------------------------------------------------- state
     def state(self) -> dict:

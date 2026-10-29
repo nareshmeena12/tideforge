@@ -1,6 +1,7 @@
 """Score ft3-architecture checkpoints on fev-bench and TIME, groups ON and OFF, with tidemark's scorers (not rewritten).
 
   python -m tideforge.eval.score score --root R --ckpt ft3main=/path/ft3_main.pt [--variant baseline] [--modes on,off] [--smoke]
+  (checkpoints are built from their cfg's model options through tideforge.model.load, so an M1 checkpoint is scored as M1)
   python -m tideforge.eval.score board --root R [--smoke]
   python -m tideforge.eval.score table --root R --names ft3mainbase[,...] --base ft3mainbase [--gate]
                                        [--looks --experiment E0.2 --why "..."]
@@ -45,7 +46,8 @@ def cmd_score(a) -> int:
     if a.num_proc is not None:
         argv += ["--num-proc", str(a.num_proc)]
     print(f"variant {a.variant}: checkpoint names {', '.join(names)} (tags NAME_s0 = OFF, NAMEon_s0 = ON)", flush=True)
-    with use_variant(a.variant):
+    from tideforge import model as TM
+    with use_variant(a.variant), TM.use_loader():      # checkpoints built from their cfg's model options (M1)
         return G.main(argv)
 
 
