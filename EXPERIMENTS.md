@@ -322,6 +322,23 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | X3 | Mixture search on the dev tuning set (DoReMi-style), never on fev or TIME. |
 | X4 | Data budget: final recipe at 200B vs 100B (a richer mix may need more points even at 5M). |
 
+- 2026-10-29 (owner): X3 is a RegMix-style search, replacing the DoReMi-style one. DoReMi balances excess loss over the
+  training domains, which here are synthetic generator families, against a reference model; it does not target real dev
+  data. Design:
+  - 32 short 5M runs of 10B points each (real 10B runs: the LR schedule follows target_points).
+  - 28 of them are random mixes: one multiplier per role group, log-uniform in [0.25, 4], applied to that group's amount
+    parameters (configs/campaign/roles.yaml).
+  - 4 are anchors that also have 100B runs: B0, the X1 config and 2 Phase 2 winners.
+  - A ridge regression (quadratic features, alpha by leave-one-out) maps the weights to the dev tuning fast score. Its
+    predicted best mix is confirmed with one full 100B run, then 3 seeds.
+  - Validity check: Spearman between 10B and 100B dev ranks, on the 4 anchors (10B run vs 100B run, equal terms) plus the
+    ckpt_10B milestones of 100B runs (a cheap extra signal only: still at a high LR), judged together. If rho < 0.7, the
+    short runs are redone at 20B. Both rhos are reported.
+  - Budget (estimate, at ESTIMATE_PTS_PER_S): about 3 GPU-h of training plus 6-10 of dev scoring for the 32 short runs,
+    plus about 4 for the 3-seed 100B confirmation: 13-17 GPU-h in total.
+  - Tools: tideforge/campaign/mix.py. X1 / X2 / X4: tideforge/campaign/stack.py. X2 holds the model fixed (M1 stays on);
+    G8 is its own role group, "hierarchy". X4 is generated from the final recipe once it is known.
+
 ## 7. Phase 4: exploration (only where Phase 1 points)
 
 Spectral-mixture GP; direct sampling of state-space roots; Hawkes arrivals; dynamic factor groups; multifractal traffic;
@@ -345,6 +362,9 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 ---
 
 ## 9. Index (one line per experiment; keep newest first)
+
+Rows ending in `<!-- board -->` are written by `python -m tideforge.campaign.board --write` from results.csv; do not edit
+them by hand.
 
 | ID | Date | Status | Result (one line) | Log |
 |---|---|---|---|---|

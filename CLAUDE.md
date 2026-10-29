@@ -104,6 +104,10 @@ tests for the real track and the Perlmutter scripts. Rules:
 
 - Rerun the E0.2 smoke: the scorers now load checkpoints through `tideforge.model.load` (TM.load), not tidemark's
   `score_ft3.load_ft3` (added 2026-10-29 with M1).
+- Write E0.7's noise file with `--dev-cov-runs` as well (the seeds' `<run dir>/dev/<version>/tuning_cov/m5`): G1.13's win
+  rule uses E0.7's range on the dev-covariate score.
+- Phase 2 screen: `python -m tideforge.campaign.runner plan phase2_screen --results $TF_ROOT/results/results.csv --write`,
+  then submit in the printed order.
 
 ## Layout
 
@@ -114,8 +118,10 @@ tideforge/                package (ported and new code)
   devdata/                dev-set sources, loaders, ingest, audit, covariate tasks, split, build
   diagnose/               fixable error, repair attribution, feature rules, coverage map, realism classifier
   train/                  5M recipe, run configs, launchers
+  campaign/               Phase 3 tools: campaign runner, results board, X1 / X2 / X4 stacking, X3 mixture search
   eval/                   dev scorer, fev / TIME wrappers (groups mode), LOOKS logging, NaN variants and audit
 configs/                  run inputs that are small and not secret (ft3_main_cfg.json from the owner)
+  campaign/               campaign lists (phase2_screen.yaml), role groups (roles.yaml)
 scripts/perlmutter/       bash: env.sh and the launchers (scoring, audits); training launchers are generated (see above)
 third_party/tidemark_e21cbf0/   frozen, importable copy of the needed tidemark modules (read-only)
 reference/                untracked, read-only: full tidemark clone + owner's local-only sources (never imported)
