@@ -42,6 +42,8 @@ oneoff on; breaks, tv_season, sarima, bursty off; cov_r3 on; cov_small_group_p, 
    - A causal-graph covariate generator as in t0 beta/gamma: a random DAG over base-family nodes, lagged nonlinear edges, parents as covariates, descendants and siblings as decoys. Unablated, so test it on its own.
    - Known covariates given with forecast error.
    - Covariate-driven targets on 20-30% of lanes.
+   - 2026-10-29: 17 of fev-bench's 42 covariate tasks exceed the lane cap (rohlik x4, walmart, solar x2, kdd_cup x3, m5 x3, uk_covid x4; cap 7 with one target, 4 with several), so the model never sees all their covariates. "More lanes" is a candidate model change (M3) after E0.10's order_corr shows how much
+     choosing the kept covariates matters.
 2. Real calendar engine: dates, real holidays, moving festivals, DST, paydays and school terms; given as covariates in about half the rows.
 3. Few-cycle / seen-once history: long_cycle at ~15% on the calendar engine, mostly in contexts of 2048+. Band 2049+: 0.520 vs Chronos-2 0.479.
 4. Structural breaks: the `breaks` switch is off; turn it on at 0.2 with late breaks.
@@ -61,6 +63,7 @@ oneoff on; breaks, tv_season, sarima, bursty off; cov_r3 on; cov_small_group_p, 
 - Static/categorical inputs (future M2, a static embedding). 2026-10-28: ft3 scales every lane by its own running mean /
   sd, so a constant lane becomes exactly 0 whatever its value (checked 0.3 / -0.7 / 5.0); static covariates cannot be
   passed as lanes. G1.12 dropped: not tested, not negative.
+- More lanes (future M3, 2026-10-29): see ranked gap 1; decided after E0.10's order_corr.
 - Calendar input.
 - 32K context and DHF.
 - 21 quantiles and the refine frame.

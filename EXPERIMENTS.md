@@ -129,6 +129,8 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | G1.12 | Static / categorical covariates passed as constant known lanes (no model change). |
 | G1.13 | Model M1: known covariates see the whole window, with a firewall (covariates never read targets). Then the 2x2: B0 / best G1 data / M1 / both. |
 | G1.14 | G1.1 + G1.8 together (planned 2x2 with B0, G1.1, G1.8; exception to rule 1). |
+- 2026-10-29 (owner): 17 of fev-bench's 42 covariate tasks exceed the lane cap (rohlik x4, walmart, solar x2, kdd_cup x3, m5 x3, uk_covid x4; cap 7 with one target, 4 with several), so the model never sees all their covariates. "More lanes" becomes a candidate model change (M3) after E0.10's order_corr shows how
+  much choosing the kept covariates matters.
 
 - 2026-10-28 (owner): G1.11 is 1-7 covariates (8-lane limit), P = (0.35, 0.25, 0.15, 0.10, 0.07, 0.05, 0.03); more than 7
   needs more lanes, a model change (future work).
