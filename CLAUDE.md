@@ -100,14 +100,10 @@ tests for the real track and the Perlmutter scripts. Rules:
 5. The local-only sources for `reference/`: `tide_v5_ft3.py`, `tide_v5_pretrain_1T.py`, `time_fev_eval.py` (not in
    tidemark's git, so not in the clone). Only needed if a question cannot be answered from `third_party/`.
 
-## First-Perlmutter checklist
+## Perlmutter steps
 
-- Rerun the E0.2 smoke: the scorers now load checkpoints through `tideforge.model.load` (TM.load), not tidemark's
-  `score_ft3.load_ft3` (added 2026-10-29 with M1).
-- Write E0.7's noise file with `--dev-cov-runs` as well (the seeds' `<run dir>/dev/<version>/tuning_cov/m5`): G1.13's win
-  rule uses E0.7's range on the dev-covariate score.
-- Phase 2 screen: `python -m tideforge.campaign.runner plan phase2_screen --results $TF_ROOT/results/results.csv --write`,
-  then submit in the printed order.
+Every Perlmutter step (setup, GPU tests, pools, scoring, public models, dev data, training, Phase 2 screen) is in ONE ordered
+list with commands, times and dependencies: `docs/PERLMUTTER_RUNBOOK.md`. Add new steps there, not here.
 
 ## Layout
 
