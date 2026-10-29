@@ -37,3 +37,6 @@ docs/report/*.toc
 
 # local copies of Perlmutter output (pasted logs)
 logs/
+
+# campaign node jobs (tideforge.campaign.runner --write): depend on the results file
+scripts/perlmutter/generated/

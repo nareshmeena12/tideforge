@@ -1,0 +1,34 @@
+# Role groups for X2 (leave-one-role-out) and X3 (mixture search). Owner 2026-10-29: covariates, calendar, cycles, counts,
+# breaks_gaps, dynamics, finance, hierarchy (G8 its own group). Every registered switch is in exactly one group or in
+# `controls` (tests/campaign/test_stack.py checks it). gen: and train: items are mapped too; model options are never a role
+# (X2 holds the model fixed: M1 stays on).
+#   amount: the switch parameters X3 scales (capped at 0.95); a switch without one is on / off only.
+groups:
+  covariates:
+    switches: [sc_load, sc_price, sc_retail, sc_pv, sc_events, causal_graph, cov_count]
+    gen: [second_group_p, cov_small_group_p, group_kind_probs]
+    train: [lead_noise]
+  calendar:
+    switches: [cal_engine, cal_cov]
+  cycles:
+    switches: [family_share, long_cycle_cal, season_short, amfm, beats, irregular_cycles]
+    gen: [gen_additions.tv_season]
+    train: [long_row_frac]
+  counts:
+    switches: [demand, stockout, int_share]
+  breaks_gaps:
+    switches: [breaks_late, breaks_rate, collapse, gaps_scattered, gaps_block, gaps_periodic, no_ffill]
+    gen: [gen_additions.breaks]
+    train: [crop_breaks]
+  dynamics:
+    switches: [ode, tar]
+  finance:
+    switches: [garch_jump]
+  hierarchy:
+    switches: [hierarchy]
+controls: [test_family, test_gaps, test_post, white_noise]     # tests and E0.8's control: never in a recipe
+amount:
+  share: [sc_load, sc_price, sc_retail, sc_pv, sc_events, causal_graph, family_share, season_short, amfm, beats,
+          irregular_cycles, demand, stockout, int_share, ode, tar, garch_jump, hierarchy]
+  p: [breaks_rate, collapse, gaps_scattered]
+  target_lanes: [gaps_block, gaps_periodic]

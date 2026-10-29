@@ -90,6 +90,7 @@ echo "$(date) E0.5 JOB DONE"
 TRAIN_PTS_PER_S = None              # E0.9's deterministic-mode points/s per GPU (tideforge.train.throughput report): fill in
 ESTIMATE_PTS_PER_S = 3.0e7          # ESTIMATE until E0.9 runs (model ~1.1 MFLOP / point at 15-30% of A100 bf16 + generation)
 TRAIN_POINTS = 100e9
+FINISH_H = 0.3                      # ESTIMATE: finish after a run (dev fast + dev covariate ON / hidden + probes) on one A100
 TRAIN_JOBS = {
     "t3_e07": dict(qos="regular", gpus=4, cpus=128, time="12:00:00", runs=[("E0.7", 0), ("E0.7", 1), ("E0.7", 2), ("E0.8", 0)],
                    what="E0.7 (5M B0, seeds 0-2) and E0.8 (white-noise control, seed 0): one run per GPU, then finish each"),
@@ -116,9 +117,14 @@ LAUNCH = ('CUDA_VISIBLE_DEVICES={gpu} python -m tideforge.train.trainer --exp {e
           '> "$TF_ROOT/logs/{name}_{exp}_s{seed}.log" 2>&1 &')
 
 
+def train_rate() -> tuple[float, str]:
+    """(points/s per GPU, what it is): E0.9's measured rate once filled in, else the estimate."""
+    return (TRAIN_PTS_PER_S, "measured (E0.9)") if TRAIN_PTS_PER_S else (ESTIMATE_PTS_PER_S, "ESTIMATE (E0.9 not in yet)")
+
+
 def train_estimate(name: str) -> str:
     j = TRAIN_JOBS[name]
-    rate, kind = (TRAIN_PTS_PER_S, "measured (E0.9)") if TRAIN_PTS_PER_S else (ESTIMATE_PTS_PER_S, "ESTIMATE (E0.9 not in yet)")
+    rate, kind = train_rate()
     h = TRAIN_POINTS / rate / 3600
     if h * 1.15 > hours(j["time"]):
         raise ValueError(f"{name}: a run needs about {h:.1f} h (+15% for validation / checkpoints), above the {j['time']} limit; "
@@ -129,8 +135,9 @@ def train_estimate(name: str) -> str:
             f"({j['gpus']} x {j['time']}, QOS {j['qos']})")
 
 
-def render_train(name: str) -> str:
-    j = TRAIN_JOBS[name]
+def render_train(name: str, job: dict | None = None) -> str:
+    """A 5M node job: one run per GPU (job: a TRAIN_JOBS-style dict; tideforge.campaign passes generated ones)."""
+    j = job or TRAIN_JOBS[name]
     check(j)
     if len(j["runs"]) > j["gpus"]:
         raise ValueError(f"{name}: {len(j['runs'])} runs for {j['gpus']} GPUs (one run per GPU at 5M)")
