@@ -5,10 +5,10 @@
     python -m tideforge.slurm --check    # exit 1 if a committed script differs from what this would write
 
 Jobs:
-  e03_score.sbatch   E0.3 scoring in the background: nofill_delete and nofill_mask (groups ON and OFF) and cov_mask (groups ON
-                     only), split into five (variant, mode) units queued over the 4 GPUs of a full
-                     regular node (the fifth starts when a GPU frees up), then the E0.3 table against tidemark's board
-                     as the baseline. score_groups resumes per (tag, task), so a job that hits its time limit is requeued and continues where it stopped.
+  e03_score.sbatch   E0.3 + E0.10 scoring in the background: nofill_delete and nofill_mask (groups ON and OFF), cov_mask (groups
+                     ON only) and E0.10's target_enc / order_corr / both (groups ON, fev covariate tasks only), eight
+                     (variant, mode) units queued over the 4 GPUs of a full regular node (a unit starts when a GPU frees
+                     up), then the E0.3 table and the E0.10 comparisons against tidemark's board as the baseline. score_groups resumes per (tag, task), so a job that hits its time limit is requeued and continues where it stopped.
 QOS limits (Perlmutter GPU nodes: 4 GPUs, 128 cores): shared at most half a node (2 GPUs, 64 cores), regular a full node.
 check() refuses a job above them; main() prints each job's estimated GPU-hours (estimates, from UNITS_H) and the
 allocated maximum (GPUs x time limit).
@@ -51,12 +51,13 @@ QOS = {"shared": dict(gpus=2, cpus=64, hours=48), "regular": dict(gpus=4, cpus=1
 
 # E0.3 units (variant:mode, the order e03_nan.sh queues them) and their estimated hours on one A100 (estimates, not measured)
 UNITS_H = {"e03_score": {"nofill_delete:on": 2.5, "nofill_mask:on": 2.5, "nofill_delete:off": 2.0, "nofill_mask:off": 2.0,
-                         "cov_mask:on": 1.5}}
+                         "cov_mask:on": 1.5, "target_enc:on": 1.0, "order_corr:on": 1.0, "both:on": 1.0}}
 
 JOBS = {
     "e03_score": dict(
         qos="regular", gpus=4, cpus=128, time="06:00:00",
-        what="E0.3: ft3_main under nofill_delete, nofill_mask (ON, OFF) and cov_mask (ON), then the table vs tidemark's board.",
+        what="E0.3: ft3_main under nofill_delete, nofill_mask (ON, OFF) and cov_mask (ON); E0.10: target_enc, order_corr, both "
+             "(ON, fev covariate tasks); then the tables vs tidemark's board.",
         body="""bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" score &
 wait $! || { echo "$(date) E0.3 scoring FAILED"; exit 1; }
 bash "$TF_REPO/scripts/perlmutter/e03_nan.sh" table

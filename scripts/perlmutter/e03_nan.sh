@@ -1,4 +1,5 @@
 #!/bin/bash
+# E0.3 + E0.10 in one job (owner 2026-10-29: one look event, one LOOKS row per variant).
 # E0.3: (a) NaN audit of the inference contexts (no model); (b) score ft3_main with the variants nofill_delete and nofill_mask,
 # groups ON and OFF, next to the E0.2 baseline in the same evaluation root.
 #
@@ -19,9 +20,10 @@ CMD="${1:-}"
 [ $# -gt 0 ] && shift
 SMOKE=""; DRY=0   # the baseline is tidemark's board (see table)
 # one process per (variant, mode); separate tags, so they can run at once in the same root. Longest first (tideforge/slurm.py UNITS_H)
-UNITS="nofill_delete:on nofill_mask:on nofill_delete:off nofill_mask:off cov_mask:on"
-# cov_mask: fev only (TIME has no covariates: the audit found 0 covariate NaN there, so the variant cannot change it)
-extra_of() { [ "$1" = cov_mask ] && echo --skip-time || echo; }
+UNITS="nofill_delete:on nofill_mask:on nofill_delete:off nofill_mask:off cov_mask:on target_enc:on order_corr:on both:on"
+# cov_mask and E0.10's target_enc / order_corr / both: fev only (TIME has no covariates; the E0.10 variants also restrict fev
+# to its covariate tasks, tideforge/eval/cov_variants.py)
+extra_of() { case "$1" in cov_mask|target_enc|order_corr|both) echo --skip-time;; *) echo;; esac; }
 for a in "$@"; do case "$a" in
     --smoke) SMOKE="--smoke";;
     --dry-run) DRY=1;;
@@ -85,7 +87,7 @@ table)
          --looks --experiment E0.3 --why "Phase 0: NaN deletion vs masking at inference (no training)")
     if [ "$DRY" -eq 1 ]; then
         echo "DRY RUN: ${RUN[*]}"
-        for v in ft3mainnfdel ft3mainnfmask ft3maincmask; do
+        for v in ft3mainnfdel ft3mainnfmask ft3maincmask ft3maintenc ft3mainocorr ft3maintencocorr; do
             echo "DRY RUN: python -m tideforge.eval.score compare-board --root $R --name $v --ref $TF_REF/scores_long.csv --summary"
         done
         exit 0
@@ -99,6 +101,11 @@ table)
         --looks --experiment E0.3 --why "Phase 0: covariate NaN unobserved instead of forward-filled (cov_mask)" 2>&1 \
         | tee -a "$TF_ROOT/logs/e03_table.log"
     [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED for ft3maincmask"; exit 1; }
+    # E0.10: inference-only covariate variants (fev covariate tasks, groups ON), one LOOKS row each
+    for v in ft3maintenc ft3mainocorr ft3maintencocorr; do
+        python -m tideforge.eval.score compare-board --root "$R" --name "$v" --ref "$TF_REF/scores_long.csv" --summary             --looks --experiment E0.10 --why "Phase 0: inference-only covariate variant ($v), fev covariate tasks, groups ON" 2>&1             | tee -a "$TF_ROOT/logs/e03_table.log"
+        [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "COMPARE-BOARD FAILED for $v"; exit 1; }
+    done
     for v in ft3mainnfdel ft3mainnfmask; do
         python -m tideforge.eval.score compare-board --root "$R" --name "$v" --ref "$TF_REF/scores_long.csv" --summary 2>&1 \
             | tee -a "$TF_ROOT/logs/e03_table.log"

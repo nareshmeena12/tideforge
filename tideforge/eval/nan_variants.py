@@ -27,8 +27,10 @@ import torch
 
 from tideforge.eval import thirdparty
 
-VARIANTS = ("baseline", "nofill_delete", "nofill_mask", "cov_mask")
-CODE = {"baseline": "base", "nofill_delete": "nfdel", "nofill_mask": "nfmask", "cov_mask": "cmask"}       # checkpoint-name suffix (tags: [a-z0-9]+)
+from tideforge.eval import cov_variants  # noqa: E402  (E0.10's covariate variants share this switch and the tag codes)
+
+VARIANTS = ("baseline", "nofill_delete", "nofill_mask", "cov_mask") + cov_variants.VARIANTS
+CODE = {"baseline": "base", "nofill_delete": "nfdel", "nofill_mask": "nfmask", "cov_mask": "cmask", **cov_variants.CODE}       # checkpoint-name suffix (tags: [a-z0-9]+)
 
 
 def variant_of(name: str) -> str | None:
@@ -236,6 +238,8 @@ def _swaps(name: str) -> dict:
     C, S = thirdparty.ft3_core(), thirdparty.score_twins()
     if name == "baseline":
         return {}
+    if name in cov_variants.VARIANTS:
+        return cov_variants.swaps(name)
     if name == "nofill_delete":
         return {(S, "fill_season"): strip_leading_nan}
     if name == "nofill_mask":

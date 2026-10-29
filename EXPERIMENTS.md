@@ -61,6 +61,10 @@ Status of this file: plan agreed on 2026-10-27. Each experiment gets its own log
 2026-10-27 (owner confirmed): the E0.2 gate is six numbers: groups ON fev 43.78, TIME MASE 0.680 / CRPS 0.571; groups OFF
 fev 42.09, TIME MASE 0.687 / CRPS 0.575 (tolerance 0.2 fev, 0.002 TIME), as in score_groups.GATE.
 
+- 2026-10-29 (owner): E0.10 runs in e03_score.sbatch's queue with E0.3 (one look event, one LOOKS row per variant): target_enc,
+  order_corr (known-before-past kept, sorted within each role) and both; groups ON, fev covariate tasks only
+  (tideforge/eval/cov_variants.py). Order matters only where the lane cap drops covariates: 17 of fev-bench's 42 covariate
+  tasks (tasks.yaml), so order_corr is kept.
 - 2026-10-27 (owner): B0 = ft3_main's generator mix (configs/ft3_main_cfg.json, `v0-b0-af75b1af`). ft3_main was fine-tuned
   from ft2_main, so B0 copies ft3's mix only, not ft2's history: experiments compare against B0, and B0 is never described as
   "ft3_main's training data".

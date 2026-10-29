@@ -12,7 +12,7 @@
 #SBATCH --signal=B:USR1@120
 #SBATCH --requeue
 #SBATCH --open-mode=append
-# E0.3: ft3_main under nofill_delete, nofill_mask (ON, OFF) and cov_mask (ON), then the table vs tidemark's board.
+# E0.3: ft3_main under nofill_delete, nofill_mask (ON, OFF) and cov_mask (ON); E0.10: target_enc, order_corr, both (ON, fev covariate tasks); then the tables vs tidemark's board.
 set -u
 source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2
 echo "$(date) job $SLURM_JOB_ID on $(hostname), restart count ${SLURM_RESTART_COUNT:-0}"
