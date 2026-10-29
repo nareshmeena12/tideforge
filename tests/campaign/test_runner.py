@@ -22,7 +22,9 @@ def _results(path, rows):
 def test_phase2_screen_size_and_order():
     p = R.plan("phase2_screen", **QUIET)
     assert len(p["runs"]) == 55 and len(p["todo"]) == 55 and len(p["jobs"]) == 14
-    assert [r.exp for r in p["runs"][:3]] == ["G1.1", "G1.2", "G3.1a"] and p["runs"][-1].exp == "G3.4"
+    assert [r.exp for r in p["runs"][:3]] == ["G1.1", "G1.2", "G3.1a"] and p["runs"][-1].exp == "G5.4b"
+    ex = [r.exp for r in p["runs"]]
+    assert ex[ex.index("G3.2") + 1] == "G3.4"
     assert all(len(j["runs"]) == 4 for _, j in p["jobs"][:-1]) and len(p["jobs"][-1][1]["runs"]) == 3
     assert all(j["qos"] == "regular" and j["gpus"] == 4 for _, j in p["jobs"])
     assert not {"G4.3f", "G1.13b", "G1.13c", "G1.14", "E0.7", "E0.8"} & {r.exp for r in p["runs"]}
