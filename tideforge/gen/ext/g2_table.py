@@ -1,21 +1,23 @@
-"""G2 calendar tables on the batch's device (built offline by tools/build_calendars.py; committed with their sha256).
+"""G2 calendar tables on the batch's device (built offline by tools/build_calendars.py; committed with their content sha256).
 
   code (C, D) int8 holiday type per calendar and day (TYPES; 0 none), weekend (C, D) bool, dst (C, D) bool
   per calendar: valid day range [lo, hi] (whole years), south (school terms), held_out (G2.4), id
   per day (D,): weekday (Mon = 0), dom, month (1-12), doy (0-based), year, days in month, month id (months since 1990-01),
   year length (365 / 366)
-Loaded once per device; the npz bytes are checked against the manifest's sha256 (a mismatch is an error, never ignored).
+Loaded once per device; the arrays' content sha256 (tideforge.hashing) is checked against the manifest's (a mismatch is
+an error, never ignored); the file bytes are not compared (they depend on zlib / numpy versions).
 """
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import io
 import json
 from pathlib import Path
 
 import numpy as np
 import torch
+
+from tideforge.hashing import content_sha
 
 DIR = Path(__file__).resolve().parent / "calendars"
 VERSION = "v1"
@@ -26,10 +28,10 @@ class Table:
     def __init__(self, device):
         raw = (DIR / f"calendars_{VERSION}.npz").read_bytes()
         man = json.loads((DIR / f"calendars_{VERSION}.json").read_text(encoding="utf-8"))
-        sha = hashlib.sha256(raw).hexdigest()
-        if sha != man["sha256"]:
-            raise RuntimeError(f"calendars_{VERSION}.npz sha256 {sha} != manifest {man['sha256']}")
         z = np.load(io.BytesIO(raw))
+        sha = content_sha({k: z[k] for k in z.files})
+        if sha != man["content_sha256"]:
+            raise RuntimeError(f"calendars_{VERSION}.npz content sha256 {sha} != manifest {man['content_sha256']}")
         dev = torch.device(device)
         self.types = man["types"]
         self.cals = man["calendars"]

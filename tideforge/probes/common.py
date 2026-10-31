@@ -10,7 +10,8 @@ Cell meta: name, control (bool), season S (for the naive model and the error sca
 views ("main" plus e.g. "clean"), description.
 
 Files: <root>/<probe>/v<version>/set.npz (a zip of .npy members with fixed time stamps, so the bytes depend only on the
-values) + meta.json (cells, seed, size, sha256 of set.npz, the 6-significant-digit fingerprint). Building never overwrites:
+values) + meta.json (cells, seed, size, content_sha256 of set.npz's arrays (checked; tideforge.hashing), file_sha256
+(information only), the 6-significant-digit fingerprint). Building never overwrites:
 a changed probe gets a new version. tideforge/probes/registry.json (committed) holds, per probe and version, the seed, the
 size and the sha256 / fingerprint of the build on Perlmutter (the source of truth).
 """
@@ -24,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+
+from tideforge import hashing as H
 from scipy import stats
 
 Q9 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
@@ -172,7 +175,8 @@ def save(ps: ProbeSet, root: Path) -> dict:
     data = set_bytes(ps)
     (d / "set.npz").write_bytes(data)
     meta = dict(probe=ps.probe, version=ps.version, seed=ps.seed, n_per_cell=ps.n_per_cell, desc=ps.desc,
-                cells=[c.meta() for c in ps.cells], sha256=hashlib.sha256(data).hexdigest(), fingerprint=fingerprint(ps))
+                cells=[c.meta() for c in ps.cells], content_sha256=H.content_sha(flat_arrays(ps)),
+                file_sha256=hashlib.sha256(data).hexdigest(), fingerprint=fingerprint(ps))
     (d / "meta.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
     return meta
 
@@ -181,12 +185,13 @@ def load(root: Path, probe: str, version: int) -> ProbeSet:
     d = Path(root) / probe / f"v{version}"
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     data = (d / "set.npz").read_bytes()
-    if hashlib.sha256(data).hexdigest() != meta["sha256"]:
-        raise RuntimeError(f"{d}/set.npz does not match its meta.json sha256")
-    reg = registry().get(probe, {}).get(str(version), {})
-    if reg.get("sha256") and reg["sha256"] != meta["sha256"]:
-        raise RuntimeError(f"{d}: sha256 differs from registry.json (the Perlmutter build is the source of truth)")
     z = np.load(io.BytesIO(data))
+    sha = H.content_sha({k: z[k] for k in z.files})
+    if sha != meta["content_sha256"]:
+        raise RuntimeError(f"{d}/set.npz does not match its meta.json content sha256")
+    reg = registry().get(probe, {}).get(str(version), {})
+    if reg.get("content_sha256") and reg["content_sha256"] != sha:
+        raise RuntimeError(f"{d}: content sha256 differs from registry.json (the Perlmutter build is the source of truth)")
     cells = []
     for cm in meta["cells"]:
         arr = {k.split("/", 1)[1]: z[k] for k in z.files if k.split("/", 1)[0] == cm["name"]}

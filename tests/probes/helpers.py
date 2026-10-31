@@ -1,6 +1,6 @@
 """Shared test helpers: build a probe at small n and score the oracle and the naive model on it."""
-import hashlib
 
+from tideforge import hashing as H
 from tideforge.probes import common, metrics as M
 from tideforge.probes.models import Naive, Oracle
 from tideforge.probes.run import evaluate
@@ -22,6 +22,6 @@ def scores(mod, n=48):
 
 
 def same_sha_twice(mod, n=8):
-    a = hashlib.sha256(common.set_bytes(mod.build(n, mod.SEED))).hexdigest()
-    b = hashlib.sha256(common.set_bytes(mod.build(n, mod.SEED))).hexdigest()
+    a = H.content_sha(common.flat_arrays(mod.build(n, mod.SEED)))       # what load() checks
+    b = H.content_sha(common.flat_arrays(mod.build(n, mod.SEED)))
     return a == b and common.fingerprint(mod.build(n, mod.SEED)) == common.fingerprint(mod.build(n, mod.SEED))

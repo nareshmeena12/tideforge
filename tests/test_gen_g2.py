@@ -72,14 +72,20 @@ def test_on_runs_finite(sw):
     assert bool(torch.isfinite(x).all())
 
 
-def test_table_checks_its_sha(monkeypatch, tmp_path):
+def test_table_checks_its_content_sha(monkeypatch, tmp_path):
+    """The same arrays in other file bytes (here: an uncompressed npz) load; one changed cell is refused."""
     t = tab()
     assert t.C == 67 and t.D == 18628
-    bad = tmp_path / "calendars_v1.npz"
-    bad.write_bytes((g2_table.DIR / "calendars_v1.npz").read_bytes() + b"x")
+    with np.load(g2_table.DIR / "calendars_v1.npz") as z:
+        arrays = {k: z[k] for k in z.files}
     (tmp_path / "calendars_v1.json").write_text((g2_table.DIR / "calendars_v1.json").read_text())
     monkeypatch.setattr(g2_table, "DIR", tmp_path)
-    with pytest.raises(RuntimeError, match="sha256"):
+    np.savez(tmp_path / "calendars_v1.npz", **arrays)                        # other bytes, same content
+    assert (tmp_path / "calendars_v1.npz").read_bytes() != (REPO / "tideforge/gen/ext/calendars/calendars_v1.npz").read_bytes()
+    assert g2_table.Table("cpu").C == 67
+    arrays["code"][3, 100] += 1
+    np.savez(tmp_path / "calendars_v1.npz", **arrays)
+    with pytest.raises(RuntimeError, match="content sha256"):
         g2_table.Table("cpu")
 
 

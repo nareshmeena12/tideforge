@@ -1,6 +1,8 @@
 {
  "version": "v1",
- "sha256": "20de60db420e36da0c98712fa95cc7e508189bafff0863e43dd05c1ba19c4bd1",
+ "content_sha256": "41ab295aa05af9631304c0a31d7c9d36bde210f5ae4766572c94372c7652be91",
+ "file_sha256": "20de60db420e36da0c98712fa95cc7e508189bafff0863e43dd05c1ba19c4bd1",
+ "hash_note": "content_sha256 is checked; file_sha256 is information only (zlib / numpy versions change the .npz bytes of the same table)",
  "holidays_version": "0.107",
  "start": "1990-01-01",
  "end": "2040-12-31",

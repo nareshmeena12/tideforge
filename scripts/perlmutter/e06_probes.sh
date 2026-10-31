@@ -7,8 +7,8 @@
 #                                                                            # cell has both), then P6 under each NaN variant
 #   bash $SCRATCH/tideforge/repo/scripts/perlmutter/e06_probes.sh report
 #   (add --dry-run to print the commands)
-# build prints one registry line per probe (seed, size, sha256, fingerprint): paste them back; they go into
-# tideforge/probes/registry.json, and from then on Perlmutter's files are the source of truth (load() checks the sha256).
+# build prints one registry line per probe (seed, size, content sha256, fingerprint): paste them back; they go into
+# tideforge/probes/registry.json, and from then on Perlmutter's files are the source of truth (load() checks the content sha256).
 # Outputs: $TF_ROOT/probes/results.csv (+ series/ for --compare). Estimated run time: well under 15 min (estimate).
 set -u
 source "$SCRATCH/tideforge/repo/scripts/perlmutter/env.sh" || exit 2

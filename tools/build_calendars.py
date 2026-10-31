@@ -12,7 +12,9 @@ Per calendar (country, or country-subdivision) and per day from 1990-01-01 to 20
   dst      int8 1 while daylight saving time is in force at the end of the day (rules in DST, no tz database)
 Plus per calendar: valid years (the longest run of years in which every moving-festival type of that calendar is present,
 so a row never shows a missing festival as a fact), hemisphere, held-out flag (G2.4 only). The .npz is written with fixed
-zip timestamps, so the bytes (and the sha256) depend only on the package version and this file.
+zip timestamps. Identity = content_sha256 (tideforge.hashing: each array's name, dtype, shape and raw values); --check and the
+runtime load compare it. file_sha256 (the .npz bytes) is information only: zlib and numpy versions change the bytes of the
+same table (Perlmutter's rebuild, 2026-10-31: zlib 1.3.2 / numpy 2.4.4, another file sha256, the same content).
 The report (calendars_v1_report.txt) lists every holiday name -> type per calendar and the unmatched names.
 """
 from __future__ import annotations
@@ -29,6 +31,9 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tideforge.hashing import content_sha  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "tideforge" / "gen" / "ext" / "calendars"
@@ -258,16 +263,6 @@ def npz_bytes(arrays: dict) -> bytes:
     return buf.getvalue()
 
 
-def content_sha(arrays: dict) -> str:
-    """sha256 over each array's name, dtype, shape and raw bytes (independent of zip / deflate / .npy header bytes)."""
-    h = hashlib.sha256()
-    for name in sorted(arrays):
-        x = np.ascontiguousarray(arrays[name])
-        h.update(f"{name}|{x.dtype.str}|{x.shape}|".encode())
-        h.update(x.tobytes())
-    return h.hexdigest()
-
-
 def versions() -> str:
     import platform
     import zlib
@@ -287,8 +282,9 @@ def diff(out_dir: Path, arrays: dict, meta: list, report: str, data: bytes) -> i
         old = {k: z[k] for k in z.files}
     m = json.loads((OUT / f"calendars_{VERSION}.json").read_text(encoding="utf-8"))
     print(f"this machine: {versions()}")
-    print(f"file sha256   committed {m['sha256']}  rebuilt {hashlib.sha256(data).hexdigest()}")
-    print(f"content sha256 committed {content_sha(old)}  rebuilt {content_sha(arrays)}")
+    print(f"file sha256    committed {m.get('file_sha256', m.get('sha256'))}  rebuilt {hashlib.sha256(data).hexdigest()} "
+          f"(information only)")
+    print(f"content sha256 committed {content_sha(old)}  rebuilt {content_sha(arrays)}  manifest {m.get('content_sha256')}")
     ids = [c["id"] for c in meta]
     bad = 0
     for name in sorted(set(old) | set(arrays)):
@@ -331,7 +327,7 @@ def diff(out_dir: Path, arrays: dict, meta: list, report: str, data: bytes) -> i
     for line in sorted(rep_new - rep_old)[:40]:
         print(f"report only rebuilt:   {line.strip()}")
     bad += len(rep_old ^ rep_new)
-    same_bytes = hashlib.sha256(data).hexdigest() == m["sha256"]
+    same_bytes = hashlib.sha256(data).hexdigest() == m.get("file_sha256", m.get("sha256"))
     if bad == 0:
         print("CONTENTS EQUAL" + (" (file bytes equal too)" if same_bytes else
                                   " (the file bytes differ: zip / deflate / .npy header encoding only)"))
@@ -347,25 +343,29 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     arrays, meta, report, ver = build()
     data = npz_bytes(arrays)
-    sha = hashlib.sha256(data).hexdigest()
+    file_sha = hashlib.sha256(data).hexdigest()
+    sha = content_sha(arrays)
     man = OUT / f"calendars_{VERSION}.json"
     if a.diff:
         return diff(Path(a.diff), arrays, meta, report, data)
     if a.check:
         m = json.loads(man.read_text(encoding="utf-8"))
-        if m["sha256"] != sha:
-            print(f"FAIL: rebuild sha256 {sha} != manifest {m['sha256']} (holidays {ver}, manifest built with "
-                  f"{m['holidays_version']})")
+        if m["content_sha256"] != sha:
+            print(f"FAIL: rebuild content sha256 {sha} != manifest {m['content_sha256']} (holidays {ver}, manifest built "
+                  f"with {m['holidays_version']}); run --diff DIR to see the cells")
             return 1
-        print(f"OK: {sha}")
+        print(f"OK: content {sha}" + ("" if file_sha == m["file_sha256"] else
+                                      f" (file bytes differ: {file_sha[:12]} vs {m['file_sha256'][:12]}, encoding only)"))
         return 0
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"calendars_{VERSION}.npz").write_bytes(data)
-    man.write_text(json.dumps(dict(version=VERSION, sha256=sha, holidays_version=ver, start=str(START), end=str(END),
+    man.write_text(json.dumps(dict(version=VERSION, content_sha256=sha, file_sha256=file_sha,
+                                   hash_note="content_sha256 is checked; file_sha256 is information only (zlib / numpy "
+                                             "versions change the .npz bytes of the same table)", holidays_version=ver, start=str(START), end=str(END),
                                    types=TYPES, rules=RULES, calendars=meta), indent=1) + "\n", encoding="utf-8", newline="\n")
     (OUT / f"calendars_{VERSION}_report.txt").write_text(report, encoding="utf-8", newline="\n")
     print(report.split("\n== ")[0])
-    print(f"wrote {OUT} ({len(data):,} bytes, sha256 {sha})")
+    print(f"wrote {OUT} ({len(data):,} bytes, content sha256 {sha}, file sha256 {file_sha})")
     return 0
 
 

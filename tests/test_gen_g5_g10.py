@@ -1,5 +1,6 @@
 """G5.2-G5.4, G7.1-G7.3, G8.1, G9.1-G9.2, G10.1: nothing drawn when off, group-size rules, replace from several families, and
 one mechanism check per family (run with -s for the measured numbers). The ODE pool tests build a tiny pool in tmp_path."""
+import json
 import math
 import sys
 from pathlib import Path
@@ -325,6 +326,22 @@ def test_ode_pool_sha_refusal(tiny_pool, tmp_path):
         _pool.load("ode_t", str(tmp_path), tiny_pool["manifest_dir"])
     with pytest.raises(RuntimeError, match="no committed manifest"):
         _pool.load("ode_none", str(tmp_path), str(tmp_path))
+
+
+def test_ode_pool_checks_content_not_file_bytes(tiny_pool, tmp_path):
+    """The same arrays written with another .npy header version (what another numpy may do) still load."""
+    src = Path(tiny_pool["pool_dir"]) / "ode_t"
+    d = tmp_path / "ode_t"
+    d.mkdir()
+    for f in ("traj.npy", "meta.npy"):
+        x = np.load(src / f)
+        with open(d / f, "wb") as fh:
+            np.lib.format.write_array(fh, x, version=(2, 0))
+        assert (d / f).read_bytes() != (src / f).read_bytes()
+    pool = _pool.load("ode_t", str(tmp_path), tiny_pool["manifest_dir"])
+    assert pool["traj"].shape == (15, 2048, 3)
+    man = json.loads((Path(tiny_pool["manifest_dir"]) / "ode_t.json").read_text())
+    assert set(man["content"]) == set(man["files"]) == {"traj.npy", "meta.npy"}
 
 
 def test_ode_pool_deterministic(tiny_pool, tmp_path):

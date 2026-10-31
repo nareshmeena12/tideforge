@@ -162,7 +162,7 @@ def main(argv=None) -> int:
             ps = mod.build(a.n or mod.N_PER_CELL, mod.SEED)
             meta = common.save(ps, Path(a.root))
             print(f'{p} v{mod.VERSION}: {{"seed": {mod.SEED}, "n_per_cell": {ps.n_per_cell}, "cells": {len(ps.cells)}, '
-                  f'"sha256": "{meta["sha256"]}", "fingerprint": "{meta["fingerprint"]}"}}')
+                  f'"content_sha256": "{meta["content_sha256"]}", "fingerprint": "{meta["fingerprint"]}"}}')
         return 0
     if a.cmd == "run":
         model = make(a.model, a.ckpt, a.device, a.nan_variant)

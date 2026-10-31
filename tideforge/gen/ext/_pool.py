@@ -4,15 +4,15 @@ generation. Never committed; only the manifest is (tideforge/gen/ext/pools/<name
 A pool is a directory <pool_dir>/<name>/ with
     traj.npy   float16 (N, T, C): N trajectories of T steps, C channels (unused channels of a system are 0)
     meta.npy   float32 (N, M): per trajectory: system id, number of channels used, then the system's parameters
-and a manifest <name>.json: {"name", "files": {file: sha256}, "shape", "builder", "seed", "versions", ...}. .npy (not .npz):
-the files are memory-mapped (no copy per DataLoader worker) and their bytes are deterministic, so the sha is the file's.
-load() refuses to return a pool whose files differ from the committed manifest.
+and a manifest <name>.json: {"name", "content": {file: content sha256}, "files": {file: file sha256}, "shape", "builder",
+"seed", "versions", ...}. .npy (not .npz): the files are memory-mapped (no copy per DataLoader worker). load() refuses a pool
+whose arrays' content sha256 (tideforge.hashing: dtype, shape, values) differs from the committed manifest; the file sha256
+is information only (numpy versions write different .npy headers for the same array; owner 2026-10-31).
 
 pool_dir default: $TF_DATA/pools. manifest_dir default: this package's pools/ directory (the committed manifests).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,16 +20,20 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from tideforge import hashing as H
+
 MANIFESTS = Path(__file__).resolve().parent / "pools"
 _CACHE: dict[tuple[str, str, str], dict] = {}
 
 
 def sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 22), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    """The file's bytes (information only)."""
+    return H.file_sha(path)
+
+
+def content(path: Path) -> str:
+    """The array's content sha256 (what load() checks)."""
+    return H.content_sha({Path(path).stem: np.load(path, mmap_mode="r")})
 
 
 def default_dir() -> Path:
@@ -45,7 +49,9 @@ def write(out_dir: Path, name: str, traj: np.ndarray, meta: np.ndarray, info: di
     d.mkdir(parents=True, exist_ok=True)
     np.save(d / "traj.npy", traj.astype(np.float16))
     np.save(d / "meta.npy", meta.astype(np.float32))
-    man = dict(name=name, files={f: sha256(d / f) for f in ("traj.npy", "meta.npy")}, shape=list(traj.shape), **info)
+    fs = ("traj.npy", "meta.npy")
+    man = dict(name=name, content={f: content(d / f) for f in fs}, files={f: sha256(d / f) for f in fs},
+               shape=list(traj.shape), **info)
     Path(manifest_dir).mkdir(parents=True, exist_ok=True)
     (Path(manifest_dir) / f"{name}.json").write_text(json.dumps(man, indent=1, sort_keys=True) + "\n", newline="\n")
     return man
@@ -62,13 +68,15 @@ def load(name: str, pool_dir: str = "", manifest_dir: str = "") -> dict:
     if not mf.exists():
         raise RuntimeError(f"pool {name!r}: no committed manifest {mf} (build the pool, then commit its manifest)")
     man = json.loads(mf.read_text())
-    for f, want in man["files"].items():
+    if "content" not in man:
+        raise RuntimeError(f"pool {name!r}: manifest {mf} has no content sha256 (built before 2026-10-31): rebuild it")
+    for f, want in man["content"].items():
         p = pd / name / f
         if not p.exists():
             raise RuntimeError(f"pool {name!r}: {p} is missing (build it with the command in the manifest's 'builder')")
-        got = sha256(p)
+        got = content(p)
         if got != want:
-            raise RuntimeError(f"pool {name!r}: {p} has sha256 {got}, the manifest says {want}: refusing to generate")
+            raise RuntimeError(f"pool {name!r}: {p} has content sha256 {got}, the manifest says {want}: refusing to generate")
     out = dict(traj=np.load(pd / name / "traj.npy", mmap_mode="r"), meta=np.load(pd / name / "meta.npy"), manifest=man)
     _CACHE[key] = out
     return out

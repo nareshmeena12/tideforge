@@ -20,7 +20,7 @@ def test_save_load_and_never_overwrite(tmp_path, monkeypatch):
     with pytest.raises(FileExistsError):
         common.save(ps, tmp_path)
     reg = tmp_path / "registry.json"
-    reg.write_text(json.dumps({"P1": {"1": {"sha256": "0" * 64}}}))
+    reg.write_text(json.dumps({"P1": {"1": {"content_sha256": "0" * 64}}}))
     monkeypatch.setattr(common, "REGISTRY", reg)
     with pytest.raises(RuntimeError, match="registry"):
         common.load(tmp_path, "P1", 1)
@@ -77,3 +77,18 @@ def test_run_report_compare(tmp_path, monkeypatch):
     cmp = R.compare(out, "oracle", "naive")
     row = cmp[(cmp["cell"] == "lagged_linear@1024") & (cmp["metric"] == "sql") & (cmp["mode"] == "on")].iloc[0]
     assert row["diff"] < 0 and row["ci_hi"] < 0
+
+
+def test_probe_set_checks_content_not_file_bytes(tmp_path):
+    ps = P1.build(4)
+    meta = common.save(ps, tmp_path)
+    d = tmp_path / "P1" / "v1"
+    with np.load(d / "set.npz") as z:
+        arrays = {k: z[k] for k in z.files}
+    np.savez(d / "set.npz", **arrays)                                        # other bytes (uncompressed), same content
+    assert common.load(tmp_path, "P1", 1).cells[0].n == ps.cells[0].n
+    arrays[sorted(arrays)[0]].flat[0] += 1
+    np.savez(d / "set.npz", **arrays)
+    with pytest.raises(RuntimeError, match="content sha256"):
+        common.load(tmp_path, "P1", 1)
+    assert meta["content_sha256"] != meta["file_sha256"]
