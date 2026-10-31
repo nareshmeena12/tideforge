@@ -5,6 +5,8 @@ the same commit so that a rebuild keeps the change.
 
 ## 2026-10-31
 
+- aggregator_rules.csv: D102 (PhysioNet collection, locked) drops D103, D104, D105, D106 and D279 (with slp60, the source of
+  Santa Fe set B). Leak check before dev-v1. D289 BioDare2 is not PhysioNet: no rule.
 - D279 Santa Fe (owner): Data Set B from PhysioNet (ODC-By 1.0; the Stanford page is gone), domain Physics-reference ->
   Physiology (builder tuple and CSV row together). Split: its Physics-reference row was removed and the dataset appended
   again under the extend rule (added 2026-10-31): Physiology now has 10 units, its locked quota is 3, so D279 is LOCKED

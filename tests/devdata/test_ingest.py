@@ -366,3 +366,27 @@ def test_fetch_missing_http_and_failures_do_not_stop_the_source(tmp_path, monkey
     assert (d2 / F.local_name(good)).exists()                            # the later file was still fetched
     with pytest.raises(RuntimeError, match="in a row"):
         F.fetch_all([(f"{bad}{i}", {}) for i in range(F.FAIL_STREAK + 5)], d2, {"rate_limit_s": 0}, log2, say=quiet)
+
+
+def test_d102_drops_physionet_datasets_held_elsewhere():
+    from tideforge.devdata import catalog as cat
+    r = cat.aggregator_rules()
+    assert {"D103", "D104", "D105", "D106", "D279"} <= set(r[r["aggregator_id"] == "D102"]["source_id"])
+
+
+def test_http_429_backs_off_then_succeeds(tmp_path, monkeypatch):
+    import urllib.error
+    slept = []
+    monkeypatch.setattr(F.time, "sleep", slept.append)
+    src = tmp_path / "a.csv"
+    src.write_text("x")
+    real, n = F._open, {"n": 0}
+
+    def fake(u, *a, **k):
+        n["n"] += 1
+        if n["n"] == 1:
+            raise urllib.error.HTTPError(u, 429, "x", {"Retry-After": "7"}, None)
+        return real(u, *a, **k)
+
+    monkeypatch.setattr(F, "_open", fake)
+    assert F.download(src.as_uri(), tmp_path / "out", retries=3)["status"] == "ok" and 7.0 in slept

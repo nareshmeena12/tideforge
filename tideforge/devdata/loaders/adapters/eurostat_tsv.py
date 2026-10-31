@@ -40,6 +40,8 @@ def read_files(src, files):
     parts = []
     for p, _ in files:
         p = Path(p)
-        text = gzip.open(p, "rt", encoding="utf-8").read() if p.suffix == ".gz" else p.read_text(encoding="utf-8")
+        with open(p, "rb") as f:                  # by content: compressed=true answers gzip whatever the name says
+            gz = f.read(2) == b"\x1f\x8b"
+        text = gzip.open(p, "rt", encoding="utf-8").read() if gz else p.read_text(encoding="utf-8")
         parts.append(parse(text, (src.read or {}).get("keep")))
     return pd.concat(parts, ignore_index=True)

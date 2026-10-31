@@ -101,3 +101,19 @@ def test_coops_no_data_file_gives_no_rows(tmp_path):
     v = {"series": "1"}
     assert read("D058", head + "2019-01-01 00:00,0.472,0.01,0,0\n", tmp_path, name="a", vars_=v)["value"].tolist() == [0.472]
     assert len(read("D058", head + "Error: No data was found.\n", tmp_path, name="b", vars_=v)) == 0
+
+
+def test_iowa_real_header_and_eurostat_gzip(tmp_path):
+    import gzip
+    head = "invoice_id,ordered_on,store_no,county_fips_code,county_name,sales_bottles,sales_dollars\n"
+    z = tmp_path / "i.zip"
+    with zipfile.ZipFile(z, "w") as f:
+        f.writestr("part_0001.csv", head + "INV-1,2026-01-01,5444,19127,MARSHALL,60,2249.4\n")
+        f.writestr("part_0002.csv", head + "INV-2,2026-01-02,5444,19127,MARSHALL,1,10.0\n")
+    df = loaders.read_files(SRCS["D347"], [(z, {})])
+    assert df["series_id"].unique().tolist() == ["MARSHALL"] and df["value"].tolist() == [2249.4, 10.0]
+    p = tmp_path / "eurostat_noext"
+    p.write_bytes(gzip.compress("freq,sex,unit,geo\\TIME_PERIOD\t2000-W01 \t2000-W02 \nW,T,NR,AL\t5 \t: \n".encode()))
+    out = loaders.read_files(SRCS["D297"], [(p, {})])
+    assert out["series_id"].unique().tolist() == ["AL"] and out["value"].iloc[0] == 5.0
+    assert [t["freq"] for t in SRCS["D314"].tasks] == ["5min", "h"]

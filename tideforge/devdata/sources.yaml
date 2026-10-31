@@ -313,7 +313,7 @@ D314:
   time: {expr: "day * 86400 + time", unit: s}
   id: [function]
   value: value
-  tasks: [{freq: min, how: sum}, {freq: h, how: sum}]
+  tasks: [{freq: 5min, how: sum}, {freq: h, how: sum}]    # owner 2026-11: 1-min summed to 5 min, TIME's 5-min horizons
   select: {max_series: 500}
   confirm: ["the Google Drive file (README_data_release_2023.md, 'Huawei Public, requests per minute') is a zip with
             .../public_dataset/.../requests_minute/day_00..25.csv", "fillna 0: an empty cell means no requests"]
@@ -352,7 +352,8 @@ D138:
     vars: {series: index, project: [en.wikipedia]}
     headers: {User-Agent: "tideforge-research/0.1 (time-series dev set; contact: repository owner)"}
     probe_vars: {series: Albert_Einstein, project: en.wikipedia}
-    rate_limit_s: 0.1
+    rate_limit_s: 1.0              # at 0.1 s the API answers HTTP 429 after about 24 requests
+    retries: 6
   read: {format: json, record_path: [items]}
   time: {col: timestamp, format: "%Y%m%d%H"}
   id: [project, article]
@@ -372,13 +373,14 @@ D347:
     probe_vars: {dataset: "1258"}
     rate_limit_s: 1.0
     timeout_s: 1800
-  read: {format: csv, usecols: [ordered_on, county, sale_dollars]}
+  read: {format: csv, usecols: [ordered_on, county_name, sales_dollars]}
   time: {col: ordered_on}
-  id: [county]
-  events: {how: sum, value: sale_dollars}
+  id: [county_name]
+  events: {how: sum, value: sales_dollars}
   tasks: [{freq: D, how: sum}, {freq: W, how: sum}]
   select: {max_series: 500}
-  confirm: ["the column names county / sale_dollars inside the zip the endpoint returns (ordered_on is confirmed)"]
+  confirm: ["the same columns in the older yearly zips (read from dataset 1263: invoice_id, ordered_on, ..., county_name,
+            ..., sales_dollars; several CSV parts per zip)"]
   notes: "Iowa Data Hub yearly datasets: 2021 = 1258, 2022 = 1259, 2023 = 1260, 2024 = 1261, 2025 = 1262, 2026 = 1263
           (2026 partial); rows.csv answers with a zip (probe 2026-10-27). Gap: no yearly ids for 2012-2020 were found (the
           old Socrata all-years dataset m3tr-qhgy returns 404), so the series start in 2021."

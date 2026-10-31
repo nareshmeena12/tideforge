@@ -268,10 +268,10 @@ class Run:
             cc = {sid: series_country(src.country, sid) for sid in sorted(final)}
             meta["series_country"].update(cc)
             meta["tasks"][key]["countries"] = dict(sorted(Counter(cc.values()).items()))
-            n_series, n_points = n_series + len(final), n_points + len(v)
+            n_series, n_points = max(n_series, len(final)), n_points + len(v)   # series per task; points over all tasks
             self.say(f"  {src.id} {key}: {len(final)} series, {len(v):,} points, dropped {why[key]}")
         (self.out / "meta.json").write_text(json.dumps(meta, indent=1, default=str), encoding="utf-8")
-        self.say(f"{src.id} {src.slug}: done, {n_series} series, {n_points:,} points, {time.time() - t0:.0f} s, peak RSS "
+        self.say(f"{src.id} {src.slug}: done, {n_series} series (largest task; the cap is per task), {n_points:,} points over {len(tasks)} task(s), {time.time() - t0:.0f} s, peak RSS "
                  f"{peak_rss_mb()}")
         return meta
 

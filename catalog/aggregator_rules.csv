@@ -45,3 +45,8 @@ D285,D118,Living Planet: drop populations taken from GPDD
 D378,D184,UTD19: drop cities whose detectors are Caltrans PeMS
 D002,D401,ENTSO-E / OPSD: drop Great Britain (NESO)
 D001,D401,OPSD: drop Great Britain (NESO)
+D102,D103,PhysioNet collection: drop CGMacros (separate dataset; D102 is locked)
+D102,D104,PhysioNet collection: drop BIG IDEAs (separate dataset; D102 is locked)
+D102,D105,PhysioNet collection: drop Apple Watch sleep (separate dataset; D102 is locked)
+D102,D106,PhysioNet collection: drop wearable exam stress (separate dataset; D102 is locked)
+D102,D279,PhysioNet collection: drop Santa Fe set B and its source record slp60 (separate dataset; D102 is locked)

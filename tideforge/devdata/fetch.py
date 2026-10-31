@@ -132,6 +132,9 @@ def download(url: str, dest: Path, headers: dict | None = None, auth: dict | Non
                 row = {"url": redact(url, auth), "file": dest.name, "status": "missing", "http": e.code}
                 break
             err = f"HTTP {e.code}"
+            if e.code == 429:                       # rate limited: the server's Retry-After, else a longer back-off
+                wait = (e.headers or {}).get("Retry-After")
+                time.sleep(float(wait) if str(wait).isdigit() else 15 * 2 ** attempt)
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             err = type(e).__name__
         time.sleep(2 ** attempt)
