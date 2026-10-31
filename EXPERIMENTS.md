@@ -379,7 +379,7 @@ them by hand.
 
 | ID | Date | Status | Result (one line) | Log |
 |---|---|---|---|---|
-| E0.9 | 2026-10-27 | running | generator: deterministic 1.32-1.44e8 vs default 1.64-1.77e8 points/s (0.80-0.81x); generator runs deterministic; training throughput in T3 | [E0.9](experiments/E0.9.md) |
+| E0.9 | 2026-10-31 | done | training 3.068e7 pts/s per A100 deterministic vs 3.307e7 default (0.928x, gen 36% of wall), 0.91 h per 100B; generator stays deterministic | [E0.9](experiments/E0.9.md) |
 | D1 | 2026-10-27 | done | gap shaped like small models': 55% from covariate tasks (42% of tasks); worst 15 = load / price / retail; G1 stays first, order G1.3, G1.4, G1.5 | [D1](experiments/D1.md) |
 | E0.3 | 2026-10-27 | planned | | [E0.3](experiments/E0.3.md) |
 | E0.2 | 2026-10-27 | done | gate pass (tidemark 2026-10-24): ON 43.84 / 0.6797 / 0.5712, hidden 42.08 / 0.6873 / 0.5752; tideforge wrapper = tidemark exactly (smoke, 30 tasks, max rel diff 0) | [E0.2](experiments/E0.2.md) |

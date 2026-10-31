@@ -6,7 +6,7 @@
 #SBATCH -N 1
 #SBATCH --gpus=4
 #SBATCH -c 128
-#SBATCH -t 12:00:00
+#SBATCH -t 02:00:00
 #SBATCH -J t3_e07
 #SBATCH -o %x-%j.out
 #SBATCH --signal=B:USR1@120

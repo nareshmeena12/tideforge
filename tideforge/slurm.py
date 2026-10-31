@@ -87,12 +87,12 @@ echo "$(date) E0.5 JOB DONE"
 
 
 # ---- 5M training node jobs: (experiment, seed) per GPU slot
-TRAIN_PTS_PER_S = None              # E0.9's deterministic-mode points/s per GPU (tideforge.train.throughput report): fill in
+TRAIN_PTS_PER_S = 3.068e7           # E0.9 measured 2026-10-31 (A100, deterministic generator, 300 steps, 2.49B points)
 ESTIMATE_PTS_PER_S = 3.0e7          # ESTIMATE until E0.9 runs (model ~1.1 MFLOP / point at 15-30% of A100 bf16 + generation)
 TRAIN_POINTS = 100e9
 FINISH_H = 0.3                      # ESTIMATE: finish after a run (dev fast + dev covariate ON / hidden + probes) on one A100
 TRAIN_JOBS = {
-    "t3_e07": dict(qos="regular", gpus=4, cpus=128, time="12:00:00", runs=[("E0.7", 0), ("E0.7", 1), ("E0.7", 2), ("E0.8", 0)],
+    "t3_e07": dict(qos="regular", gpus=4, cpus=128, time="02:00:00", runs=[("E0.7", 0), ("E0.7", 1), ("E0.7", 2), ("E0.8", 0)],
                    what="E0.7 (5M B0, seeds 0-2) and E0.8 (white-noise control, seed 0): one run per GPU, then finish each"),
 }
 
@@ -126,7 +126,7 @@ def train_estimate(name: str) -> str:
     j = TRAIN_JOBS[name]
     rate, kind = train_rate()
     h = TRAIN_POINTS / rate / 3600
-    if h * 1.15 > hours(j["time"]):
+    if (h + FINISH_H) * 1.15 > hours(j["time"]):
         raise ValueError(f"{name}: a run needs about {h:.1f} h (+15% for validation / checkpoints), above the {j['time']} limit; "
                          "the job would requeue (allowed, but raise the limit)")
     n = len(j["runs"])
