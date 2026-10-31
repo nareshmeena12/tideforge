@@ -46,7 +46,7 @@ def test_locked_quota_per_domain():
 
 def test_report_lists_tuning_only_domains():
     r = split.report(split.load())
-    assert "Tuning-only domains (one unit): Physics-reference, Utilities-waste, Utilities-water." in r
+    assert "Tuning-only domains (one unit): Utilities-waste, Utilities-water." in r      # D279 -> Physiology, 2026-10-31
 
 
 def test_extend_only_appends():

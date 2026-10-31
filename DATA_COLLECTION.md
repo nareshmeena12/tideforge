@@ -202,7 +202,8 @@ part-time work, so v1 (~120 sources) comes first and Phase 0 starts on it. Every
 
 ## 6. Licences
 
-Every dataset's licence goes into meta.json. Non-commercial licences are fine for research evaluation; check them again
+Every dataset's licence goes into meta.json. D202 C-MAPSS comes from the PHM Society mirror of NASA's Prognostics
+Center of Excellence repository: publications must acknowledge the repository and the data donors (owner 2026-10-31). Non-commercial licences are fine for research evaluation; check them again
 before any release that redistributes data.
 
 ## 7. Repo layout

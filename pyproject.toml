@@ -29,6 +29,9 @@ public = [
   "timestral @ git+https://github.com/mistralai/timestral@a534bdbd244d64f3d9d743f46c7bf6fc330ed4ff",
 ]
 test-sf = ["statsforecast"]  # test-only: checks naive_time against statsforecast (owner 2026-10-27); never core
+# dev-set readers for single sources (owner OK 2026-10-31; never core): openpyxl for D339 Eurocontrol / D360 NYC sales (xlsx),
+# pdfplumber for D014 Grid-India's PDF reports, used only if Grid-India's terms allow automated access
+devdata = ["openpyxl==3.1.5", "pdfplumber==0.11.10"]
 
 [tool.setuptools.packages.find]
 include = ["tideforge*"]

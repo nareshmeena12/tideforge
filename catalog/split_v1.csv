@@ -240,7 +240,6 @@ D031,D031,Oil-gas-fuels,10,tuning,2026-10-27
 D230,D230,Oil-gas-fuels,11,tuning,2026-10-27
 D033,norway_fields,Oil-gas-fuels,12,tuning,2026-10-27
 D036,norway_fields,Oil-gas-fuels,12,tuning,2026-10-27
-D279,D279,Physics-reference,0,tuning,2026-10-27
 D310,D310,Physiology,0,locked,2026-10-27
 D102,physionet,Physiology,1,locked,2026-10-27
 D107,physionet,Physiology,1,locked,2026-10-27
@@ -369,3 +368,4 @@ D141,D141,Web-attention,9,tuning,2026-10-27
 D402,D402,Aviation-tourism,15,tuning,2026-10-29
 D401,D401,Energy-load,16,locked,2026-10-29
 D403,D403,Energy-load,17,tuning,2026-10-29
+D279,D279,Physiology,9,locked,2026-10-31

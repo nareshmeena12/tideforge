@@ -5,6 +5,10 @@ the same commit so that a rebuild keeps the change.
 
 ## 2026-10-31
 
+- D279 Santa Fe (owner): Data Set B from PhysioNet (ODC-By 1.0; the Stanford page is gone), domain Physics-reference ->
+  Physiology (builder tuple and CSV row together). Split: its Physics-reference row was removed and the dataset appended
+  again under the extend rule (added 2026-10-31): Physiology now has 10 units, its locked quota is 3, so D279 is LOCKED
+  (it was tuning as the only Physics-reference unit). Physics-reference has no dataset left.
 - expand_catalog.py: the 2026-10-27 hand fixes of D026-D029 (url, url_verified, notes) are now in the generator
   (HAND_FIXES), so a rebuild reproduces dataset_catalog_v2.csv exactly; tests/test_catalog_builder.py checks that the
   builder's three outputs equal the committed files.

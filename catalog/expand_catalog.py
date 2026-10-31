@@ -190,7 +190,7 @@ N = [
 ("Safecast radiation measurements","Space-geo","baseline-plus-events;sensor-drift","5min","direct download","CC0","https://safecast.org/data/","no","clean?",1000,2e8,"static sensors only"),
 ("AAVSO variable star observations","Space-geo","quasi-periodic;irregular-sampling;century-long","irregular","registration (free)","AAVSO terms","https://www.aavso.org/data-download","no","clean?",30000,4e7,""),
 ("ZTF light curves (IRSA)","Space-geo","irregular;transients;periodic-variables","irregular","direct download","ZTF terms","https://irsa.ipac.caltech.edu/Missions/ztf.html","no","clean?",None,500,"~1e9 objects"),
-("Santa Fe time series competition","Physics-reference","chaotic-laser;nonlinear","various","direct download","research use","http://www-psych.stanford.edu/~andreas/Time-Series/SantaFe.html","no","clean?",6,1e5,"tiny chaotic-dynamics probe"),
+("Santa Fe time series competition","Physiology","sleep-apnea;cardiorespiratory;2Hz","2Hz (index)","direct download","ODC-By 1.0","https://physionet.org/content/santa-fe/1.0.0/","yes","clean?",6,1e5,"2026-10-31 (owner): Data Set B only, from PhysioNet (the Stanford page is gone); moved from Physics-reference to Physiology"),
 # Ocean, fisheries, ecology, biology
 ("RAM Legacy stock assessment database","Ecology","boom-bust;harvest-driven;yearly","Y","direct download","CC BY 4.0","https://www.ramlegacy.org/","no","clean?",4000,2e5,""),
 ("Copernicus Marine in-situ moorings","Weather-climate","tides;seasonal;storms","H","registration (free)","Copernicus licence","https://marine.copernicus.eu/","no","clean?",10000,1e9,"keep Australian moorings out (TIME has Darwin water quality, currents, coastal T-S)"),
