@@ -67,3 +67,49 @@ def test_qos_and_campaign_checks(tmp_path):
     bad.write_text("name: y\nruns: [G1.1]\n")
     with pytest.raises(ValueError, match="file name"):
         R.load_campaign(bad)
+
+
+class Proc:
+    def __init__(self, polls):
+        self.polls = polls
+
+    def poll(self):
+        self.polls -= 1
+        return 0 if self.polls < 0 else None
+
+
+def fake_runs(n, hours):
+    pts = hours * 3600 * slurm.train_rate()[0]
+    return [R.Run(f"X{i}", 0, f"k{i}", pts) for i in range(n)]
+
+
+def test_parse_left():
+    assert R.parse_left("03:59:30") == 14370 and R.parse_left("12:05") == 725 and R.parse_left("1-00:00:00") == 86400
+
+
+def test_schedule_uses_free_gpus_and_never_starts_what_cannot_finish(tmp_path):
+    clock = {"left": 3 * 3600.0}
+    started = []
+
+    def start(run, slot):
+        started.append((run.exp, slot))
+        return Proc(1)
+
+    def sleep(s):
+        clock["left"] -= 3600                       # every poll costs an hour here
+
+    r = R.schedule(fake_runs(5, 0.9), ["a/0", "a/1"], tmp_path, lambda: clock["left"], start, sleep=sleep, log=lambda m: None)
+    assert [s for _, s in started[:2]] == ["a/0", "a/1"] and len(r["done"]) == 2 and len(r["left"]) == 3
+
+
+def test_resume_counts_remaining_points_and_finish_only(tmp_path):
+    run = fake_runs(1, 0.9)[0]
+    full = R.seconds_needed(run, tmp_path)
+    d = tmp_path / "k0-abc"
+    d.mkdir()
+    (d / "metrics.jsonl").write_text('{"kind": "train", "points": %f}\n' % (run.points / 2))
+    assert R.seconds_needed(run, tmp_path) < full and "trainer" in " ".join(R.command(run, tmp_path, "n1"))
+    (d / "final.pt").write_bytes(b"x")
+    assert R.seconds_needed(run, tmp_path) == slurm.FINISH_H * 3600
+    cmd = R.command(run, tmp_path, "n1")
+    assert "tideforge.train.finish" in cmd and cmd[:2] == ["srun", "--exact"]

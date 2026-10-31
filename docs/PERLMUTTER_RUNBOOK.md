@@ -66,15 +66,15 @@ python tools/gen_throughput.py --device cuda --loops      # tar / garch_jump loo
 
 **C2. ODE pool** (GPU interactive 1 GPU ∥ with C1, ~30-60 min; needs B1)
 ```
-python tools/build_ode_pool.py --out $TF_DATA/pools --name ode_v1
+python tools/build_ode_pool.py --out $TF_DATA/pools --name ode_v1      # done 2026-11; --workers defaults to every CPU
 ```
 - **Paste back:** the manifest line (name, sha256, counts).
 - **Unblocks:** G9.1a/b/c (switch `ode`, pool ode_v1) in the Phase 2 screen.
 
-**C3. Loop pools, only if C1 says so** (GPU interactive 1 GPU, ~30 min each; needs C1)
+**C3. Loop pools, required** (C1: tar 6-41x, garch_jump 1.6-9x, limit 0.10x; G9.2 / G10.1 name them) (GPU interactive 1 GPU, ~30 min each; needs C1)
 ```
-python tools/build_loop_pool.py --family tar        --out $TF_DATA/pools --name tar_v1
-python tools/build_loop_pool.py --family garch_jump --out $TF_DATA/pools --name garch_jump_v1
+python tools/build_loop_pool.py --family tar        --out $TF_DATA/pools --name tar_v1          # --workers: default all CPUs
+python tools/build_loop_pool.py --family garch_jump --out $TF_DATA/pools --name garch_jump_v1   # manifest.json lands next to the pool: paste it back
 python tools/gen_throughput.py --device cuda --loops --pool-dir $TF_DATA/pools
 ```
 - **Paste back:** the manifests and the throughput table.
@@ -137,8 +137,8 @@ bash $S/e05_public.sh table --looks      # after it finishes: one LOOKS.md row p
 
 dev-v1 = batch 1 + batch 2 (owner 2026-10-29). Long fetches: run on a login node under `tmux`, or as an `xfer` job.
 
-**F1. Batch 1** (probe / fetch on a login node; ingest per source on a CPU node until the streamed ingest is proven
-there; needs A1). Keys: ~/.tideforge_env exports DATAGOVIN_API_KEY and USDA_MARS_KEY (owner), never committed.
+**F1. Batch 1** (probe / fetch on a login node; **ingest always on a CPU node**: per-file sources are streamed (D057 2.1 GB),
+but a single-file source still loads whole (D078 19.6 GB, D320 29 GB peak); needs A1). Keys: ~/.tideforge_env exports DATAGOVIN_API_KEY and USDA_MARS_KEY (owner), never committed.
 ```
 python -m tideforge.devdata.ingest probe  --ids batch1
 python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw          # resumes; 404s are skipped (--retry-missing)
@@ -267,14 +267,20 @@ python -m tideforge.eval.score table --root $R --names e07s0base --base e07s0bas
 
 ## H. Phase 2 screen
 
-**H1. Screen campaign** (login to generate, then batch: 14 regular nodes, 67.4 GPU-h busy (estimate); needs G2, C2 (C3 if
-needed) and F5)
+**H1. Screen campaign: interactive sessions are the default** (regular QOS waits 5-30 h; interactive starts within a
+minute, up to 4 nodes x 4 h). 66.3 GPU-h busy: about 4 sessions of 4 nodes. Needs G2, the three pools (C2, C3) and F5.
 ```
-python -m tideforge.campaign.runner plan phase2_screen --results $TF_ROOT/results/results.csv --write
-# then the printed sbatch lines, in order (14 jobs, 4 runs each; the last has 3)
+tmux new -s screen
+salloc --nodes 4 --qos interactive --time 04:00:00 --constraint gpu --gpus-per-node 4 --cpus-per-task 32 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO
+python -m tideforge.campaign.runner run phase2_screen       # foreground; rerun in a new salloc until 0 left
 ```
-- Runs that already have a final results row are skipped, so rerunning `plan` after a partial screen only writes the rest.
-- **Paste back:** the plan's first lines (runs, done, node jobs, GPU-h).
+- One trainer + finish per GPU; the next run starts when a GPU frees up, and only if it can finish (0.91 h + finish + 5 min).
+- Restart-safe: done runs are skipped, killed runs resume from last.pt. Do not change the commit between sessions: a new
+  commit starts killed runs from zero. Logs: `$TF_ROOT/logs/phase2_screen_<exp>_s<seed>.log`.
+- **Paste back:** the `session over` line.
+- **Fallback, sbatch:** `python -m tideforge.campaign.runner plan phase2_screen --results $TF_ROOT/results/results.csv --write`,
+  then the printed sbatch lines.
 
 **H2. Board** (login, ~2 min; needs H1 runs finished and G3)
 ```
