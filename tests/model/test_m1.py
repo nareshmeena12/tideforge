@@ -75,14 +75,15 @@ def changed(m, b, edit, rows, patches) -> float:
     b2 = dict(b, x=b["x"].clone())
     edit(b2["x"])
     t1, t2 = trace(m, b), trace(m, b2)
-    r, p = torch.as_tensor(rows), torch.as_tensor(patches)
+    dev = t1[0].device                                            # the model's device (CPU here, CUDA in test_m1_gpu)
+    r, p = torch.as_tensor(rows, device=dev), torch.as_tensor(patches, device=dev)
     return max(float((a[r][:, p] - c[r][:, p]).abs().max()) for a, c in zip(t1, t2))
 
 
 def at(rows, p_from, p_to=P0):
     """An edit: new values on `rows`, patches p_from .. p_to - 1."""
     def f(x):
-        x[rows, p_from * PL:p_to * PL] += 5.0 + torch.arange((p_to - p_from) * PL, dtype=x.dtype)
+        x[rows, p_from * PL:p_to * PL] += 5.0 + torch.arange((p_to - p_from) * PL, dtype=x.dtype, device=x.device)
     return f
 
 

@@ -26,7 +26,8 @@ smoke)
     for e in "${ARGS[@]}"; do
         run python -m tideforge.train.trainer --exp "$e" --seed 0 --out "$TF_ROOT/smoke" --smoke-points 5e8 --allow-dirty \
             --no-finish 2>&1 | tee "$TF_ROOT/logs/t3_smoke_$e.log"
-        [ "$DRY" -eq 1 ] || [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "SMOKE FAILED: $e"; exit 1; }
+        st=${PIPESTATUS[0]}                       # read at once: any later command (even a test) replaces PIPESTATUS
+        [ "$DRY" -eq 1 ] || [ "$st" -eq 0 ] || { echo "SMOKE FAILED: $e (exit $st)"; exit 1; }
     done
     echo "SMOKE DONE: ${ARGS[*]}"
     ;;
@@ -35,7 +36,8 @@ e09)
     for m in det default; do
         run python -m tideforge.train.trainer --exp E0.9 --seed 0 --out "$TF_ROOT/e09" --gen-mode "$m" --no-finish 2>&1 \
             | tee "$TF_ROOT/logs/t3_e09_$m.log"
-        [ "$DRY" -eq 1 ] || [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "E0.9 FAILED ($m)"; exit 1; }
+        st=${PIPESTATUS[0]}
+        [ "$DRY" -eq 1 ] || [ "$st" -eq 0 ] || { echo "E0.9 FAILED ($m, exit $st)"; exit 1; }
     done
     D=$(ls -d "$TF_ROOT"/e09/E0.9-*-det 2>/dev/null | tail -1); N=$(ls -d "$TF_ROOT"/e09/E0.9-*-default 2>/dev/null | tail -1)
     run python -m tideforge.train.throughput report --det "$D" --default "$N"
