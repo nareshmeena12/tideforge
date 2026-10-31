@@ -337,3 +337,32 @@ def test_xlsx_format(tmp_path):
              tasks=[{"freq": "D"}])
     out = tabular.read_files(s, [(p, {})])
     assert out["series_id"].unique().tolist() == ["EGLL"] and out["value"].tolist() == [1200.0, 1250.0]
+
+
+def test_fetch_missing_http_and_failures_do_not_stop_the_source(tmp_path, monkeypatch):
+    import urllib.error
+    monkeypatch.setattr(F.time, "sleep", lambda s: None)
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    (remote / "good.csv").write_text("t,v\n")
+    good, bad = (remote / "good.csv").as_uri(), "https://x.org/bad.csv"
+    real = F._open
+    code = {"n": 400}
+
+    def fake(u, *a, **k):
+        if u == good:
+            return real(u, *a, **k)
+        raise urllib.error.HTTPError(u, code["n"], "x", {}, None)
+
+    monkeypatch.setattr(F, "_open", fake)
+    log, d = tmp_path / "log.jsonl", tmp_path / "files"
+    quiet = lambda *a: None                                              # noqa: E731
+    assert len(F.fetch_all([(bad, {}), (good, {})], d, {"rate_limit_s": 0, "missing_http": [400]}, log, say=quiet)) == 1
+    assert F.missing_files(log) == {F.local_name(bad)}
+    log2, d2 = tmp_path / "log2.jsonl", tmp_path / "files2"
+    code["n"] = 503
+    with pytest.raises(RuntimeError, match="1 of 2 files failed"):
+        F.fetch_all([(bad, {}), (good, {})], d2, {"rate_limit_s": 0}, log2, say=quiet)
+    assert (d2 / F.local_name(good)).exists()                            # the later file was still fetched
+    with pytest.raises(RuntimeError, match="in a row"):
+        F.fetch_all([(f"{bad}{i}", {}) for i in range(F.FAIL_STREAK + 5)], d2, {"rate_limit_s": 0}, log2, say=quiet)

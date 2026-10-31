@@ -12,8 +12,7 @@ SRCS, _ = schema.load_sources()
 
 def read(i, text: str | bytes, tmp_path, name=None, vars_=None):
     src = SRCS[i]
-    url = F.file_list(src.fetch)[0][0]
-    p = tmp_path / (name or F.local_name(url))
+    p = tmp_path / (name or F.local_name(F.file_list(src.fetch)[0][0]))
     p.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
     return loaders.read_files(src, [(p, vars_ or {})])
 
@@ -81,3 +80,24 @@ def test_santa_fe_index_clock(tmp_path):
     r = df[df["series_id"] == "b1/heart_rate"]
     assert r["value"].tolist() == [-0.5, -0.4, -0.3]
     assert r["timestamp"].tolist() == list(pd.date_range("1970-01-01", periods=3, freq="s"))
+
+
+USGS_HEAD = "agency_cd\tsite_no\tdatetime\t18719_00060_00003\t18719_00060_00003_cd\n5s\t15s\t20d\t14n\t10s\n"
+
+
+def test_usgs_flow_on_the_real_header_and_odd_sites(tmp_path):
+    df = read("D074", "# US Geological Survey\n" + USGS_HEAD + "USGS\t05078500\t1990-01-01\t120\tA\n", tmp_path, name="a")
+    assert df["series_id"].tolist() == ["05078500"] and df["value"].tolist() == [120.0]
+    two = ("agency_cd\tsite_no\tdatetime\t1_00060_00003\t1_00060_00003_cd\t2_00060_00003\t2_00060_00003_cd\n"
+           "5s\t15s\t20d\t14n\t10s\t14n\t10s\nUSGS\t7\t2020-01-01\t5\tA\t9\tA\nUSGS\t7\t2020-01-02\t\t\t8\tA\n")
+    assert read("D074", two, tmp_path, name="b")["value"].tolist() == [5.0, 8.0]
+    for name, text in (("c", "# No sites found\n"), ("d", USGS_HEAD),
+                       ("e", "agency_cd\tsite_no\tdatetime\n5s\t15s\t20d\nUSGS\t1\t2020-01-01\n")):
+        assert len(read("D074", text, tmp_path, name=name)) == 0
+
+
+def test_coops_no_data_file_gives_no_rows(tmp_path):
+    head = "Date Time, Water Level, Sigma, I, L \n"
+    v = {"series": "1"}
+    assert read("D058", head + "2019-01-01 00:00,0.472,0.01,0,0\n", tmp_path, name="a", vars_=v)["value"].tolist() == [0.472]
+    assert len(read("D058", head + "Error: No data was found.\n", tmp_path, name="b", vars_=v)) == 0

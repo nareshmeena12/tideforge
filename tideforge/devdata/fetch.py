@@ -5,7 +5,9 @@
 - Files go to <raw>/<slug>/files/<name>; a download is written to <name>.part and renamed when complete, so a rerun skips
   finished files and redoes partial ones. Every file gets a row in <raw>/<slug>/fetch_log.jsonl (url, file, bytes, sha256,
   status, time). A 404 is logged as status "missing" (a station-year that does not exist) and skipped; a resume does not
-  request it again unless retry_missing (ingest fetch --retry-missing). Other errors are retried, then raised.
+  request it again unless retry_missing (ingest fetch --retry-missing). fetch.missing_http lists other permanent answers
+  (e.g. CO-OPS: 400 "no MSL for the station"). Other errors are retried; a file that still fails is logged as "failed", the
+  fetch goes on and raises at the end (a rerun retries it), and FAIL_STREAK failures in a row stop it.
 - Auth: fetch.auth = {env: NAME, param: p}, {env: NAME, header: h} or {env: NAME, basic: true} (HTTP basic auth with the
   value as the user name and an empty password, e.g. USDA MyMarketNews); the value is read from the environment at request
   time and never written to the log, a file name or an error message (URLs are logged with the parameter redacted).
@@ -26,6 +28,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+FAIL_STREAK = 20
 UA = "tideforge-research/0.1 (time-series dev set; contact: repository owner)"
 
 
@@ -102,7 +105,7 @@ def _open(url: str, headers: dict, auth: dict | None, timeout: float, extra: dic
 
 
 def download(url: str, dest: Path, headers: dict | None = None, auth: dict | None = None, retries: int = 3,
-             timeout: float = 120.0, log: Path | None = None) -> dict:
+             timeout: float = 120.0, log: Path | None = None, missing_http: tuple = ()) -> dict:
     """url -> dest (skipped if dest exists). Returns the log row."""
     if dest.exists():
         return {"url": redact(url, auth), "file": dest.name, "status": "exists"}
@@ -125,8 +128,8 @@ def download(url: str, dest: Path, headers: dict | None = None, auth: dict | Non
             row = {"url": redact(url, auth), "file": dest.name, "bytes": n, "sha256": h.hexdigest(), "status": "ok"}
             break
         except urllib.error.HTTPError as e:
-            if e.code == 404:
-                row = {"url": redact(url, auth), "file": dest.name, "status": "missing", "http": 404}
+            if e.code == 404 or e.code in missing_http:
+                row = {"url": redact(url, auth), "file": dest.name, "status": "missing", "http": e.code}
                 break
             err = f"HTTP {e.code}"
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
@@ -160,14 +163,26 @@ def fetch_all(urls: list[tuple[str, dict]], folder: Path, fetch: dict, log: Path
     as missing are skipped (no request) unless retry_missing."""
     out = []
     skip = set() if retry_missing else missing_files(log)
-    n_skip = 0
+    n_skip, failed, streak = 0, [], 0
     for i, (u, v) in enumerate(urls[:max_files] if max_files else urls):
         dest = folder / local_name(u)
         if dest.name in skip and not dest.exists():
             n_skip += 1
             continue
-        row = download(u, dest, fetch.get("headers"), fetch.get("auth"), retries=int(fetch.get("retries", 3)),
-                       timeout=float(fetch.get("timeout_s", 120)), log=log)
+        try:
+            row = download(u, dest, fetch.get("headers"), fetch.get("auth"), retries=int(fetch.get("retries", 3)),
+                           timeout=float(fetch.get("timeout_s", 120)), log=log,
+                           missing_http=tuple(fetch.get("missing_http", ())))
+            streak = 0
+        except RuntimeError as e:
+            failed.append(dest.name)
+            streak += 1
+            say(f"  [{i + 1}/{len(urls)}] failed  {e}"[:200])
+            with open(log, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"url": redact(u, fetch.get("auth")), "file": dest.name, "status": "failed"}) + "\n")
+            if streak >= FAIL_STREAK:
+                raise RuntimeError(f"{FAIL_STREAK} failures in a row, stopped at file {i + 1}/{len(urls)}") from e
+            continue
         if row["status"] != "exists":
             time.sleep(float(fetch.get("rate_limit_s", 0.2)))
         if dest.exists():
@@ -176,6 +191,8 @@ def fetch_all(urls: list[tuple[str, dict]], folder: Path, fetch: dict, log: Path
             say(f"  [{i + 1}/{len(urls)}] {row['status']:7s} {row['url'][:140]}")
     if n_skip:
         say(f"  {n_skip} file(s) skipped: missing (404) in an earlier fetch (--retry-missing asks again)")
+    if failed:
+        raise RuntimeError(f"{len(failed)} of {len(urls)} files failed (logged; rerun fetch to retry them)")
     return out
 
 

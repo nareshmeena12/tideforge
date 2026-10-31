@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 READ_KEYS = {"format", "zip_member", "strip_columns", "drop_first_rows", "record_path", "normalize", "encoding", "melt",
-             "fillna", "rename_regex"}
+             "fillna", "rename_regex", "empty_ok"}
 
 
 def _frames(path: Path, read: dict):
@@ -74,6 +74,9 @@ def _parse(src, fmt, opts, read, comp):
     df = df.iloc[n:].reset_index(drop=True) if n else df
     for pat, new in (read.get("rename_regex") or {}).items():      # e.g. USGS "<ts_id>_00060_00003" -> "flow"
         df = df.rename(columns={c: new for c in df.columns if re.search(pat, str(c))})
+        if (df.columns == new).sum() > 1:         # e.g. two USGS sensors at one site: first non-empty value, left to right
+            merged = df.loc[:, df.columns == new].bfill(axis=1).iloc[:, 0]
+            df = df.loc[:, df.columns != new].assign(**{new: merged})
     if read.get("fillna") is not None:            # e.g. 0 where a missing cell means "no events"
         df = df.fillna(read["fillna"])
     if read.get("melt"):            # wide (one column per series) -> long: melt: {id_vars: [time], var_name: series}
@@ -198,9 +201,17 @@ def to_long(df: pd.DataFrame, src, file_vars: dict | None = None) -> pd.DataFram
 
 def read_files(src, files) -> pd.DataFrame:
     parts = []
+    empty_ok = bool(src.read.get("empty_ok"))           # a file with no table or no value column is skipped, not an error
+    cols = src.value if isinstance(src.value, list) else [src.value]
     for path, vars_ in files:
-        for df in _frames(Path(path), src.read):
-            parts.append(to_long(df, src, vars_))
+        try:
+            for df in _frames(Path(path), src.read):
+                if empty_ok and (df.empty or any(c not in df.columns for c in cols if c)):
+                    continue
+                parts.append(to_long(df, src, vars_))
+        except pd.errors.EmptyDataError:
+            if not empty_ok:
+                raise
     if not parts:
         return pd.DataFrame(columns=["series_id", "timestamp", "value"])
     return pd.concat(parts, ignore_index=True)

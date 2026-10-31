@@ -105,6 +105,7 @@ D058:
     vars: {series: index, year: {range: [2016, 2024]}}
     probe_vars: {series: "9414290", year: 2023}
     rate_limit_s: 0.5
+    missing_http: [400]            # "There is no MSL for the station": permanent (seen for station 9063012)
   read: {format: csv, strip_columns: true}
   time: {col: "Date Time", format: "%Y-%m-%d %H:%M"}
   id: [_var_series]
@@ -130,7 +131,8 @@ D074:
     vars: {series: index}
     probe_vars: {series: "01646500"}
     rate_limit_s: 0.3
-  read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1, rename_regex: {"_00060_00003$": flow}}
+  read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1, rename_regex: {"_00060_00003$": flow},
+         empty_ok: true}          # sites with no table or no discharge column are skipped; two sensors are merged
   time: {col: datetime, format: "%Y-%m-%d"}
   id: [site_no]
   value: flow
