@@ -1,10 +1,11 @@
-"""The generic `table` loader: csv / whitespace / fwf / parquet / json files (plain, .gz or .zip) -> long format, driven by the
+"""The generic `table` loader: csv / whitespace / fwf / parquet / json files (plain, .gz, .zip or .tar[.gz]) -> long format, driven by the
 read / time / id / value / events / filter / missing / scale keys of a sources.yaml entry."""
 from __future__ import annotations
 
 import io
 import json
 import re
+import tarfile
 import zipfile
 from pathlib import Path
 
@@ -27,6 +28,13 @@ def _frames(path: Path, read: dict):
                 if pat.search(name) and not name.endswith("/") and "__MACOSX" not in name:
                     with z.open(name) as fh:
                         yield _parse(io.BytesIO(fh.read()), fmt, opts, read, None)
+        return
+    if tarfile.is_tarfile(path):                    # e.g. MIMIT's quarterly .tar.gz of CSVs: members like a zip's
+        pat = re.compile(read.get("zip_member", r".*\.(csv|txt|tsv|parquet|json)$"), re.I)
+        with tarfile.open(path) as t:
+            for m in sorted(t.getmembers(), key=lambda m: m.name):
+                if m.isfile() and pat.search(m.name):
+                    yield _parse(io.BytesIO(t.extractfile(m).read()), fmt, opts, read, None)
         return
     comp = "gzip" if path.suffix == ".gz" or magic[:2] == b"\x1f\x8b" else None
     yield _parse(path, fmt, opts, read, comp)

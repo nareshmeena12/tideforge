@@ -17,7 +17,7 @@ Entry (keys not listed are errors; see sources.yaml for real ones):
         url_template: https://.../{series}.csv.gz
         vars: {series: index, year: {range: [2015, 2024]}, month: {months: ["2019-01", "2024-12"], fmt: "%Y%m"}}
         headers: {User-Agent: "tideforge research (contact via repo owner)"}
-        auth: {env: EIA_API_KEY, param: api_key}   # or {env: ..., header: X-Api-Key}; the value is read from the environment
+        auth: {env: EIA_API_KEY, param: api_key}   # or {env: ..., header: X-Api-Key} or {env: ..., basic: true}; read from the env
         rate_limit_s: 0.5
       read: {format: csv, ...}               # csv | parquet | json | whitespace | fwf; pandas options; zip_member: regex
       time: {col: DATE, format: "%Y%m%d", tz: UTC}      # or cols: [date, hour]; unit: s for epoch numbers
@@ -165,8 +165,10 @@ def validate(src: Source) -> list[str]:
     if row["access_class"] != "open" and not auth and not (src.fetch or {}).get("try_without_key"):
         p.append(f"{src.id}: access_class {row['access_class']!r} needs fetch.auth (an env var) or a manual download")
     if auth is not None:
-        if not ENV_NAME.match(str(auth.get("env", ""))) or set(auth) - {"env", "param", "header"}:
-            p.append(f"{src.id}: fetch.auth must be {{env: NAME, param|header: ...}} with an environment variable NAME")
+        how = [k for k in ("param", "header", "basic") if auth.get(k)]
+        if not ENV_NAME.match(str(auth.get("env", ""))) or set(auth) - {"env", "param", "header", "basic"} or len(how) != 1:
+            p.append(f"{src.id}: fetch.auth must be {{env: NAME, param: ... | header: ... | basic: true}} with an environment "
+                     f"variable NAME")
     for path, k, v in _walk(dict(index=src.index, fetch=src.fetch, read=src.read, exclude=src.exclude)):
         if SECRET_KEY.search(str(k)) and isinstance(v, str) and path not in (".fetch.auth.param", ".fetch.auth.header"):
             p.append(f"{src.id}: {path} looks like a secret; secrets live in environment variables only")

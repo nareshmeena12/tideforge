@@ -5,7 +5,8 @@
 - Files go to <raw>/<slug>/files/<name>; a download is written to <name>.part and renamed when complete, so a rerun skips
   finished files and redoes partial ones. Every file gets a row in <raw>/<slug>/fetch_log.jsonl (url, file, bytes, sha256,
   status, time). A 404 is logged and skipped (a station-year that does not exist), other errors are retried, then raised.
-- Auth: fetch.auth = {env: NAME, param: p} or {env: NAME, header: h}; the value is read from the environment at request
+- Auth: fetch.auth = {env: NAME, param: p}, {env: NAME, header: h} or {env: NAME, basic: true} (HTTP basic auth with the
+  value as the user name and an empty password, e.g. USDA MyMarketNews); the value is read from the environment at request
   time and never written to the log, a file name or an error message (URLs are logged with the parameter redacted).
 - probe(): the first bytes of the index and of the first file only, for checking a source's layout before a full fetch.
 """
@@ -78,6 +79,9 @@ def _with_auth(url: str, headers: dict, auth: dict | None) -> tuple[str, dict]:
     val = os.environ.get(auth["env"])
     if not val:
         raise RuntimeError(f"environment variable {auth['env']} is not set")
+    if auth.get("basic"):
+        import base64
+        return url, dict(headers, Authorization="Basic " + base64.b64encode(f"{val}:".encode()).decode())
     if "header" in auth:
         return url, dict(headers, **{auth["header"]: val})
     p = urllib.parse.urlparse(url)

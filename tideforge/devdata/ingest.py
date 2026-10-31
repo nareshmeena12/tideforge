@@ -4,6 +4,10 @@
     python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw   [--max-files N]
     python -m tideforge.devdata.ingest ingest --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
     python -m tideforge.devdata.ingest status --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
+    python -m tideforge.devdata.ingest register --ids D230 --raw RAW     # log hand-placed files (fetch.manual sources)
+    python -m tideforge.devdata.ingest verify   --ids D230 --raw RAW     # every logged file is there with its sha256
+Files fetched or placed on another machine (e.g. the owner's PC for sources NERSC cannot reach) are uploaded as the whole
+<raw>/<slug>/ folder (files/ + fetch_log.jsonl), unchanged; `verify` on Perlmutter then checks every sha256 of the log.
 
 Selection: at most max_series (500) series per dataset, a frozen sample: series ranked by sha256("<dataset id>/<series id>")
 within strata, the 500 split over strata in proportion to their sizes (largest remainder). With an index, max_series x
@@ -105,6 +109,12 @@ def clean(s: pd.Series, need: int) -> tuple[pd.Series | None, str]:
 
 
 # ---------------------------------------------------------------------------------------------------- one source
+def _log_rows(log: Path) -> list[dict]:
+    if not log.exists():
+        return []
+    return [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
 class Run:
     def __init__(self, src: Source, raw: Path, out: Path | None = None, say=print):
         self.src, self.say = src, say
@@ -142,6 +152,37 @@ class Run:
         urls = self.urls(True)
         self.say(f"{self.src.id} {self.src.slug}: {len(urls)} files")
         return F.fetch_all(urls, self.dir / "files", self.src.fetch, self.log, max_files, say=self.say)
+
+    def register(self) -> list[dict]:
+        """fetch_log rows for files placed in <raw>/<slug>/files/ by hand (manual sources): url manual:<name>, bytes, sha256."""
+        done = {r.get("file") for r in _log_rows(self.log)}
+        rows = []
+        for p in sorted((self.dir / "files").glob("*")):
+            if p.is_file() and p.name not in done and not p.name.endswith(".part"):
+                rows.append({"url": f"manual:{p.name}", "file": p.name, "bytes": p.stat().st_size, "sha256": sha256_file(p),
+                             "status": "ok", "time": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")})
+        self.log.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.log, "a", encoding="utf-8", newline="\n") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+        self.say(f"{self.src.id} {self.src.slug}: registered {len(rows)} hand-placed file(s); {len(done)} already in the log")
+        return rows
+
+    def verify(self) -> int:
+        """0 if every file with a sha256 in the log exists with that sha256; 1 otherwise (printed)."""
+        bad, n = [], 0
+        for r in _log_rows(self.log):
+            if not r.get("sha256"):
+                continue
+            n += 1
+            p = self.dir / "files" / r["file"]
+            if not p.exists():
+                bad.append(f"missing {r['file']}")
+            elif sha256_file(p) != r["sha256"]:
+                bad.append(f"sha256 differs: {r['file']}")
+        self.say(f"{self.src.id} {self.src.slug}: {n} logged files, " + ("all match" if not bad else f"{len(bad)} problems: "
+                                                                          + "; ".join(bad[:10])))
+        return 1 if bad else 0
 
     def files(self) -> list[tuple[Path, dict]]:
         if self.src.fetch.get("manual"):          # files put in <raw>/<slug>/files/ by hand (browser-only sources)
@@ -223,7 +264,7 @@ def sha256_file(p: Path) -> str:
 # ---------------------------------------------------------------------------------------------------- CLI
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["probe", "fetch", "ingest", "status", "validate"])
+    ap.add_argument("cmd", choices=["probe", "fetch", "ingest", "status", "validate", "register", "verify"])
     ap.add_argument("--ids", default="batch1")
     ap.add_argument("--raw")
     ap.add_argument("--out")
@@ -255,6 +296,10 @@ def main(argv=None) -> int:
                     print(f"first file: {type(e).__name__}: {e}")
             elif a.cmd == "fetch":
                 Run(src, Path(a.raw)).fetch(a.max_files)
+            elif a.cmd == "register":
+                Run(src, Path(a.raw)).register()
+            elif a.cmd == "verify":
+                rc |= Run(src, Path(a.raw)).verify()
             elif a.cmd == "ingest":
                 Run(src, Path(a.raw), Path(a.out)).ingest()
             else:

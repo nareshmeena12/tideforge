@@ -194,3 +194,43 @@ def test_fetch_and_ingest_end_to_end(tmp_path, horizons):
     assert meta["tasks"]["h"]["dropped"]["short"] == 1 and meta["tasks"]["h"]["dropped"]["constant"] == 1
     assert meta["tasks"]["D"]["n_series"] == 0 and meta["tasks"]["D"]["dropped"]["short"] == 12    # 30 days < 3*30+64
     assert all(r["sha256"] for r in meta["raw_files"]) and meta["dataset_id"] == "D057"
+
+
+def test_basic_auth_header_and_schema(monkeypatch):
+    import base64
+    monkeypatch.setenv("TF_TEST_KEY", "k123")
+    url, h = F._with_auth("https://x.org/a?b=1", {}, {"env": "TF_TEST_KEY", "basic": True})
+    assert url == "https://x.org/a?b=1" and h["Authorization"] == "Basic " + base64.b64encode(b"k123:").decode()
+    srcs, _ = schema.load_sources()
+    s = srcs["D376"]
+    assert s.fetch["auth"] == {"env": "USDA_MARS_KEY", "basic": True} and not schema.validate(s)
+    import dataclasses
+    bad = dataclasses.replace(s, fetch=dict(s.fetch, auth={"env": "X", "basic": True, "header": "H"}))   # two ways at once
+    assert any("fetch.auth" in m for m in schema.validate(bad))
+
+
+def test_tar_gz_members(tmp_path):
+    import tarfile
+    csv = b"t,v\n2024-01-01,1\n2024-01-02,2\n"
+    src = tmp_path / "q.csv"
+    src.write_bytes(csv)
+    tgz = tmp_path / "prezzo_2024Q1.tar.gz"
+    with tarfile.open(tgz, "w:gz") as t:
+        t.add(src, arcname="prezzo/q.csv")
+        t.add(src, arcname="prezzo/readme.md")
+    frames = list(tabular._frames(tgz, {"format": "csv"}))
+    assert len(frames) == 1 and frames[0]["v"].tolist() == [1, 2]
+
+
+def test_register_and_verify_manual_files(tmp_path):
+    srcs, _ = schema.load_sources()
+    run = ingest.Run(srcs["D230"], tmp_path, say=lambda *a: None)
+    d = tmp_path / srcs["D230"].slug / "files"
+    d.mkdir(parents=True)
+    (d / "prezzo_2024Q1.tar.gz").write_bytes(b"abc")
+    (d / "x.part").write_bytes(b"partial")
+    rows = run.register()
+    assert [r["file"] for r in rows] == ["prezzo_2024Q1.tar.gz"] and rows[0]["url"] == "manual:prezzo_2024Q1.tar.gz"
+    assert run.register() == [] and run.verify() == 0              # registering twice adds nothing
+    (d / "prezzo_2024Q1.tar.gz").write_bytes(b"abd")
+    assert run.verify() == 1
