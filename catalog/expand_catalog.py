@@ -342,9 +342,18 @@ DEV = {"bench": "diagnosis-only (do not select on it)", "likely_time": "diagnosi
        "mixed": "keep, but drop the listed benchmark sub-series", "pool": "already in real post-training pool, not dev",
        "clean?": "yes, after audit", "derived": "not counted (duplicate/derived/simulated)", "n/a": "covariate source, not a series"}
 
+# Hand fixes of v1 rows (catalog/CHANGELOG.md 2026-10-27), ported into the builder 2026-10-31 so a rebuild keeps them
+HAND_FIXES = {
+    'D026': {'url': 'https://www.ucd.ie/issda/data/commissionforenergyregulationcer', 'url_verified': 'no', 'notes': 'Listed in a smart-meter data review; access needs an application'},
+    'D027': {'url': 'https://dataport.pecanstreet.org/', 'url_verified': 'yes', 'notes': 'Registration; counted size = the free University Access tier (75 homes); full data is paid'},
+    'D028': {'url': 'https://traces.cs.umass.edu/docs/traces/smartstar', 'url_verified': 'yes', 'notes': 'Counted: the one linked file (443 homes, one 24-hour period; 1-min resolution assumed). The minute-level 400+ home data is not linked (checked 2026-10-27)'},
+    'D029': {'url': 'https://www.ausgrid.com.au/Industry/Our-Research/Data-to-share/Solar-home-electricity-data', 'url_verified': 'no', 'notes': 'Listed in smart-meter review; URL on ausgrid.com.au to confirm'},
+}
+
 kept, excluded = [], []
 for x in rows:
     i = x["id"]
+    x.update(HAND_FIXES.get(i, {}))
     if i in RESTORE:
         x["overlap"], note = RESTORE[i]; x["notes"] = note
     if x["overlap"] in ("bench", "likely_time") or i in NEW_DROPS:

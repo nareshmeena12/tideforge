@@ -3,6 +3,14 @@
 Every hand change to the catalog files, newest first. The generators (build_catalog.py, expand_catalog.py) are changed in
 the same commit so that a rebuild keeps the change.
 
+## 2026-10-31
+
+- expand_catalog.py: the 2026-10-27 hand fixes of D026-D029 (url, url_verified, notes) are now in the generator
+  (HAND_FIXES), so a rebuild reproduces dataset_catalog_v2.csv exactly; tests/test_catalog_builder.py checks that the
+  builder's three outputs equal the committed files.
+- horizons_extra.csv: frequency `index` (season 1; short / medium / long = 10 / 25 / 50 steps; owner 2026-10-31) for series
+  without calendar time (D279, D202, D110).
+
 ## 2026-10-29
 
 - D401 NESO historic demand data (GB), D402 ANAC Voo Regular Ativo (BR), D403 CEA state power supply position (IN, standby):
