@@ -187,8 +187,8 @@ split groups and aggregator rules apply (e.g. D374 sits with D375 FPMA; D202 wit
   TIME OpenElectricity_NEM); BR D217 ONS (batch 1, tuning) and D402 ANAC VRA daily flights (new, tuning; licence of the
   dados.gov.br record to confirm). D004 Elexon is the same GB demand as D401, not a fallback.
 - New catalog rows D401-D403 (catalog/CHANGELOG.md); D001 / D002 (OPSD / ENTSO-E) drop GB for D401.
-- Blocked before ingest: D279, D202, D110 have no calendar time (index, engine cycle, time since inoculation); they need an
-  index frequency with season 1 (owner decision).
+- Index time (owner 2026-10-31): D279, D202, D110 have no calendar time (index, engine cycle, time since inoculation); they
+  use frequency `index`: season 1, horizons 10 / 25 / 50 steps, the same >= 3 x history rule (catalog/horizons_extra.csv).
 - Covariate tasks: 20 new (25 in total). Three approved weather joins are calendar-only for now (Grid-India regions, ONS
   Brazil subsystems, Korean EV: point_weather takes one point; per-series points after the probe), and three tasks were
   replaced (theme parks -> Treasury DTS calendar, beehive -> SF Fire weather, Eurocontrol -> STATS19 calendar; Olist ->

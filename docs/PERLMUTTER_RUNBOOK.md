@@ -162,7 +162,7 @@ python -m tideforge.devdata.ingest probe --ids batch2,batch2_standby > $TF_ROOT/
 python -m tideforge.devdata.ingest fetch  --ids batch2 --raw $TF_DATA/raw
 python -m tideforge.devdata.ingest ingest --ids batch2 --raw $TF_DATA/raw --out $TF_DATA/staging
 ```
-- **Before ingest, owner decision:** D279, D202 and D110 need an index frequency (season 1), or they stay out.
+- D279, D202 and D110 use the `index` frequency (owner 2026-10-31): season 1, horizons 10 / 25 / 50.
 
 **F3. Covariate tasks** (login, ~1-2 h; needs F1 and F2b, and the census files for EIA)
 ```

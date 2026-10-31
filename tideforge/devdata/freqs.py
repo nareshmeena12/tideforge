@@ -7,6 +7,11 @@ TIME's datasets (ties: the smaller), with the source noted. catalog/horizons_ext
 source) holds tideforge's own convention for the frequencies where TIME's rows are not used (D, from one dataset only) or
 missing (W, M, Q, B, Y); its rows replace TIME's for those frequencies. A term is used for a series only if the series has
 >= 3 x that horizon of history.
+
+Index time (owner 2026-10-31): series without calendar time (D279 Santa Fe, D202 C-MAPSS engine cycles, D110 growth curves)
+use the frequency key "index": season 1, horizons 10 / 25 / 50 steps (horizons_extra.csv), the same >= 3 x rule. They are
+stored on a synthetic clock, step i at 1970-01-01 + i seconds (INDEX_ORIGIN, INDEX_STEP); ingest resamples them by that
+step, and nothing reads calendar features from them.
 """
 from __future__ import annotations
 
@@ -20,10 +25,26 @@ from tideforge.devdata.catalog import CAT
 TIME_HORIZONS = CAT / "time_horizons.csv"
 HORIZONS_EXTRA = CAT / "horizons_extra.csv"
 TERMS = ("short", "medium", "long")
+INDEX = "index"
+INDEX_ORIGIN = pd.Timestamp("1970-01-01")
+INDEX_STEP = "s"
+
+
+def index_timestamps(n: int) -> pd.DatetimeIndex:
+    """The synthetic clock of an index-time series of n steps."""
+    return pd.date_range(INDEX_ORIGIN, periods=n, freq=INDEX_STEP)
+
+
+def resample_rule(freq: str) -> str:
+    """The pandas rule ingest resamples with: the frequency itself, or the synthetic step for index time."""
+    return INDEX_STEP if canonical(freq) == INDEX else freq
 
 
 def canonical(freq: str) -> str:
-    """'H' / 'h' / '60min' -> 'h'; '15T' -> '15min'; 'W-SUN' -> 'W'; 'MS' / 'ME' / 'M' -> 'M'; 'QS-DEC' -> 'Q'; 'A' -> 'Y'."""
+    """'H' / 'h' / '60min' -> 'h'; '15T' -> '15min'; 'W-SUN' -> 'W'; 'MS' / 'ME' / 'M' -> 'M'; 'QS-DEC' -> 'Q'; 'A' -> 'Y';
+    'index' -> 'index' (no calendar time)."""
+    if str(freq).lower() == INDEX:
+        return INDEX
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
         off = pd.tseries.frequencies.to_offset(freq)
@@ -54,6 +75,8 @@ def canonical(freq: str) -> str:
 
 
 def seasonality(freq: str) -> int:
+    if canonical(freq) == INDEX:
+        return 1
     from gluonts.time_feature import get_seasonality
     return int(get_seasonality(freq))
 

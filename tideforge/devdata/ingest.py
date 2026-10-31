@@ -76,6 +76,8 @@ def select(df: pd.DataFrame, dataset_id: str, n: int, strata: list[str], col: st
 
 # ---------------------------------------------------------------------------------------------------- per series
 def regularise(g: pd.DataFrame, freq: str, how: str, events: bool) -> pd.Series:
+    from tideforge.devdata.freqs import resample_rule
+    freq = resample_rule(freq)                                   # index time: the synthetic 1-s step
     s = g.set_index("timestamp")["value"].sort_index()
     if events:
         r = s.resample(freq).sum(min_count=0) if how != "count" else s.resample(freq).count()

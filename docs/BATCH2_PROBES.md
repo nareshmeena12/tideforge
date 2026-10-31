@@ -9,8 +9,8 @@ then paste the file back. Every entry starts on the pending adapter: its loader 
 from the probe output, and a source whose probe shows a licence or access problem is dropped and logged. Before
 ingest, the licences marked **read** below are recorded in the entry's notes.
 
-Blocked before ingest (owner decision needed): D279 Santa Fe, D202 C-MAPSS, D110 muGrowthDB have no calendar time;
-the scorer takes the MASE season from the frequency, so they need an index frequency with season 1.
+Index time (owner 2026-10-31): D279 Santa Fe, D202 C-MAPSS, D110 muGrowthDB have no calendar time and use frequency
+`index` (season 1, horizons 10 / 25 / 50 steps; their adapters write step i at 1970-01-01 + i s).
 
 | Id | Slug | Ctry | Domain | Role | Licence | What the probe must show |
 |---|---|---|---|---|---|---|

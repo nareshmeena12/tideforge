@@ -452,10 +452,10 @@ D279:
   loader: adapter:pending
   fetch:
     urls: ["http://www-psych.stanford.edu/~andreas/Time-Series/SantaFe.html"]
-  tasks: [{freq: h, how: mean}]
+  tasks: [{freq: index, how: mean}]
   select: {max_series: 500}
   confirm: ["the data file links (A laser, B sleep, C currency, D synthetic, E astrophysical, F Bach)"]
-  notes: "BLOCKED before ingest: the series have no calendar time (index only); the scorer takes the MASE season from the frequency (gluonts), so these need an index frequency with season 1 (owner decision). The h task is a placeholder."
+  notes: "Index time (owner 2026-10-31: freq index, season 1, horizons 10 / 25 / 50): the adapter writes step i at 1970-01-01 + i s (tideforge.devdata.freqs.index_timestamps)."
 
 D210:
   slug: india_ogd
@@ -692,11 +692,11 @@ D110:
   loader: adapter:pending
   fetch:
     urls: ["https://mgrowthdb.gbiomed.kuleuven.be/help/"]
-  tasks: [{freq: h, how: mean}]
+  tasks: [{freq: index, how: mean}]
   select: {max_series: 500}
   confirm: ["the bulk export route",
             "time units (minutes / hours since inoculation: no calendar)"]
-  notes: "Licence read 2026-10-29: the site says all data is publicly available to everyone; no licence is named (the docs carry a copyright line only). Usable for research evaluation; ask the maintainers before any redistribution. Same calendar problem as D279 (time since inoculation): BLOCKED until an index frequency exists."
+  notes: "Licence read 2026-10-29: the site says all data is publicly available to everyone; no licence is named (the docs carry a copyright line only). Usable for research evaluation; ask the maintainers before any redistribution. Index time (owner 2026-10-31): step = one measurement interval since inoculation (the adapter checks the spacing is regular per curve)."
 
 D289:
   slug: biodare2
@@ -847,10 +847,10 @@ D202:
   loader: adapter:pending
   fetch:
     urls: ["https://data.nasa.gov/download/ff5v-kuh6/application%2Fzip"]
-  tasks: [{freq: h, how: mean}]
+  tasks: [{freq: index, how: mean}]
   select: {max_series: 500}
   confirm: ["the zip (train_FD00x.txt: unit, cycle, 3 settings, 21 sensors)"]
-  notes: "NASA open. BLOCKED before ingest like D279: time is the engine cycle (no calendar). Split group with N-CMAPSS."
+  notes: "NASA open. Index time (owner 2026-10-31): step = engine cycle, written at 1970-01-01 + cycle s. Split group with N-CMAPSS."
 
 D391:
   slug: petrobras_3w
