@@ -427,3 +427,21 @@ def test_garch_tails_clustering_leverage():
     assert np.median(kurt) > 3 and np.median(ac) > 0 and np.median(lev) < 0
     out, price = F.to_output(gen(11), torch.as_tensor(r[:, :512], dtype=torch.float32), torch.device("cpu"))
     assert bool((out[price.view(-1)] > 0).all())
+
+
+def test_pool_is_loaded_and_hashed_once_per_process(tiny_pool, monkeypatch):
+    """Every batch and every configure() reuses one memmap; the content hash runs once per file."""
+    _pool._CACHE.clear()
+    calls = []
+    real = _pool.content
+    monkeypatch.setattr(_pool, "content", lambda p: calls.append(p) or real(p))
+    a = _pool.load(tiny_pool["pool"], tiny_pool["pool_dir"], tiny_pool["manifest_dir"])
+    b = _pool.load(tiny_pool["pool"], tiny_pool["pool_dir"], tiny_pool["manifest_dir"])
+    assert a is b and len(calls) == 2 and isinstance(a["traj"], np.memmap)
+
+
+def test_manifest_lands_next_to_the_pool(tmp_path):
+    t, m = np.zeros((2, 8, 3)), np.zeros((2, 4))
+    _pool.write(tmp_path, "p", t, m, {})
+    assert (tmp_path / "p" / "manifest.json").exists()
+    assert json.loads((REPO / "tideforge/gen/ext/pools/ode_v1.json").read_text())["shape"] == [20480, 16384, 3]

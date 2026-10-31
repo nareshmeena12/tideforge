@@ -1,11 +1,11 @@
 """G9.1: build the ODE trajectory pool offline (scipy solve_ivp, LSODA). Run once on Perlmutter; commit only the manifest.
 
     python tools/build_ode_pool.py --out $TF_DATA/pools [--name ode_v1] [--per-system 4096] [--T 16384] [--seed 0]
-                                   [--workers 64]
+                                   [--workers N]     # default: every CPU of the allocation
     python tools/build_ode_pool.py --out DIR --manifest-dir DIR --per-system 4 --T 512      # tiny pool (tests)
 
-Writes <out>/<name>/traj.npy (float16, N x T x 3) and meta.npy, and the manifest tideforge/gen/ext/pools/<name>.json (sha256 of
-both files, scipy / numpy versions, seed, arguments). Each trajectory has its own seed (numpy SeedSequence of (seed, system,
+Writes <out>/<name>/traj.npy (float16, N x T x 3), meta.npy and manifest.json (commit that as tideforge/gen/ext/pools/<name>.json;
+sha256 of both files, scipy / numpy versions, seed, arguments). Each trajectory has its own seed (numpy SeedSequence of (seed, system,
 index)), so the result does not depend on the number of workers; a failed or non-finite solve redraws its parameters from
 the next sub-seed. Channels are standardised per trajectory (mean / sd kept in meta) before the float16 cast.
 
@@ -108,14 +108,15 @@ def one(args):
 
 def main(argv=None) -> int:
     import scipy
+    from tideforge.gen.ext import _pool
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--name", default="ode_v1")
     ap.add_argument("--per-system", type=int, default=4096)
     ap.add_argument("--T", type=int, default=16384)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--workers", type=int, default=1)
-    ap.add_argument("--manifest-dir", default=str(REPO / "tideforge" / "gen" / "ext" / "pools"))
+    ap.add_argument("--workers", type=int, default=_pool.cpu_count())
+    ap.add_argument("--manifest-dir", default=None, help="default: next to the pool")
     a = ap.parse_args(argv)
     jobs = [(a.seed, s, i, a.T) for s in range(len(SYSTEMS)) for i in range(a.per_system)]
     traj = np.zeros((len(jobs), a.T, 3), np.float16)
@@ -129,12 +130,11 @@ def main(argv=None) -> int:
         for k, j in enumerate(jobs):
             traj[k], meta[k] = one(j)
     sys.path[:0] = [str(REPO)]
-    from tideforge.gen.ext import _pool
     info = dict(builder=f"python tools/build_ode_pool.py --out $TF_DATA/pools --name {a.name} --per-system {a.per_system} "
                         f"--T {a.T} --seed {a.seed}", seed=a.seed, systems=list(SYSTEMS), per_system=a.per_system,
                 versions=dict(scipy=scipy.__version__, numpy=np.__version__, python=sys.version.split()[0]),
                 meta_columns="system, channels, dt, mean x3, sd x3, params x6")
-    man = _pool.write(Path(a.out), a.name, traj, meta, info, Path(a.manifest_dir))
+    man = _pool.write(Path(a.out), a.name, traj, meta, info, a.manifest_dir)
     print(json.dumps(man, indent=1))
     return 0
 

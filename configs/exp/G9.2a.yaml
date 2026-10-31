@@ -1,6 +1,6 @@
 id: G9.2a
 base: b0
 switches:
-  tar: {share: 0.03, mode: add}
+  tar: {share: 0.03, mode: add, pool: tar_v1}
 seeds: [0]
-notes: tar family (TAR / LSTAR / ESTAR) added at 3% of rows. Rule 6 add arm. pool "" = the online loop.
+notes: tar family (TAR / LSTAR / ESTAR) added at 3% of rows. Rule 6 add arm.

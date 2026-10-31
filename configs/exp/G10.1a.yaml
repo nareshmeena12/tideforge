@@ -1,6 +1,6 @@
 id: G10.1a
 base: b0
 switches:
-  garch_jump: {share: 0.04, mode: add}
+  garch_jump: {share: 0.04, mode: add, pool: garch_jump_v1}
 seeds: [0]
 notes: garch_jump family (GJR-GARCH + jumps; 60% prices, 40% returns) added at 4% of rows. Rule 6 add arm.

@@ -1,0 +1,32 @@
+{
+ "builder": "python tools/build_ode_pool.py --out $TF_DATA/pools --name ode_v1 --per-system 4096 --T 16384 --seed 0",
+ "content": {
+  "meta.npy": "616c53b7fabbc90ff30f1f284658c27ce815e72858a26931403b390d5f7afbb7",
+  "traj.npy": "9ab4ec0240c1a3a364d822e4f292d3c6c822e442e1f02ed4b769f528dcd07898"
+ },
+ "files": {
+  "meta.npy": "855d0bc0ba1f84859ce029b32e6be2412194ef977c263c5eff3bd30b5b68b941",
+  "traj.npy": "58975a56e655ff502d99a3aafa03898e865e73b685e01771e942264b925a6fef"
+ },
+ "meta_columns": "system, channels, dt, mean x3, sd x3, params x6",
+ "name": "ode_v1",
+ "per_system": 4096,
+ "seed": 0,
+ "shape": [
+  20480,
+  16384,
+  3
+ ],
+ "systems": [
+  "lotka_volterra",
+  "forced_sir",
+  "van_der_pol",
+  "duffing",
+  "lorenz"
+ ],
+ "versions": {
+  "numpy": "2.4.4",
+  "python": "3.12.13",
+  "scipy": "1.18.0"
+ }
+}

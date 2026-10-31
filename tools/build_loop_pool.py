@@ -6,7 +6,7 @@ the loop above 10% of B0's generator time at the family's share (owner 2026-10-2
     python tools/build_loop_pool.py --family garch_jump --out $TF_DATA/pools [--name garch_jump_v1] [--n 65536] [--T 16384]
         [--device cuda] [--seed 0] [--chunk 8192]
 
-Writes <out>/<name>/traj.npy (float16, n x T x 1) and meta.npy, and the manifest tideforge/gen/ext/pools/<name>.json. tar
+Writes <out>/<name>/traj.npy (float16, n x T x 1) and meta.npy, and manifest.json (commit it as tideforge/gen/ext/pools/<name>.json). tar
 rows are standardised per row (generation rescales them); garch_jump rows are returns in sd units (generation turns them into
 prices or returns). Chunk k is drawn from its own torch generator seeded (seed, k), so the pool depends on the device and
 torch version (recorded), not on anything else. Size: n T 2 bytes (65536 x 16384: 2.1 GB).
@@ -39,8 +39,10 @@ def main(argv=None) -> int:
     ap.add_argument("--chunk", type=int, default=8192)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--manifest-dir", default=str(REPO / "tideforge" / "gen" / "ext" / "pools"))
+    ap.add_argument("--workers", type=int, default=_pool.cpu_count(), help="CPU threads (the loops are vectorised, one process)")
+    ap.add_argument("--manifest-dir", default=None, help="default: next to the pool")
     a = ap.parse_args(argv)
+    torch.set_num_threads(a.workers)
     name = a.name or f"{a.family}_v1"
     dev = torch.device(a.device)
     traj = np.zeros((a.n, a.T, 1), np.float16)
@@ -64,7 +66,7 @@ def main(argv=None) -> int:
                 seed=a.seed, family=a.family, device=str(dev),
                 versions=dict(torch=torch.__version__, numpy=np.__version__, python=sys.version.split()[0]),
                 meta_columns="tar: regimes, form; garch_jump: nu, lambda")
-    print(json.dumps(_pool.write(Path(a.out), name, traj, meta, info, Path(a.manifest_dir)), indent=1))
+    print(json.dumps(_pool.write(Path(a.out), name, traj, meta, info, a.manifest_dir), indent=1))
     return 0
 
 

@@ -1,7 +1,7 @@
 id: G9.2b
 base: b0
 switches:
-  tar: {share: 0.03, mode: "replace:regime_switch+nonlinear_ar"}
+  tar: {share: 0.03, mode: "replace:regime_switch+nonlinear_ar", pool: tar_v1}
 seeds: [0]
 notes: >-
   tar takes all of regime_switch + nonlinear_ar (1.90% of rows; less than the add arm 3%). Rule 6 replace arm. Shares

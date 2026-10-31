@@ -43,8 +43,15 @@ def default_dir() -> Path:
     return Path(d) / "pools"
 
 
-def write(out_dir: Path, name: str, traj: np.ndarray, meta: np.ndarray, info: dict, manifest_dir: Path) -> dict:
-    """Save a pool and write its manifest (builders only)."""
+def cpu_count() -> int:
+    """CPUs this process may use (the Slurm allocation, not the node's total, where the OS tells)."""
+    return len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+
+
+def write(out_dir: Path, name: str, traj: np.ndarray, meta: np.ndarray, info: dict, manifest_dir: Path | None = None) -> dict:
+    """Save a pool and write its manifest (builders only): next to the pool as <out>/<name>/manifest.json by default, so a
+    build never dirties the checkout (real runs refuse a dirty tree); commit it as tideforge/gen/ext/pools/<name>.json.
+    manifest_dir: write <manifest_dir>/<name>.json instead (tests)."""
     d = Path(out_dir) / name
     d.mkdir(parents=True, exist_ok=True)
     np.save(d / "traj.npy", traj.astype(np.float16))
@@ -52,8 +59,10 @@ def write(out_dir: Path, name: str, traj: np.ndarray, meta: np.ndarray, info: di
     fs = ("traj.npy", "meta.npy")
     man = dict(name=name, content={f: content(d / f) for f in fs}, files={f: sha256(d / f) for f in fs},
                shape=list(traj.shape), **info)
-    Path(manifest_dir).mkdir(parents=True, exist_ok=True)
-    (Path(manifest_dir) / f"{name}.json").write_text(json.dumps(man, indent=1, sort_keys=True) + "\n", newline="\n")
+    mf = Path(manifest_dir) / f"{name}.json" if manifest_dir else d / "manifest.json"
+    mf.parent.mkdir(parents=True, exist_ok=True)
+    mf.write_text(json.dumps(man, indent=1, sort_keys=True) + "\n", newline="\n")
+    print(f"manifest: {mf} (commit it as tideforge/gen/ext/pools/{name}.json)", flush=True)
     return man
 
 
