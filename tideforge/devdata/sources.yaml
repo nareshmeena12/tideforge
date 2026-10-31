@@ -20,8 +20,8 @@ D053:
     read: {format: fwf, header: null, colspecs: [[0, 11], [12, 20], [21, 30], [31, 35], [36, 40], [41, 45]],
            names: [station, lat, lon, element, first, last]}
     filter: {element: [TMAX]}
-    where: "first <= 1995 and last >= 2025 and not station.str.startswith('SN')"
-    derive: {country: "station.str[:2]"}
+    where: {first: {le: 1995}, last: {ge: 2025}, station: {not_startswith: [SN]}}
+    derive: {country: {prefix: [station, 2]}}
     id: station
     strata: [country]
   fetch:
@@ -38,8 +38,8 @@ D053:
   missing: [-9999]
   scale: 0.1
   tasks: [{freq: D, how: mean}]
-  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "station.str[:2]"}}
-  exclude: {where: "not station.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather, data.gov.sg)"}
+  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: {prefix: [station, 2]}}}
+  exclude: {where: {station: {not_startswith: [SN]}}, rule: "no Singapore stations (TIME SG_Weather, data.gov.sg)"}
   confirm: ["inventory column positions", "by_station CSV columns and units (tenths of degC / mm)"]
 
 D054:
@@ -49,8 +49,8 @@ D054:
     url: https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh-station-list.csv
     read: {format: csv}
     id: GHCN_ID
-    where: "not GHCN_ID.str.startswith('SN')"
-    derive: {country: "GHCN_ID.str[:2]"}
+    where: {GHCN_ID: {not_startswith: [SN]}}
+    derive: {country: {prefix: [GHCN_ID, 2]}}
     strata: [country]
   fetch:
     url_template: https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/by-station/GHCNh_{series}_por.psv
@@ -62,8 +62,8 @@ D054:
   id: [STATION]
   value: [temperature, dew_point_temperature]
   tasks: [{freq: h, how: mean}]
-  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: "STATION.str[:2]"}}
-  exclude: {where: "not STATION.str.startswith('SN')", rule: "no Singapore stations (TIME SG_Weather)"}
+  select: {max_series: 500, strata: [country], index_max: 220, derive: {country: {prefix: [STATION, 2]}}}
+  exclude: {where: {STATION: {not_startswith: [SN]}}, rule: "no Singapore stations (TIME SG_Weather)"}
   tz: UTC
   confirm: ["the pressure / wind column names (probe 2 showed temperature and dew_point_temperature; later names were cut)"]
   notes: "probe 2026-10-27: columns STATION, DATE (ISO), Year..Minute, temperature (degC); NYC's first record is 05:00 =
@@ -76,7 +76,7 @@ D057:
     url: https://www.ndbc.noaa.gov/data/stations/station_table.txt
     read: {format: csv, sep: "|", comment: "#", header: null, names: [station, owner, ttype, hull, name, payload, location, tz, forecast, note]}
     id: station
-    derive: {owner: "owner.str.strip()"}
+    derive: {owner: {strip: owner}}
     strata: [owner]
   fetch:
     url_template: https://www.ndbc.noaa.gov/data/historical/stdmet/{series}h{year}.txt.gz
@@ -123,7 +123,7 @@ D074:
                    nm, ny, nc, nd, oh, ok, or, pa, ri, sc, sd, tn, tx, ut, vt, va, wa, wv, wi, wy]}
     read: {format: csv, sep: "\t", comment: "#", dtype: str, drop_first_rows: 1}
     id: site_no
-    derive: {state: "_var_state"}
+    derive: {state: {copy: _var_state}}
     strata: [state]
   fetch:
     url_template: "https://waterservices.usgs.gov/nwis/dv/?format=rdb&sites={series}&parameterCd=00060&statCd=00003&startDT=1990-01-01"
@@ -169,7 +169,7 @@ D003:
   value: Demand (MW)
   tasks: [{freq: h, how: mean}]
   select: {max_series: 500}
-  exclude: {where: "`Balancing Authority` != 'ERCO'", rule: "drop ERCOT: fev has ercot tasks (D008 is excluded for the same reason)"}
+  exclude: {where: {Balancing Authority: {ne: ERCO}}, rule: "drop ERCOT: fev has ercot tasks (D008 is excluded for the same reason)"}
   confirm: ["the bulk six-month files need no API key (else auth: {env: EIA_API_KEY, param: api_key} and the API route)",
             "column names and the UTC time format"]
 
@@ -343,8 +343,8 @@ D138:
     headers: {User-Agent: "tideforge-research/0.1 (time-series dev set; contact: repository owner)"}
     read: {format: json, record_path: [items, 0, articles]}
     id: article
-    derive: {project: "_var_project"}
-    where: "not article.str.contains(':') and article != 'Main_Page'"
+    derive: {project: {copy: _var_project}}
+    where: {article: {not_contains: ":", ne: Main_Page}}
   fetch:
     url_template: https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/{project}/all-access/user/{series}/daily/20230101/20260930
     vars: {series: index, project: [en.wikipedia]}
@@ -525,7 +525,7 @@ D170:
     urls: ["https://s3-ap-northeast-1.amazonaws.com/data.binance.vision?prefix=data/spot/monthly/klines/&delimiter=/"]
   tasks: [{freq: h, how: last}]
   select: {max_series: 500}
-  exclude: {where: "not symbol.str.match(r'^(BTC|ETH|LTC|BCH)')", rule: "TIME Crypto = FRED BTC / ETH / LTC / BCH: every pair whose base asset is one of them is dropped"}
+  exclude: {where: {symbol: {not_match: "(BTC|ETH|LTC|BCH)"}}, rule: "TIME Crypto = FRED BTC / ETH / LTC / BCH: every pair whose base asset is one of them is dropped"}
   confirm: ["the S3 listing (https://s3-ap-northeast-1.amazonaws.com/data.binance.vision?prefix=data/spot/monthly/klines/)",
             "kline CSV columns (open time ms, open, high, low, close, volume, ...)"]
   notes: "Binance public data, free. Hourly close per pair."
@@ -705,7 +705,7 @@ D334:
   id: [materialtype, usageclass]
   value: n
   tasks: [{freq: M, how: sum}]
-  select: {max_series: 500, derive: {day: "checkoutyear * 0 + 1"}}
+  select: {max_series: 500, derive: {day: {const: 1}}}
   confirm: []
   notes: "probe 2026-10-31: the SoQL aggregate works (checkoutyear, checkoutmonth, materialtype, sum). Monthly checkouts per material
           type and usage class (physical / digital), 2005-. Public domain."
@@ -913,7 +913,7 @@ D394:
   id: [plant]
   value: Usage_kWh
   tasks: [{freq: 15min, how: sum}]
-  select: {max_series: 500, derive: {plant: "'daewoo'"}}
+  select: {max_series: 500, derive: {plant: {const: daewoo}}}
   confirm: ["the zip member name and columns (UCI documents date, Usage_kWh, Lagging_Current_Reactive.Power_kVarh, CO2(tCO2),
             ..., WeekStatus, Load_Type)"]
   notes: "probe 2026-10-31: the zip answered 200 (members are listed after the full download). CC BY 4.0. One series (DAEWOO Steel,
@@ -953,8 +953,9 @@ D014:
   confirm: ["Grid-India's terms (automated access) read in a browser", "whether the daily PSP report exists as xls / csv
             (search results show PDFs only)"]
   notes: "probe 2026-10-31: DNS failure from NERSC. Daily PSP reports are PDFs in report.grid-india.in/ReportData/Daily Report/PSP
-          Report/<fiscal year>/<Month YYYY>/<dd.mm.yy>_NLDC_PSP.pdf. A PDF table reader would be a NEW DEPENDENCY (owner
-          decision); without one, D014 is dropped for the standby D403 (CEA monthly, data.gov.in). Held-out IN."
+          Report/<fiscal year>/<Month YYYY>/<dd.mm.yy>_NLDC_PSP.pdf. Owner 2026-10-31: pdfplumber (pinned, `devdata` extra)
+          is approved ONLY if Grid-India's terms allow automated access (owner checks in a browser); otherwise D014 is
+          dropped for the standby D403 (CEA monthly, data.gov.in). Held-out IN."
 
 D373:
   slug: agmarknet

@@ -84,7 +84,7 @@ def test_table_loader_options(tmp_path):
     p.write_bytes(gzip.compress(csv.encode()))
     s = _src(read={"format": "csv", "dtype": {"qflag": str}}, time={"col": "date", "format": "%Y%m%d"}, id=["station", "element"],
              value="value", filter={"element": ["TMAX"], "qflag": [None]}, missing=[-9999], scale=0.1,
-             exclude={"where": "station != 'B2'", "rule": "r"})
+             exclude={"where": {"station": {"ne": "B2"}}, "rule": "r"})
     out = tabular.read_files(s, [(p, {})])
     assert out["series_id"].unique().tolist() == ["A1/TMAX"]
     assert out["value"].tolist()[0] == pytest.approx(10.5) and np.isnan(out["value"].tolist()[1]) and len(out) == 2
@@ -234,3 +234,106 @@ def test_register_and_verify_manual_files(tmp_path):
     assert run.register() == [] and run.verify() == 0              # registering twice adds nothing
     (d / "prezzo_2024Q1.tar.gz").write_bytes(b"abd")
     assert run.verify() == 1
+
+
+def test_ghcn_singapore_exclusion_and_index_filter_without_query_strings(tmp_path):
+    """D053 / D054 as configured: the index keeps stations with first <= 1995, last >= 2025 and no 'SN' prefix; the country
+    is the 2-character FIPS prefix; the data-side exclusion drops Singapore rows (pandas 3: no query / eval strings)."""
+    srcs, _ = schema.load_sources()
+    src = srcs["D053"]
+    idx = pd.DataFrame({"station": ["USW00094728", "SNM00048698", "ASN00066062", "USC00000001"], "lat": 0.0, "lon": 0.0,
+                        "element": "TMAX", "first": [1990, 1980, 1995, 2001], "last": [2026, 2026, 2025, 2026]})
+    keep = tabular.where_mask(idx, src.index["where"])
+    assert idx.loc[keep, "station"].tolist() == ["USW00094728", "ASN00066062"]
+    out = tabular.derive(idx.copy(), src.index["derive"])
+    assert out["country"].tolist() == ["US", "SN", "AS", "US"]
+    rows = pd.DataFrame({"station": ["SNM00048698", "USW00094728"], "date": ["20200101", "20200101"], "element": "TMAX",
+                         "value": [300, 105], "mflag": "", "qflag": None, "sflag": "", "obs_time": ""})
+    f = tmp_path / "x.csv"
+    rows.to_csv(f, header=False, index=False)
+    long = tabular.read_files(src, [(f, {})])
+    assert long["series_id"].unique().tolist() == ["USW00094728/TMAX"]
+    with pytest.raises(KeyError, match="unknown where op"):
+        tabular.where_mask(idx, {"station": {"like": "SN"}})
+    for i in ("D053", "D054", "D057", "D074", "D138", "D003", "D170"):
+        assert not schema.check_where_derive(srcs[i]), i
+
+
+def test_where_ops():
+    df = pd.DataFrame({"a": ["x1", "y2", None], "n": [1, 5, 9]})
+    m = lambda spec: df.index[tabular.where_mask(df, spec)].tolist()     # noqa: E731
+    assert m({"n": {"ge": 5}}) == [1, 2] and m({"n": {"lt": 5}}) == [0] and m({"n": {"in": [1, 9]}}) == [0, 2]
+    assert m({"a": {"startswith": ["x", "y"]}}) == [0, 1] and m({"a": {"not_contains": "2"}}) == [0, 2]
+    assert m({"a": {"match": "y"}, "n": {"ne": 9}}) == [1] and m({"a": {"not_match": "x"}}) == [1, 2]
+
+
+def test_streamed_ingest_equals_reading_everything_at_once(tmp_path, horizons):
+    """Memory-bounded ingest (per series group, part files) gives exactly the output of the old all-at-once algorithm."""
+    raw_src = tmp_path / "remote"
+    raw_src.mkdir()
+    (raw_src / "index.csv").write_text("id,region\n" + "".join(f"S{i},{'N' if i % 3 else 'S'}\n" for i in range(10)))
+    rng = np.random.default_rng(1)
+    t = pd.date_range("2024-01-01", periods=24 * 20, freq="h")
+    for i in range(10):
+        n = len(t) if i != 2 else 30
+        pd.DataFrame({"t": t[:n].strftime("%Y-%m-%d %H:%M"), "v": rng.normal(size=n).cumsum()}).to_csv(raw_src / f"S{i}.csv",
+                                                                                                      index=False)
+    s = schema.from_dict("D057", dict(
+        slug="fixture", index={"url": (raw_src / "index.csv").as_uri(), "read": {"format": "csv"}, "id": "id",
+                               "strata": ["region"]},
+        fetch={"url_template": raw_src.as_uri() + "/{series}.csv", "vars": {"series": "index"}, "rate_limit_s": 0},
+        read={"format": "csv"}, time={"col": "t", "format": "%Y-%m-%d %H:%M"}, id=["_var_series"], value="v",
+        tasks=[{"freq": "h", "how": "mean"}], select={"max_series": 5, "oversample": 2.0}))
+    run = ingest.Run(s, tmp_path / "raw", tmp_path / "out", say=lambda *a: None)
+    files = run.fetch()
+    assert len(run.groups(files)) == 10                                      # one group per series file
+    run.ingest()
+    got = pd.read_parquet(tmp_path / "out" / "fixture" / "h.parquet")
+    assert not (tmp_path / "out" / "fixture" / "h.parts.parquet").exists()
+    df = tabular.read_files(s, files)                                        # the old algorithm, in full
+    ids = df[["series_id"]].drop_duplicates()
+    kept = {}
+    for sid, g in df.groupby("series_id"):
+        ser, _ = ingest.clean(ingest.regularise(g, "h", "mean", False), freqs.min_length("h"))
+        if ser is not None:
+            kept[sid] = ser
+    final = ingest.select(ids[ids["series_id"].isin(kept)], "D057", 5, [], col="series_id")
+    want = pd.concat([pd.DataFrame({"series_id": k, "timestamp": kept[k].index, "value": kept[k].to_numpy()})
+                      for k in sorted(final)], ignore_index=True)
+    pd.testing.assert_frame_equal(got.reset_index(drop=True), want, check_dtype=False)
+
+
+def test_fetch_resume_skips_missing_unless_retried(tmp_path, monkeypatch):
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    (remote / "a.csv").write_text("t,v\n")
+    urls = [(remote.as_uri() + "/a.csv", {}), (remote.as_uri() + "/gone.csv", {})]
+    calls = []
+    real = F._open
+
+    def counting(url, *a, **k):
+        calls.append(url.rsplit("/", 1)[-1])
+        if url.endswith("gone.csv"):
+            import urllib.error
+            raise urllib.error.HTTPError(url, 404, "not found", {}, None)
+        return real(url, *a, **k)
+
+    monkeypatch.setattr(F, "_open", counting)
+    log, folder, fetch = tmp_path / "log.jsonl", tmp_path / "files", {"rate_limit_s": 0}
+    F.fetch_all(urls, folder, fetch, log, say=lambda *a: None)
+    assert calls == ["a.csv", "gone.csv"] and F.missing_files(log) == {F.local_name(urls[1][0])}
+    F.fetch_all(urls, folder, fetch, log, say=lambda *a: None)              # resume: a exists, gone is known missing
+    assert calls == ["a.csv", "gone.csv"]
+    F.fetch_all(urls, folder, fetch, log, say=lambda *a: None, retry_missing=True)
+    assert calls == ["a.csv", "gone.csv", "gone.csv"]
+
+
+def test_xlsx_format(tmp_path):
+    pytest.importorskip("openpyxl")
+    p = tmp_path / "Airport_Traffic.xlsx"
+    pd.DataFrame({"FLT_DATE": ["2024-01-01", "2024-01-02"], "APT_ICAO": ["EGLL", "EGLL"], "FLT_TOT_1": [1200, 1250]}).to_excel(
+        p, index=False)
+    s = _src(read={"format": "xlsx"}, time={"col": "FLT_DATE", "format": "%Y-%m-%d"}, id=["APT_ICAO"], value="FLT_TOT_1",
+             tasks=[{"freq": "D"}])
+    out = tabular.read_files(s, [(p, {})])
+    assert out["series_id"].unique().tolist() == ["EGLL"] and out["value"].tolist() == [1200.0, 1250.0]

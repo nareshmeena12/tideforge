@@ -4,7 +4,8 @@
   fmt}, or "index" = the selected series). Template values are URL-quoted.
 - Files go to <raw>/<slug>/files/<name>; a download is written to <name>.part and renamed when complete, so a rerun skips
   finished files and redoes partial ones. Every file gets a row in <raw>/<slug>/fetch_log.jsonl (url, file, bytes, sha256,
-  status, time). A 404 is logged and skipped (a station-year that does not exist), other errors are retried, then raised.
+  status, time). A 404 is logged as status "missing" (a station-year that does not exist) and skipped; a resume does not
+  request it again unless retry_missing (ingest fetch --retry-missing). Other errors are retried, then raised.
 - Auth: fetch.auth = {env: NAME, param: p}, {env: NAME, header: h} or {env: NAME, basic: true} (HTTP basic auth with the
   value as the user name and an empty password, e.g. USDA MyMarketNews); the value is read from the environment at request
   time and never written to the log, a file name or an error message (URLs are logged with the parameter redacted).
@@ -125,7 +126,7 @@ def download(url: str, dest: Path, headers: dict | None = None, auth: dict | Non
             break
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                row = {"url": redact(url, auth), "file": dest.name, "status": "404"}
+                row = {"url": redact(url, auth), "file": dest.name, "status": "missing", "http": 404}
                 break
             err = f"HTTP {e.code}"
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
@@ -141,20 +142,40 @@ def download(url: str, dest: Path, headers: dict | None = None, auth: dict | Non
     return row
 
 
+def missing_files(log: Path | None) -> set[str]:
+    """Files the log records as missing (404) and not downloaded since (older logs wrote status "404")."""
+    if not log or not Path(log).exists():
+        return set()
+    state: dict = {}
+    for line in Path(log).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            r = json.loads(line)
+            state[r.get("file")] = r.get("status")
+    return {f for f, st in state.items() if st in ("missing", "404")}
+
+
 def fetch_all(urls: list[tuple[str, dict]], folder: Path, fetch: dict, log: Path, max_files: int | None = None,
-              say=print) -> list[tuple[Path, dict]]:
-    """Download every url (rate-limited); returns [(path, vars)] of the files that exist afterwards."""
+              say=print, retry_missing: bool = False) -> list[tuple[Path, dict]]:
+    """Download every url (rate-limited); returns [(path, vars)] of the files that exist afterwards. Files the log records
+    as missing are skipped (no request) unless retry_missing."""
     out = []
+    skip = set() if retry_missing else missing_files(log)
+    n_skip = 0
     for i, (u, v) in enumerate(urls[:max_files] if max_files else urls):
         dest = folder / local_name(u)
+        if dest.name in skip and not dest.exists():
+            n_skip += 1
+            continue
         row = download(u, dest, fetch.get("headers"), fetch.get("auth"), retries=int(fetch.get("retries", 3)),
                        timeout=float(fetch.get("timeout_s", 120)), log=log)
         if row["status"] != "exists":
             time.sleep(float(fetch.get("rate_limit_s", 0.2)))
         if dest.exists():
             out.append((dest, v))
-        if i % 50 == 0 or row["status"] not in ("ok", "exists"):
-            say(f"  [{i + 1}/{len(urls)}] {row['status']:6s} {row['url'][:140]}")
+        if i % 50 == 0 or row["status"] not in ("ok", "exists", "missing"):
+            say(f"  [{i + 1}/{len(urls)}] {row['status']:7s} {row['url'][:140]}")
+    if n_skip:
+        say(f"  {n_skip} file(s) skipped: missing (404) in an earlier fetch (--retry-missing asks again)")
     return out
 
 

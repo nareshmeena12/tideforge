@@ -1,4 +1,4 @@
-"""The generic `table` loader: csv / whitespace / fwf / parquet / json files (plain, .gz, .zip or .tar[.gz]) -> long format, driven by the
+"""The generic `table` loader: csv / whitespace / fwf / parquet / json / xlsx files (plain, .gz, .zip or .tar[.gz]) -> long format, driven by the
 read / time / id / value / events / filter / missing / scale keys of a sources.yaml entry."""
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ def _frames(path: Path, read: dict):
     """One DataFrame per table in the file (a zip may hold several members)."""
     opts = {k: v for k, v in read.items() if k not in READ_KEYS}
     fmt = read.get("format", "csv")
+    if fmt == "xlsx":                               # an xlsx is itself a zip: read it whole, never as zip members
+        yield _parse(path, fmt, opts, read, None)
+        return
     with open(path, "rb") as fh:                    # by content, not name: some endpoints answer .csv with a zip or gzip
         magic = fh.read(4)
     if path.suffix == ".zip" or magic[:4] == b"PK\x03\x04":
@@ -43,6 +46,12 @@ def _frames(path: Path, read: dict):
 def _parse(src, fmt, opts, read, comp):
     if fmt == "parquet":
         df = pd.read_parquet(src, **opts)
+    elif fmt == "xlsx":                 # openpyxl: the `devdata` extra (owner 2026-10-31); sheet_name / header etc. in opts
+        try:
+            import openpyxl  # noqa: F401
+        except ImportError as e:
+            raise ImportError("xlsx sources need the devdata extra: pip install --user -e '.[devdata]'") from e
+        df = pd.read_excel(src, engine="openpyxl", **opts)
     elif fmt == "json":
         if isinstance(src, Path):
             raw = (__import__("gzip").open(src, "rt", encoding=read.get("encoding", "utf-8")) if comp
@@ -84,10 +93,53 @@ def apply_filter(df: pd.DataFrame, flt: dict) -> pd.DataFrame:
     return df
 
 
+WHERE_OPS = {"eq", "ne", "lt", "le", "gt", "ge", "in", "not_in", "startswith", "not_startswith", "contains", "not_contains",
+             "match", "not_match"}
+DERIVE_OPS = {"prefix", "const", "copy", "strip"}
+
+
+def where_mask(df: pd.DataFrame, spec: dict) -> pd.Series:
+    """Rows to KEEP: {column: {op: value, ...}, ...}, every condition ANDed; plain vectorised pandas (no query / eval strings,
+    which pandas 3 parses differently: '"slice" is not a supported function', Perlmutter 2026-10-31). Ops: eq ne lt le gt
+    ge (a value), in / not_in (a list), startswith / not_startswith (a string or a list), contains / not_contains (a literal
+    string), match / not_match (a regex at the start)."""
+    keep = pd.Series(True, index=df.index)
+    for col, conds in spec.items():
+        c = df[col]
+        for op, v in conds.items():
+            s = c.astype(str)
+            if op in ("eq", "ne", "lt", "le", "gt", "ge"):
+                r = getattr(c, op)(v)
+            elif op in ("in", "not_in"):
+                r = c.isin(list(v))
+            elif op in ("startswith", "not_startswith"):
+                r = s.str.startswith(tuple(v) if isinstance(v, list) else v)
+            elif op in ("contains", "not_contains"):
+                r = s.str.contains(v, regex=False)
+            elif op in ("match", "not_match"):
+                r = s.str.match(v)
+            else:
+                raise KeyError(f"unknown where op {op!r} (known: {sorted(WHERE_OPS)})")
+            r = r.fillna(False).astype(bool)
+            keep &= ~r if op.startswith("not_") else r
+    return keep
+
+
 def derive(df: pd.DataFrame, spec: dict) -> pd.DataFrame:
-    """{new_col: "<pandas expression over columns>"}, e.g. {"country": "station.str[:2]"}."""
-    for k, expr in (spec or {}).items():
-        df[k] = df.eval(expr, engine="python")
+    """{new_col: {prefix: [column, n]}} (the first n characters), {const: value}, {copy: column}, {strip: column} (text with
+    surrounding whitespace removed)."""
+    for k, d in (spec or {}).items():
+        (op, v), = d.items()
+        if op == "prefix":
+            df[k] = df[v[0]].astype(str).str[:int(v[1])]
+        elif op == "const":
+            df[k] = v
+        elif op == "copy":
+            df[k] = df[v]
+        elif op == "strip":
+            df[k] = df[v].astype(str).str.strip()
+        else:
+            raise KeyError(f"unknown derive op {op!r} (known: {sorted(DERIVE_OPS)})")
     return df
 
 
@@ -121,7 +173,7 @@ def to_long(df: pd.DataFrame, src, file_vars: dict | None = None) -> pd.DataFram
     df = derive(df, src.select.get("derive", {}))
     where = (src.exclude or {}).get("where")
     if where:
-        df = df.query(where, engine="python")
+        df = df[where_mask(df, where)]
     ts = parse_time(df, src.time, src.tz)
     sid = df[src.id_cols].astype(str).agg("/".join, axis=1) if src.id_cols else pd.Series("", index=df.index)
     keep = [c for c in strata if c in df.columns]
@@ -167,7 +219,7 @@ def read_index(src, paths) -> pd.DataFrame:
     df = apply_filter(df, ix.get("filter", {}))
     df = derive(df, ix.get("derive", {}))
     if ix.get("where"):
-        df = df.query(ix["where"], engine="python")
+        df = df[where_mask(df, ix["where"])]
     df["series"] = df[ix["id"]].astype(str).str.strip()
     cols = ["series"] + [c for c in ix.get("strata", []) if c != "series"]
     return df[cols].drop_duplicates("series").reset_index(drop=True)

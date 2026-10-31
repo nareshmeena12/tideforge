@@ -1,7 +1,7 @@
 """Fetch -> select -> read -> regularise -> clean -> canonical parquet + meta.json (DATA_COLLECTION.md steps 4-6).
 
     python -m tideforge.devdata.ingest probe  --ids batch1                       # first bytes of each source's index / first file
-    python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw   [--max-files N]
+    python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw   [--max-files N] [--retry-missing]
     python -m tideforge.devdata.ingest ingest --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
     python -m tideforge.devdata.ingest status --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
     python -m tideforge.devdata.ingest register --ids D230 --raw RAW     # log hand-placed files (fetch.manual sources)
@@ -24,6 +24,7 @@ import hashlib
 import json
 import math
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -144,14 +145,15 @@ class Run:
             series = self.candidates(self.index(fetch_missing))
         return F.file_list(self.src.fetch, series)
 
-    def fetch(self, max_files: int | None = None) -> list[tuple[Path, dict]]:
+    def fetch(self, max_files: int | None = None, retry_missing: bool = False) -> list[tuple[Path, dict]]:
         if self.src.fetch.get("manual"):
             files = self.files()
             self.say(f"{self.src.id} {self.src.slug}: manual download, {len(files)} files in {self.dir / 'files'}")
             return files
         urls = self.urls(True)
         self.say(f"{self.src.id} {self.src.slug}: {len(urls)} files")
-        return F.fetch_all(urls, self.dir / "files", self.src.fetch, self.log, max_files, say=self.say)
+        return F.fetch_all(urls, self.dir / "files", self.src.fetch, self.log, max_files, say=self.say,
+                           retry_missing=retry_missing)
 
     def register(self) -> list[dict]:
         """fetch_log rows for files placed in <raw>/<slug>/files/ by hand (manual sources): url manual:<name>, bytes, sha256."""
@@ -191,47 +193,86 @@ class Run:
         out = [(self.dir / "files" / F.local_name(u), v) for u, v in urls]
         return [(p, v) for p, v in out if p.exists()]
 
+    def groups(self, files: list[tuple[Path, dict]]) -> list[list[tuple[Path, dict]]]:
+        """Files in groups that each hold whole series: one group per index series when the URLs carry the series variable
+        (per-station / station-year files), in frozen rank order; otherwise one group of every file."""
+        var = next((k for k, v in (self.src.fetch.get("vars") or {}).items() if v == "index"), None)
+        if var is None or not all(var in v for _, v in files):
+            return [files] if files else []
+        by: dict = {}
+        for f in files:
+            by.setdefault(str(f[1][var]), []).append(f)
+        rank = sorted(by, key=lambda k: rank_key(self.src.id, k))
+        return [by[k] for k in rank]
+
     def ingest(self) -> dict:
+        """Memory-bounded (owner 2026-10-31): files are read one series group at a time, every cleaned series is appended to
+        a per-task part file at once and only its id stays in memory; the frozen selection (select over the kept ids, rank
+        order, strata quotas) then copies the chosen series to <freq>.parquet. Same output as reading everything at once."""
+        import pyarrow as pa
+        import pyarrow.parquet as pq
         src = self.src
         files = self.files()
         if not files:
             raise RuntimeError(f"{src.id}: no raw files under {self.dir} (run fetch first)")
-        df = loaders.read_files(src, files)
-        if src.loader != "table" and (src.exclude or {}).get("where"):
-            df = df.query(src.exclude["where"], engine="python")
+        t0 = time.time()
+        self.say(f"{src.id} {src.slug}: start, {len(files)} files")
         strata = list(src.select.get("strata", []) or [])
-        ids = df[["series_id"] + [c for c in strata if c in df.columns]].drop_duplicates("series_id")
-        order = select(ids, src.id, len(ids), strata, col="series_id")        # every series, in frozen rank order
         meta = self.meta_base(files)
         self.out.mkdir(parents=True, exist_ok=True)
-        groups = dict(tuple(df.groupby("series_id")))
-        for task in src.tasks:
-            key = canonical(task["freq"])
-            need = min_length(task["freq"])
-            kept, why = {}, {"empty": 0, "short": 0, "missing": 0, "constant": 0, "over_cap": 0}
-            for sid in order:
-                s = regularise(groups[sid], task["freq"], task.get("how", "mean"), bool(src.events))
-                s, reason = clean(s, need)
-                if s is None:
-                    why[reason] += 1
-                    continue
-                kept[sid] = s
-            final = select(ids[ids["series_id"].isin(kept)], src.id, src.max_series, strata, col="series_id")
-            why["over_cap"] = len(kept) - len(final)
-            parts = [pd.DataFrame({"series_id": sid, "timestamp": kept[sid].index, "value": kept[sid].to_numpy()})
-                     for sid in sorted(final)]
-            outdf = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=loaders.LONG)
+        schema = pa.schema([("series_id", pa.string()), ("timestamp", pa.timestamp("ns")), ("value", pa.float64())])
+        tasks = [(canonical(t["freq"]), t, min_length(t["freq"])) for t in src.tasks]
+        writers = {k: pq.ParquetWriter(self.out / f"{k}.parts.parquet", schema) for k, _, _ in tasks}
+        kept = {k: [] for k, _, _ in tasks}
+        why = {k: {"empty": 0, "short": 0, "missing": 0, "constant": 0, "over_cap": 0} for k, _, _ in tasks}
+        id_rows = []
+        try:
+            for group in self.groups(files):
+                df = loaders.read_files(src, group)
+                if src.loader != "table" and (src.exclude or {}).get("where"):
+                    from tideforge.devdata.loaders.tabular import where_mask
+                    df = df[where_mask(df, src.exclude["where"])]
+                id_rows.append(df[["series_id"] + [c for c in strata if c in df.columns]].drop_duplicates("series_id"))
+                for sid, g in df.groupby("series_id", sort=True):
+                    for key, task, need in tasks:
+                        ser = regularise(g, task["freq"], task.get("how", "mean"), bool(src.events))
+                        ser, reason = clean(ser, need)
+                        if ser is None:
+                            why[key][reason] += 1
+                            continue
+                        writers[key].write_table(pa.table({"series_id": [str(sid)] * len(ser), "timestamp": ser.index.to_numpy(),
+                                                           "value": ser.to_numpy(dtype="float64")}, schema=schema))
+                        kept[key].append(str(sid))
+                del df
+        finally:
+            for w in writers.values():
+                w.close()
+        ids = (pd.concat(id_rows, ignore_index=True).drop_duplicates("series_id") if id_rows
+               else pd.DataFrame(columns=["series_id"]))
+        n_series, n_points = 0, 0
+        for key, task, need in tasks:
+            part = self.out / f"{key}.parts.parquet"
+            final = select(ids[ids["series_id"].isin(set(kept[key]))], src.id, src.max_series, strata, col="series_id")
+            why[key]["over_cap"] = len(kept[key]) - len(final)
+            tab = pq.read_table(part, filters=[("series_id", "in", final)] if final else None)
+            outdf = tab.to_pandas() if final else pd.DataFrame(columns=loaders.LONG)
+            if len(outdf):
+                outdf = outdf.sort_values(["series_id", "timestamp"], kind="stable").reset_index(drop=True)
+            part.unlink()
             path = self.out / f"{key}.parquet"
             outdf.to_parquet(path, index=False)
             v = outdf["value"].to_numpy(dtype=float)
             meta["tasks"][key] = dict(freq=key, how=task.get("how", "mean"), min_length=need, n_series=len(final),
                                       n_points=int(len(v)), nan_share=float(np.isnan(v).mean()) if len(v) else None,
-                                      dropped=why, sha256=sha256_file(path))
+                                      dropped=why[key], sha256=sha256_file(path))
             cc = {sid: series_country(src.country, sid) for sid in sorted(final)}
             meta["series_country"].update(cc)
             meta["tasks"][key]["countries"] = dict(sorted(Counter(cc.values()).items()))
-            self.say(f"  {src.id} {key}: {len(final)} series, {len(v):,} points, dropped {why}")
+            n_series, n_points = n_series + len(final), n_points + len(v)
+            self.say(f"  {src.id} {key}: {len(final)} series, {len(v):,} points, dropped {why[key]}")
         (self.out / "meta.json").write_text(json.dumps(meta, indent=1, default=str), encoding="utf-8")
+        self.say(f"{src.id} {src.slug}: done, {n_series} series, {n_points:,} points, {time.time() - t0:.0f} s, peak RSS "
+                 f"{peak_rss_mb()}")
         return meta
 
     def meta_base(self, files) -> dict:
@@ -253,6 +294,16 @@ class Run:
                     country=src.country, series_country={})
 
 
+def peak_rss_mb() -> str:
+    """The process's peak resident memory (Linux / macOS; 'n/a' where the resource module is missing, e.g. Windows)."""
+    try:
+        import resource
+    except ImportError:
+        return "n/a"
+    r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return f"{r / 1024 / (1024 if sys.platform == 'darwin' else 1):,.0f} MB"
+
+
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
     with open(p, "rb") as f:
@@ -269,6 +320,7 @@ def main(argv=None) -> int:
     ap.add_argument("--raw")
     ap.add_argument("--out")
     ap.add_argument("--max-files", type=int)
+    ap.add_argument("--retry-missing", action="store_true", help="fetch: request files logged as missing (404) again")
     a = ap.parse_args(argv)
     srcs, batches = load_sources()
     ids = resolve_ids(a.ids, srcs, batches)
@@ -295,7 +347,7 @@ def main(argv=None) -> int:
                 except Exception as e:      # noqa: BLE001
                     print(f"first file: {type(e).__name__}: {e}")
             elif a.cmd == "fetch":
-                Run(src, Path(a.raw)).fetch(a.max_files)
+                Run(src, Path(a.raw)).fetch(a.max_files, a.retry_missing)
             elif a.cmd == "register":
                 Run(src, Path(a.raw)).register()
             elif a.cmd == "verify":

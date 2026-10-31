@@ -10,7 +10,7 @@ Entry (keys not listed are errors; see sources.yaml for real ones):
         read: {format: fwf, colspecs: [[0, 11], [38, 40]], names: [station, state]}
         id: station                          # the series key in the index (url_template var {series})
         strata: [country]                    # columns used to stratify the 500-series sample
-        derive: {country: "station.str[:2]"} # optional pandas-eval'd columns
+        derive: {country: {prefix: [station, 2]}}   # optional derived columns: prefix [column, n] | const | copy | strip
         filter: {...}                        # same as below
       fetch:
         urls: [...]                          # or url_template + vars
@@ -19,7 +19,7 @@ Entry (keys not listed are errors; see sources.yaml for real ones):
         headers: {User-Agent: "tideforge research (contact via repo owner)"}
         auth: {env: EIA_API_KEY, param: api_key}   # or {env: ..., header: X-Api-Key} or {env: ..., basic: true}; read from the env
         rate_limit_s: 0.5
-      read: {format: csv, ...}               # csv | parquet | json | whitespace | fwf; pandas options; zip_member: regex
+      read: {format: csv, ...}               # csv | parquet | json | whitespace | fwf | xlsx; pandas options; zip_member: regex
       time: {col: DATE, format: "%Y%m%d", tz: UTC}      # or cols: [date, hour]; unit: s for epoch numbers
       id: [STATION, ELEMENT]                 # series id = these columns joined with "/"
       value: DATA_VALUE                      # or a list of columns (each a series, id suffix "/<column>")
@@ -29,7 +29,8 @@ Entry (keys not listed are errors; see sources.yaml for real ones):
       scale: 0.1
       tasks: [{freq: D, how: mean}]          # one output per frequency (how: mean | sum | count | last | max | min)
       select: {max_series: 500, strata: [country], oversample: 1.3}
-      exclude: {where: "country != 'SN'", rule: "...", aggregator: [D078]}   # where = rows to KEEP (pandas query)
+      exclude: {where: {country: {ne: SN}}, rule: "...", aggregator: [D078]}   # where = rows to KEEP: {column: {op: v}}
+                                             # ops: eq ne lt le gt ge in not_in (not_)startswith (not_)contains (not_)match
       tz: UTC                                # timestamps are converted to UTC naive at ingest
       covariate_only: false                  # true: ingested as a covariate source, not a dev target
       country: US                            # ISO 3166-1 alpha-2 | multi (unknown or many: Europe-wide sets) |
@@ -59,7 +60,7 @@ SOURCES = Path(__file__).resolve().parent / "sources.yaml"
 KEYS = {"slug", "loader", "index", "fetch", "read", "time", "id", "value", "events", "filter", "missing", "scale", "tasks",
         "select", "exclude", "tz", "covariate_only", "country", "confirm", "notes"}
 HOWS = {"mean", "sum", "count", "last", "max", "min"}
-FORMATS = {"csv", "parquet", "json", "whitespace", "fwf"}
+FORMATS = {"csv", "parquet", "json", "whitespace", "fwf", "xlsx"}
 SECRET_KEY = re.compile(r"(token|secret|password|passwd|api[_-]?key|auth[_-]?key)", re.I)
 ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
@@ -149,6 +150,23 @@ def _walk(d, path=""):
             yield from _walk(v, f"{path}[{j}]")
 
 
+def check_where_derive(src: Source) -> list[str]:
+    """Structured where / derive specs only (no pandas query / eval strings)."""
+    from tideforge.devdata.loaders.tabular import DERIVE_OPS, WHERE_OPS
+    out = []
+    wheres = [("exclude.where", (src.exclude or {}).get("where")), ("index.where", (src.index or {}).get("where"))]
+    for name, w in wheres:
+        if w is None:
+            continue
+        if not isinstance(w, dict) or not all(isinstance(c, dict) and set(c) <= WHERE_OPS for c in w.values()):
+            out.append(f"{name} must be {{column: {{op: value}}}} with ops {sorted(WHERE_OPS)} (no query strings)")
+    for name, d in (("select.derive", (src.select or {}).get("derive")), ("index.derive", (src.index or {}).get("derive"))):
+        for k, v in (d or {}).items():
+            if not isinstance(v, dict) or len(v) != 1 or set(v) - DERIVE_OPS:
+                out.append(f"{name}.{k} must be one of {{prefix: [column, n]}}, {{const: v}}, {{copy: col}}, {{strip: col}} (no eval strings)")
+    return out
+
+
 def validate(src: Source) -> list[str]:
     """Problems with one entry (empty list = OK)."""
     p, c = [], cat.catalog()
@@ -179,6 +197,7 @@ def validate(src: Source) -> list[str]:
     have = set((src.exclude or {}).get("aggregator", []) or [])
     if need - have:
         p.append(f"{src.id}: aggregator rules not covered in exclude.aggregator: {sorted(need - have)}")
+    p += [f"{src.id}: {m}" for m in check_where_derive(src)]
     from tideforge.devdata.country import check_tag
     p += [f"{src.id}: {m}" for m in check_tag(src.country)]
     if src.loader != "table" and not src.loader.startswith("adapter:"):
