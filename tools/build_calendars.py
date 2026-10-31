@@ -2,6 +2,8 @@
 
     python tools/build_calendars.py                 # writes tideforge/gen/ext/calendars/calendars_v1.npz + .json + report
     python tools/build_calendars.py --check         # rebuild in memory, fail if the sha256 differs from the manifest
+    python tools/build_calendars.py --diff DIR      # rebuild into DIR (nothing committed is touched) and print a CONTENT
+                                                    # diff against the committed table: cells, calendars, names, metadata
 
 Per calendar (country, or country-subdivision) and per day from 1990-01-01 to 2040-12-31:
   code     int8 holiday type (TYPES below; 0 = none), from the English holiday name (language en_US where the package has
@@ -256,14 +258,99 @@ def npz_bytes(arrays: dict) -> bytes:
     return buf.getvalue()
 
 
+def content_sha(arrays: dict) -> str:
+    """sha256 over each array's name, dtype, shape and raw bytes (independent of zip / deflate / .npy header bytes)."""
+    h = hashlib.sha256()
+    for name in sorted(arrays):
+        x = np.ascontiguousarray(arrays[name])
+        h.update(f"{name}|{x.dtype.str}|{x.shape}|".encode())
+        h.update(x.tobytes())
+    return h.hexdigest()
+
+
+def versions() -> str:
+    import platform
+    import zlib
+    import holidays
+    return (f"python {platform.python_version()}, numpy {np.__version__}, zlib {zlib.ZLIB_RUNTIME_VERSION}, "
+            f"holidays {holidays.__version__}")
+
+
+def diff(out_dir: Path, arrays: dict, meta: list, report: str, data: bytes) -> int:
+    """Rebuild written to out_dir; prints the content diff against the committed table. 0 = same contents."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"calendars_{VERSION}.npz").write_bytes(data)
+    (out_dir / f"calendars_{VERSION}_report.txt").write_text(report, encoding="utf-8", newline="\n")
+    (out_dir / f"calendars_{VERSION}_meta.json").write_text(json.dumps(meta, indent=1) + "\n", encoding="utf-8")
+    with np.load(OUT / f"calendars_{VERSION}.npz") as z:
+        old = {k: z[k] for k in z.files}
+    m = json.loads((OUT / f"calendars_{VERSION}.json").read_text(encoding="utf-8"))
+    print(f"this machine: {versions()}")
+    print(f"file sha256   committed {m['sha256']}  rebuilt {hashlib.sha256(data).hexdigest()}")
+    print(f"content sha256 committed {content_sha(old)}  rebuilt {content_sha(arrays)}")
+    ids = [c["id"] for c in meta]
+    bad = 0
+    for name in sorted(set(old) | set(arrays)):
+        a, b = old.get(name), arrays.get(name)
+        if a is None or b is None or a.shape != b.shape:
+            print(f"{name}: shape committed {None if a is None else a.shape} rebuilt {None if b is None else b.shape}")
+            bad += 1
+            continue
+        cells = np.argwhere(a != b)
+        print(f"{name}: {len(cells)} differing (calendar, day) cells")
+        bad += len(cells)
+        by_cal: dict = {}
+        for k, d in cells:
+            by_cal.setdefault(ids[k], []).append(int(d))
+        for cid, days in sorted(by_cal.items()):
+            first = [str(START + dt.timedelta(days=d)) for d in days[:5]]
+            print(f"   {cid}: {len(days)} days, first {first}")
+            if name == "code":
+                c, sd = (cid.split("-", 1) + [None])[:2]
+                h, _ = holidays_for(c, sd)
+                for d in days[:10]:
+                    day = START + dt.timedelta(days=d)
+                    print(f"      {day}: committed {TYPES[a[ids.index(cid), d]]} rebuilt {TYPES[b[ids.index(cid), d]]} "
+                          f"names {h.get(day)!r}")
+    old_meta = {c["id"]: c for c in m["calendars"]}
+    for c in meta:
+        o = old_meta.get(c["id"])
+        if o is None:
+            print(f"meta {c['id']}: new calendar"); bad += 1
+        else:
+            for k in c:
+                if json.loads(json.dumps(c[k])) != o.get(k):
+                    print(f"meta {c['id']}.{k}: committed {o.get(k)} rebuilt {c[k]}"); bad += 1
+    for cid in sorted(set(old_meta) - set(ids)):
+        print(f"meta {cid}: missing in the rebuild"); bad += 1
+    rep_old = set((OUT / f"calendars_{VERSION}_report.txt").read_text(encoding="utf-8").splitlines()[2:])
+    rep_new = set(report.splitlines()[2:])
+    for line in sorted(rep_old - rep_new)[:40]:
+        print(f"report only committed: {line.strip()}")
+    for line in sorted(rep_new - rep_old)[:40]:
+        print(f"report only rebuilt:   {line.strip()}")
+    bad += len(rep_old ^ rep_new)
+    same_bytes = hashlib.sha256(data).hexdigest() == m["sha256"]
+    if bad == 0:
+        print("CONTENTS EQUAL" + (" (file bytes equal too)" if same_bytes else
+                                  " (the file bytes differ: zip / deflate / .npy header encoding only)"))
+    else:
+        print(f"CONTENTS DIFFER: {bad} differences (cells + metadata + report lines); rebuild in {out_dir}")
+    return 0 if bad == 0 else 1
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--diff", metavar="DIR", help="rebuild into DIR and print a content diff against the committed table")
     a = ap.parse_args(argv)
     arrays, meta, report, ver = build()
     data = npz_bytes(arrays)
     sha = hashlib.sha256(data).hexdigest()
     man = OUT / f"calendars_{VERSION}.json"
+    if a.diff:
+        return diff(Path(a.diff), arrays, meta, report, data)
     if a.check:
         m = json.loads(man.read_text(encoding="utf-8"))
         if m["sha256"] != sha:
