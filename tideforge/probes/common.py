@@ -186,18 +186,42 @@ def load(root: Path, probe: str, version: int) -> ProbeSet:
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     data = (d / "set.npz").read_bytes()
     z = np.load(io.BytesIO(data))
+    if "content_sha256" not in meta:
+        raise RuntimeError(f"{d}/meta.json was written before content hashes (2026-10-31): run "
+                           f"`python -m tideforge.probes migrate --root {root}` once")
     sha = H.content_sha({k: z[k] for k in z.files})
     if sha != meta["content_sha256"]:
         raise RuntimeError(f"{d}/set.npz does not match its meta.json content sha256")
     reg = registry().get(probe, {}).get(str(version), {})
     if reg.get("content_sha256") and reg["content_sha256"] != sha:
         raise RuntimeError(f"{d}: content sha256 differs from registry.json (the Perlmutter build is the source of truth)")
+    if reg.get("fingerprint") and reg["fingerprint"] != meta.get("fingerprint"):
+        raise RuntimeError(f"{d}: fingerprint differs from registry.json (the Perlmutter build is the source of truth)")
     cells = []
     for cm in meta["cells"]:
         arr = {k.split("/", 1)[1]: z[k] for k in z.files if k.split("/", 1)[0] == cm["name"]}
         cells.append(Cell(cm["name"], arr, cm["S"], cm["control"], tuple(cm["modes"]), tuple(cm["views"]), cm["desc"],
                           cm.get("extra", {})))
     return ProbeSet(probe, version, meta["seed"], meta["n_per_cell"], cells, meta.get("desc", ""))
+
+
+def migrate(root: Path, probe: str, version: int) -> dict:
+    """A set written before content hashes (meta.json has only the file sha256): check the file bytes against that sha256 and
+    the fingerprint against registry.json, then add content_sha256 / file_sha256 to meta.json. Returns the meta."""
+    d = Path(root) / probe / f"v{version}"
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+    if "content_sha256" in meta:
+        return meta
+    data = (d / "set.npz").read_bytes()
+    if hashlib.sha256(data).hexdigest() != meta.get("sha256"):
+        raise RuntimeError(f"{d}/set.npz does not match the sha256 its meta.json was written with")
+    reg = registry().get(probe, {}).get(str(version), {})
+    if reg.get("fingerprint") and reg["fingerprint"] != meta.get("fingerprint"):
+        raise RuntimeError(f"{d}: fingerprint differs from registry.json")
+    z = np.load(io.BytesIO(data))
+    meta = dict(meta, content_sha256=H.content_sha({k: z[k] for k in z.files}), file_sha256=meta["sha256"])
+    (d / "meta.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    return meta
 
 
 def registry() -> dict:

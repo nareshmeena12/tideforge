@@ -92,3 +92,38 @@ def test_probe_set_checks_content_not_file_bytes(tmp_path):
     with pytest.raises(RuntimeError, match="content sha256"):
         common.load(tmp_path, "P1", 1)
     assert meta["content_sha256"] != meta["file_sha256"]
+
+
+def test_registry_holds_perlmutters_build_and_local_builds_match_it():
+    """Perlmutter's build (2026-10-31) is the reference: every registry fingerprint equals a fresh local build's."""
+    import json as _json
+    from tideforge.probes.run import module, probe_ids
+    from conftest import REAL_REGISTRY
+    reg = _json.loads(REAL_REGISTRY.read_text(encoding="utf-8"))
+    assert sorted(reg, key=lambda k: int(k[1:])) == probe_ids("all")
+    for p in probe_ids("all"):
+        mod = module(p)
+        r = reg[p][str(mod.VERSION)]
+        ps = mod.build(mod.N_PER_CELL, mod.SEED)
+        assert (r["seed"], r["n_per_cell"], r["cells"]) == (mod.SEED, ps.n_per_cell, len(ps.cells)), p
+        assert common.fingerprint(ps) == r["fingerprint"], p
+
+
+def test_migrate_old_meta(tmp_path, monkeypatch):
+    import hashlib
+    ps = P1.build(4)
+    meta = common.save(ps, tmp_path)
+    d = tmp_path / "P1" / "v1"
+    old = {k: v for k, v in meta.items() if k not in ("content_sha256", "file_sha256")}
+    old["sha256"] = hashlib.sha256((d / "set.npz").read_bytes()).hexdigest()       # the pre-2026-10-31 layout
+    (d / "meta.json").write_text(json.dumps(old))
+    monkeypatch.setattr(common, "REGISTRY", tmp_path / "none.json")
+    with pytest.raises(RuntimeError, match="migrate"):
+        common.load(tmp_path, "P1", 1)
+    m = common.migrate(tmp_path, "P1", 1)
+    assert m["content_sha256"] == meta["content_sha256"] and common.load(tmp_path, "P1", 1).cells[0].n == 4
+    reg = tmp_path / "reg.json"
+    reg.write_text(json.dumps({"P1": {"1": {"fingerprint": "0" * 64}}}))
+    monkeypatch.setattr(common, "REGISTRY", reg)
+    with pytest.raises(RuntimeError, match="fingerprint"):
+        common.load(tmp_path, "P1", 1)

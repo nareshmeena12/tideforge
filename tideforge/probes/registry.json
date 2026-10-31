@@ -1,1 +1,102 @@
-{}
+{
+ "P1": {
+  "1": {
+   "seed": 101,
+   "n_per_cell": 256,
+   "cells": 14,
+   "fingerprint": "67e407e8fc87b07a4c48b3efb77f44cdf52084b0f839cb2b5b88e8a0eba9e965",
+   "file_sha256": "1a5f3d7b6adcaaf519114b2024dbf08cdfec8e9e0d570cbce31b2d34e4470593",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P2": {
+  "1": {
+   "seed": 202,
+   "n_per_cell": 256,
+   "cells": 4,
+   "fingerprint": "e60026c7a777b41bc19cc86f0b317c3bafb6b5e1815151b750d499f6c567824c",
+   "file_sha256": "a7f01b51dc4f82c6069ebd2ba1b8459218f455e26f99b00e0a75dd6ad964a152",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P3": {
+  "1": {
+   "seed": 303,
+   "n_per_cell": 256,
+   "cells": 8,
+   "fingerprint": "9f8207f9d80195f9d24237edfbf6aa56af040b8b041fcc1756ea314c5e05e0c6",
+   "file_sha256": "f4db0ade39fcf5935c00abe83f797dfc7d674be89a53a95b398c1a0260c3f532",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P4": {
+  "1": {
+   "seed": 404,
+   "n_per_cell": 256,
+   "cells": 4,
+   "fingerprint": "3532dd515d450e3e1b599e0cb8d48b287ee7664249f88de6420a14526450c1dc",
+   "file_sha256": "56d48c442ac8e04dce688799b2940e0e4db642ae9a4001fb8482653d16910691",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P5": {
+  "1": {
+   "seed": 505,
+   "n_per_cell": 256,
+   "cells": 8,
+   "fingerprint": "05405e602820f2b4667939adb113fff013f7d0d32211a6624e39866bffc69d0e",
+   "file_sha256": "25121ea881d19443a2795786194e4e1fc91db50e96f79913cdfb8a244115e1b2",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P6": {
+  "1": {
+   "seed": 606,
+   "n_per_cell": 256,
+   "cells": 4,
+   "fingerprint": "8502176327bd4d92be943bbbdfda377a8fe284c1a3d3cdb019ee470add9095b7",
+   "file_sha256": "dde4645d44033f77e67755a645f2ec40fbf3ab3f33b2e4571c7d769b51000927",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P7": {
+  "1": {
+   "seed": 707,
+   "n_per_cell": 256,
+   "cells": 4,
+   "fingerprint": "e6b7f7a383af741b6a2f5563ec98f6c1f5db93dd9b88c5d15b58e095a8939778",
+   "file_sha256": "42944d8b03e2e054e7a056d38988a309822d2351392e7e0bf8f014b736c96fa0",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P8": {
+  "1": {
+   "seed": 808,
+   "n_per_cell": 256,
+   "cells": 3,
+   "fingerprint": "9af66ef39f627bbbdd296ab28b8f2be42bcd72c5e14498ab594f7e0f818130e6",
+   "file_sha256": "745a0efedf95e6d57f6da2b0532372b0b3186b284c1d734f87cd0db34767f0fe",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P9": {
+  "1": {
+   "seed": 909,
+   "n_per_cell": 256,
+   "cells": 4,
+   "fingerprint": "9fc3f505ad0de5a70c9917f85cfe1a43bf9282613a64aaca9826eaf59cada263",
+   "file_sha256": "84f983dd871bdd0ee204f8719fdca70a160268d6a5ad40c310f11754390ffd83",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ },
+ "P10": {
+  "1": {
+   "seed": 1010,
+   "n_per_cell": 256,
+   "cells": 3,
+   "fingerprint": "a8d8c093433b2743679f9d99871684531bf430bacb61af2892c148ef762d7a2c",
+   "file_sha256": "e148a6c01af4ec1b82132353795cb314665ee37ff049ec81fef2644b207686b0",
+   "built": "Perlmutter 2026-10-31 at 3bf1e77 (e06_probes.sh build)"
+  }
+ }
+}

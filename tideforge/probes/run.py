@@ -1,6 +1,7 @@
 """Build, run and report the probe suite.
 
     python -m tideforge.probes build  --root $TF_DATA/probes [--probes all] [--n 256]
+    python -m tideforge.probes migrate --root $TF_DATA/probes        # once: sets built before content hashes (2026-10-31)
     python -m tideforge.probes run    --root $TF_DATA/probes --out $TF_ROOT/probes --model ft3main --ckpt $FT3_MAIN_CKPT
                                       [--probes all] [--nan-variant baseline] [--device cuda]
     python -m tideforge.probes report --out $TF_ROOT/probes [--model ft3main[:variant]] [--compare A B]
@@ -144,7 +145,7 @@ def compare(out: Path, a: str, b: str) -> pd.DataFrame:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tideforge.probes")
-    ap.add_argument("cmd", choices=["build", "run", "report"])
+    ap.add_argument("cmd", choices=["build", "migrate", "run", "report"])
     ap.add_argument("--root")
     ap.add_argument("--out")
     ap.add_argument("--probes", default="all")
@@ -163,6 +164,13 @@ def main(argv=None) -> int:
             meta = common.save(ps, Path(a.root))
             print(f'{p} v{mod.VERSION}: {{"seed": {mod.SEED}, "n_per_cell": {ps.n_per_cell}, "cells": {len(ps.cells)}, '
                   f'"content_sha256": "{meta["content_sha256"]}", "fingerprint": "{meta["fingerprint"]}"}}')
+        return 0
+    if a.cmd == "migrate":
+        for p in probes:
+            mod = module(p)
+            meta = common.migrate(Path(a.root), p, mod.VERSION)
+            print(f'{p} v{mod.VERSION}: content_sha256 {meta["content_sha256"]} (fingerprint {meta["fingerprint"][:12]} '
+                  f'matches registry.json)')
         return 0
     if a.cmd == "run":
         model = make(a.model, a.ckpt, a.device, a.nan_variant)

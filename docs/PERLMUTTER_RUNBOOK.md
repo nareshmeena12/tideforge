@@ -82,11 +82,12 @@ python tools/gen_throughput.py --device cuda --loops --pool-dir $TF_DATA/pools
 
 ## D. Scoring reproductions
 
-**D1. E0.6 probe sets** (login, CPU, once, ~15 min; needs A1)
+**D1. E0.6 probe sets** (login, CPU, once, ~15 min; needs A1). Built 2026-10-31 (registry committed).
 ```
-bash $S/e06_probes.sh build     # $TF_DATA/probes/P*/v*/
+bash $S/e06_probes.sh build     # $TF_DATA/probes/P*/v*/   (done)
+python -m tideforge.probes migrate --root $TF_DATA/probes     # once: adds content_sha256 to the 2026-10-31 build's meta.json
 ```
-- **Paste back:** the registry lines (they go into tideforge/probes/registry.json).
+- **Paste back:** the 10 migrate lines (content sha256 per probe; they complete tideforge/probes/registry.json).
 - **Unblocks:** probes in every `finish` (results rows) and D3.
 
 **D2. E0.3 + E0.10 job** (batch, 1 regular node, ~3.5 h makespan / 13.5 GPU-h; needs B2)
@@ -136,10 +137,11 @@ bash $S/e05_public.sh table --looks      # after it finishes: one LOOKS.md row p
 
 dev-v1 = batch 1 + batch 2 (owner 2026-10-29). Long fetches: run on a login node under `tmux`, or as an `xfer` job.
 
-**F1. Batch 1** (login; probe ~10 min, fetch hours, ingest ~1 h; needs A1)
+**F1. Batch 1** (probe / fetch on a login node; ingest per source on a CPU node until the streamed ingest is proven
+there; needs A1). Keys: ~/.tideforge_env exports DATAGOVIN_API_KEY and USDA_MARS_KEY (owner), never committed.
 ```
 python -m tideforge.devdata.ingest probe  --ids batch1
-python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw
+python -m tideforge.devdata.ingest fetch  --ids batch1 --raw $TF_DATA/raw          # resumes; 404s are skipped (--retry-missing)
 python -m tideforge.devdata.ingest ingest --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
 python -m tideforge.devdata.ingest status --ids batch1 --raw $TF_DATA/raw --out $TF_DATA/staging
 ```
