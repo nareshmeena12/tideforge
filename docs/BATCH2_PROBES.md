@@ -73,3 +73,20 @@ Covariate tasks (20 new): after the targets are ingested,
 Value-level exclusion checks (audit check) to look at specifically: D170 (vs TIME Crypto), D229 / D230 (vs TIME
 Oil_Price), D162 (vs TIME Housing_Inventory), D376 (vs TIME Commodity_*), D394 (vs TIME Smart_Manufacturing), D401
 (vs fev entsoe: if it holds GB demand, D401 is dropped and GB = D182 + D345).
+
+## Probe round 1 (Perlmutter, 2026-10-31: logs/perlmutter/batch2_probe.txt, 50 sources)
+
+| Status | Sources | What happens next |
+|---|---|---|
+| **confirmed, spec written** (tested on the probe's rows: tests/devdata/test_batch2_specs.py) | D252 DSNY, D162 Zillow, D345 STATS19, D383 Melbourne pedestrians, D340 NYC 311, D343 SF Fire, D334 Seattle library, D394 steel (zip; member name per UCI docs), D279 Santa Fe (moved to PhysioNet Set B) | fetch + ingest |
+| **layout confirmed, adapter to write** (the probe showed the API or listing) | D401 NESO (CKAN resources; settlement-period clock), D402 ANAC VRA (month folders), D374 WFP (CKAN), D371 Treasury DTS (paged JSON), D068 USGS (count API per region / day), D275 NGL (station list; .tenv3 per station), D283 NOAA FOSS (paged ORDS JSON), D286 BBS (ScienceBase file list), D272 INTERMAGNET (GIN service), D328 UCC 5G, D391 3W (GitHub trees), D330 Steam (Mendeley file list), D342 police.uk (archive zip), D229 France fuel (zip of XML: stdlib), D169 Fama-French (zip CSV with text above / below) | I write these from one more probe of their data files (round 2) |
+| **URL fixed, probe again** | D202 C-MAPSS (PHM Society mirror of NASA PCoE), D144 Telecom Italia (Dataverse API), D170 Binance (S3 listing), D052 Melbourne parking (yearly datasets are attachments), D103 / D104 (PhysioNet file listings), D182 TfL (S3 listing), D163 UK HPI (full-file CSV) | round 2 |
+| **key needed** (free; the owner registers and sets the variable) | D210, D403 `DATAGOVIN_API_KEY` (data.gov.in); D376 `USDA_MARS_KEY` (MyMarketNews: the key is the basic-auth user name, empty password) | round 2 once set |
+| **owner's PC** (unreachable from NERSC; `fetch.manual`) | D230 MIMIT quarterly tar.gz, D373 CEDA monthly CSV, D014 Grid-India (PDF only: see below) | browser download, `ingest register`, upload, `ingest verify` |
+| **unknown: landing page only** | D251 BWDF (loader source to find), D326 Abilene/GEANT (IEEE DataPort login), D174 FI-2010 (Fairdata UI), D047 Korean EV (data link in the paper), D110 muGrowthDB, D289 BioDare2 (JS app), D188 TSA (HTML table: stdlib parser), D336 NPS (SSRS report), D384 Seoul bike, D219 KPX (JS portals; data.go.kr OpenAPI needs a free key) | round 2, or manual / drop |
+| **needs a new dependency** (owner decision) | D339 Eurocontrol and D360 NYC sales (xlsx: openpyxl), D014 Grid-India (PDF tables) | ask |
+
+Round 2, from a login node, after `git pull` (and the keys set, if registered):
+
+    python -m tideforge.devdata.ingest probe --ids D202,D144,D170,D052,D103,D104,D182,D163,D210,D403,D376 \
+        > $TF_ROOT/logs/batch2_probe2.txt 2>&1

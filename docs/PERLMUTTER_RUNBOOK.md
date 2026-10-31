@@ -157,7 +157,26 @@ python -m tideforge.devdata.ingest probe --ids batch2,batch2_standby > $TF_ROOT/
   - BWDF's data licence (journal supplement).
   - NESO's open-data licence text.
 - **Paste back:** the probe file and the five licence texts.
-- **Unblocks:** I write the batch-2 adapters / table specs. Then F2b:
+- **Unblocks:** I write the batch-2 adapters / table specs (round 1 done 2026-10-31: docs/BATCH2_PROBES.md, "Probe round
+  1"). Round 2 probes the fixed URLs (command there).
+
+**F2a. Owner's PC downloads** (Windows, the repo checkout; for D230 and D373, which NERSC cannot reach). In PowerShell, from
+the repo root:
+```
+$RAW = "D:\tf_raw"            # any local folder
+New-Item -ItemType Directory -Force "$RAW\it_fuel_prices\files", "$RAW\agmarknet\files" | Out-Null
+# browser downloads into those files\ folders (what to take: the D230 / D373 notes in tideforge/devdata/sources.yaml)
+python -m tideforge.devdata.ingest register --ids D230,D373 --raw $RAW     # writes fetch_log.jsonl (bytes, sha256)
+python -m tideforge.devdata.ingest verify   --ids D230,D373 --raw $RAW
+scp -r "$RAW\it_fuel_prices" "$RAW\agmarknet" <user>@dtn01.nersc.gov:<absolute TF_DATA>/raw/
+```
+- Then on Perlmutter: `python -m tideforge.devdata.ingest verify --ids D230,D373 --raw $TF_DATA/raw` (every sha256 of the
+  log must match after the upload).
+- `--raw` folders have the same layout on both machines (`<raw>/<slug>/files/` + `fetch_log.jsonl`), and fetched file names
+  come from the URL, so a scripted `ingest fetch` on the PC uploads the same way.
+- **Paste back:** both `verify` lines.
+
+**F2b. Fetch and ingest** (login; after the batch-2 loaders are written):
 ```
 python -m tideforge.devdata.ingest fetch  --ids batch2 --raw $TF_DATA/raw
 python -m tideforge.devdata.ingest ingest --ids batch2 --raw $TF_DATA/raw --out $TF_DATA/staging

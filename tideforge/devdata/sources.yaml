@@ -438,24 +438,36 @@ D251:
 D252:
   slug: nyc_dsny_tonnage
   country: US
-  loader: adapter:pending
   fetch:
     urls: ["https://data.cityofnewyork.us/api/views/ebb7-mvp5/rows.csv?accessType=DOWNLOAD"]
+  read: {format: csv, dtype: {COMMUNITYDISTRICT: str}}
+  time: {col: MONTH, format: "%Y / %m"}
+  id: [BOROUGH, COMMUNITYDISTRICT]
+  value: [REFUSETONSCOLLECTED, PAPERTONSCOLLECTED, MGPTONSCOLLECTED]
   tasks: [{freq: M, how: sum}]
   select: {max_series: 500}
-  confirm: ["columns (month, borough, community district, refuse / paper / MGP tonnage)"]
-  notes: "NYC open data terms. One series per community district and stream."
+  confirm: []
+  notes: "probe 2026-10-31: columns MONTH ('2026 / 09'), BOROUGH, COMMUNITYDISTRICT, REFUSE / PAPER / MGP tons collected (organics columns
+          are sparse, not used). NYC open data terms."
 
 D279:
   slug: santa_fe
   country: multi
-  loader: adapter:pending
   fetch:
-    urls: ["http://www-psych.stanford.edu/~andreas/Time-Series/SantaFe.html"]
+    url_template: https://physionet.org/files/santa-fe/1.0.0/{part}.txt
+    vars: {part: [b1, b2]}
+  read: {format: whitespace, header: null, names: [heart_rate, chest_volume, blood_oxygen]}
+  time: {expr: index, unit: s}
+  id: [_var_part]
+  value: [heart_rate, chest_volume, blood_oxygen]
   tasks: [{freq: index, how: mean}]
   select: {max_series: 500}
-  confirm: ["the data file links (A laser, B sleep, C currency, D synthetic, E astrophysical, F Bach)"]
-  notes: "Index time (owner 2026-10-31: freq index, season 1, horizons 10 / 25 / 50): the adapter writes step i at 1970-01-01 + i s (tideforge.devdata.freqs.index_timestamps)."
+  confirm: ["three whitespace columns per line, no header"]
+  notes: "probe 2026-10-31: the Stanford page is gone (DNS). Kept from PhysioNet's copy of Santa Fe Data Set B (sleep apnea; b1.txt and
+          b2.txt, 2 Hz, heart rate / chest volume / blood oxygen), licence Open Data Commons Attribution 1.0. Sets A and D
+          (laser, synthetic) survive only inside CRAN TSPred (GPL; the original data terms are unstated): not used. Set B
+          is physiological: the catalog domain Physics-reference may be revised (owner). Index time: step i = sample i
+          (0.5 s apart), written at 1970-01-01 + i s."
 
 D210:
   slug: india_ogd
@@ -475,7 +487,7 @@ D144:
   country: IT
   loader: adapter:pending
   fetch:
-    urls: ["https://dataverse.harvard.edu/dataverse/bigdatachallenge"]
+    urls: ["https://dataverse.harvard.edu/api/dataverses/bigdatachallenge/contents"]
   tasks: [{freq: h, how: sum}]
   select: {max_series: 500}
   confirm: ["the Dataverse file list (Milan grid, telecommunications activity, 10-min, Nov-Dec 2013)",
@@ -510,7 +522,7 @@ D170:
   country: multi
   loader: adapter:pending
   fetch:
-    urls: ["https://data.binance.vision/?prefix=data/spot/monthly/klines/"]
+    urls: ["https://s3-ap-northeast-1.amazonaws.com/data.binance.vision?prefix=data/spot/monthly/klines/&delimiter=/"]
   tasks: [{freq: h, how: last}]
   select: {max_series: 500}
   exclude: {where: "not symbol.str.match(r'^(BTC|ETH|LTC|BCH)')", rule: "TIME Crypto = FRED BTC / ETH / LTC / BCH: every pair whose base asset is one of them is dropped"}
@@ -532,13 +544,19 @@ D174:
 D340:
   slug: nyc_311
   country: US
-  loader: adapter:pending
   fetch:
-    urls: ["https://data.cityofnewyork.us/resource/erm2-nwe9.json?$select=date_trunc_ymd(created_date)%20as%20day,complaint_type,count(*)&$group=day,complaint_type&$limit=5"]
+    urls: ["https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$select=date_trunc_ymd(created_date)%20as%20day,complaint_type,count(*)%20as%20n&$group=day,complaint_type&$order=day&$limit=10000000"]
+    timeout_s: 3600
+  read: {format: csv}
+  time: {col: day, format: ISO8601}
+  tz: America/New_York
+  id: [complaint_type]
+  value: n
   tasks: [{freq: D, how: sum}]
   select: {max_series: 500}
-  confirm: ["the SoQL aggregate (day x complaint type x borough) returns the full range in pages"]
-  notes: "NYC open data. Daily request counts per complaint type and borough (server-side aggregation, not the 30M raw rows)."
+  confirm: ["the row count in the fetch log reaches the full range (no silent row cap on the aggregate)"]
+  notes: "probe 2026-10-31: the SoQL aggregate works (day, complaint_type, count). Daily requests per complaint type, server-side, not
+          the ~40M raw rows. NYC open data."
 
 D342:
   slug: police_uk
@@ -554,20 +572,26 @@ D342:
 D343:
   slug: sf_fire_calls
   country: US
-  loader: adapter:pending
   fetch:
-    urls: ["https://data.sfgov.org/resource/nuek-vuh3.json?$select=date_trunc_ymd(received_dttm)%20as%20day,call_type,count(*)&$group=day,call_type&$limit=5"]
+    urls: ["https://data.sfgov.org/resource/nuek-vuh3.csv?$select=date_trunc_ymd(received_dttm)%20as%20day,call_type,battalion,count(*)%20as%20n&$group=day,call_type,battalion&$order=day&$limit=10000000"]
+    timeout_s: 3600
+  read: {format: csv}
+  time: {col: day, format: ISO8601}
+  tz: America/Los_Angeles
+  id: [call_type, battalion]
+  value: n
   tasks: [{freq: D, how: sum}]
   select: {max_series: 500}
-  confirm: ["the dataset id nuek-vuh3 and its column names"]
-  notes: "SF open data (PDDL). Daily calls per call type and battalion (server-side aggregation)."
+  confirm: ["the battalion field name", "the row count reaches the full range"]
+  notes: "probe 2026-10-31: the SoQL aggregate works (day, call_type, count); battalion added to the grouping (to confirm). SF open data
+          (PDDL)."
 
 D163:
   slug: uk_hpi
   country: GB
   loader: adapter:pending
   fetch:
-    urls: ["https://www.gov.uk/government/statistical-data-sets/uk-house-price-index-data-downloads-august-2026"]
+    urls: ["https://publicdata.landregistry.gov.uk/market-trend-data/house-price-index-data/UK-HPI-full-file-2026-08.csv"]
   tasks: [{freq: M, how: last}]
   select: {max_series: 500}
   confirm: ["the full-file CSV link on the page and its columns (Date, RegionName, AveragePrice, SalesVolume)"]
@@ -576,14 +600,19 @@ D163:
 D162:
   slug: zillow
   country: US
-  loader: adapter:pending
   fetch:
     urls: ["https://files.zillowstatic.com/research/public_csvs/zhvi/Metro_zhvi_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv"]
+  read: {format: csv, melt: {id_vars: [RegionID, SizeRank, RegionName, RegionType, StateName], var_name: month,
+                                value_name: zhvi}}
+  time: {col: month, format: "%Y-%m-%d"}
+  id: [RegionID]
+  value: zhvi
   tasks: [{freq: M, how: last}]
   select: {max_series: 500}
-  confirm: ["the CSV URL pattern (the research page answered 403 to the dev machine)",
-            "wide layout: one column per month"]
-  notes: "Licence read 2026-10-29: the research page refused the dev machine (403). Zillow's research data page states, as remembered and NOT re-read: free for public use consistent with its Terms of Use, with clear attribution to Zillow. Read the page in a browser before ingest and record the text here. Different measure from TIME Housing_Inventory (Realtor.com via FRED): value-level check."
+  confirm: ["the Zillow research terms, read in a browser (the page refused the dev machine)"]
+  notes: "probe 2026-10-31: wide CSV, one column per month end (2000-01-31 ...), rows = regions (country + MSAs). Melted to long. Zillow
+          terms as remembered (free with attribution to Zillow) still to be read and recorded. Different measure from TIME
+          Housing_Inventory (Realtor.com via FRED): value-level check."
 
 D360:
   slug: nyc_property_sales
@@ -612,12 +641,12 @@ D052:
   country: AU
   loader: adapter:pending
   fetch:
-    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets?where=search(%22parking%20sensor%22)&limit=20"]
+    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/on-street-car-parking-sensor-data-2019/attachments"]
   tasks: [{freq: h, how: mean}]
   select: {max_series: 500}
   confirm: ["which dataset holds the historic bay events (the live feed is not history)",
             "event columns"]
-  notes: "CC BY 4.0. Occupancy share per street segment. Held-out country AU (G2.4)."
+  notes: "Probe 2026-10-31: 19 parking-sensor datasets, the yearly history ones (on-street-car-parking-sensor-data-2011 ... 2020) have has_records false: the data are attachments (second probe). CC BY 4.0. Occupancy share per street segment. Held-out country AU (G2.4)."
 
 D374:
   slug: wfp_food_prices
@@ -636,11 +665,12 @@ D376:
   loader: adapter:pending
   fetch:
     urls: ["https://marsapi.ams.usda.gov/services/v1.2/reports"]
+    auth: {env: USDA_MARS_KEY, basic: true}
   tasks: [{freq: D, how: last}]
   select: {max_series: 500}
   confirm: ["whether the MARS API needs a key (it did in 2024: then fetch.auth {env: USDA_MARS_KEY, header: ...})",
             "which report slugs give daily / weekly price series"]
-  notes: "US public domain. TIME Commodity_Import / Commodity_Production sources are not recorded: value-level check."
+  notes: "Probe 2026-10-31: HTTP 403 without a key. MyMarketNews docs: requests without authentication fail; the key (free, eAuth registration, shown in the site profile) is the basic-auth user name with an empty password. US public domain. TIME Commodity_Import / Commodity_Production sources are not recorded: value-level check."
 
 D283:
   slug: noaa_fisheries
@@ -667,13 +697,18 @@ D286:
 D334:
   slug: seattle_library
   country: US
-  loader: adapter:pending
   fetch:
-    urls: ["https://data.seattle.gov/resource/tmmm-ytt6.json?$select=checkoutyear,checkoutmonth,materialtype,sum(checkouts)&$group=checkoutyear,checkoutmonth,materialtype&$limit=5"]
+    urls: ["https://data.seattle.gov/resource/tmmm-ytt6.csv?$select=checkoutyear,checkoutmonth,materialtype,usageclass,sum(checkouts)%20as%20n&$group=checkoutyear,checkoutmonth,materialtype,usageclass&$limit=10000000"]
+    timeout_s: 3600
+  read: {format: csv}
+  time: {parts: {year: checkoutyear, month: checkoutmonth, day: day}}
+  id: [materialtype, usageclass]
+  value: n
   tasks: [{freq: M, how: sum}]
-  select: {max_series: 500}
-  confirm: ["dataset id tmmm-ytt6 and fields; the per-title series to sample (top titles by checkouts)"]
-  notes: "Public domain (Seattle open data)."
+  select: {max_series: 500, derive: {day: "checkoutyear * 0 + 1"}}
+  confirm: []
+  notes: "probe 2026-10-31: the SoQL aggregate works (checkoutyear, checkoutmonth, materialtype, sum). Monthly checkouts per material
+          type and usage class (physical / digital), 2005-. Public domain."
 
 D330:
   slug: steam_players
@@ -780,11 +815,15 @@ D230:
   country: IT
   loader: adapter:pending
   fetch:
-    urls: ["https://www.mimit.gov.it/it/open-data/elenco-dataset/carburanti-prezzi-praticati-e-anagrafica-degli-impianti"]
+    manual: true
   tasks: [{freq: D, how: last}]
   select: {max_series: 500}
-  confirm: ["the daily CSV archive links (prezzo_alle_8.csv history) and columns"]
-  notes: "IODL 2.0. Same value-level check as D229."
+  confirm: ["the quarterly 'Prezzo' tar.gz members (one CSV per day? per quarter?) and their columns"]
+  notes: "probe 2026-10-31: mimit.gov.it timed out from NERSC (and from the dev machine's sandbox). Downloaded by hand from
+          https://www.mimit.gov.it/index.php/it/open-data/elenco-dataset/carburanti-archivio-prezzi : every quarterly
+          'Prezzo alle 8 di mattina' tar.gz (Q3 2020 - Q1 2026, ~45-65 MB each) and one 'Anagrafica impianti attivi' file,
+          into <raw>/it_fuel_prices/files/, then `ingest register`. The table loader reads tar.gz members. IODL 2.0. TIME
+          Oil_Price: value-level check."
 
 D188:
   slug: tsa_checkpoint
@@ -824,7 +863,7 @@ D103:
   country: US
   loader: adapter:pending
   fetch:
-    urls: ["https://physionet.org/content/cgmacros/"]
+    urls: ["https://physionet.org/files/cgmacros/1.0.0/"]
   tasks: [{freq: 15min, how: mean}]
   select: {max_series: 500}
   confirm: ["the version folder, the per-participant CSV columns (Libre / Dexcom glucose, meal macros, HR)"]
@@ -835,7 +874,7 @@ D104:
   country: US
   loader: adapter:pending
   fetch:
-    urls: ["https://physionet.org/content/big-ideas-glycemic-wearable/"]
+    urls: ["https://physionet.org/files/big-ideas-glycemic-wearable/1.1.3/"]
   tasks: [{freq: 5min, how: mean}]
   select: {max_series: 500}
   confirm: ["the version folder and the Dexcom CSV columns"]
@@ -846,11 +885,11 @@ D202:
   country: multi
   loader: adapter:pending
   fetch:
-    urls: ["https://data.nasa.gov/download/ff5v-kuh6/application%2Fzip"]
+    urls: ["https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip"]
   tasks: [{freq: index, how: mean}]
   select: {max_series: 500}
   confirm: ["the zip (train_FD00x.txt: unit, cycle, 3 settings, 21 sensors)"]
-  notes: "NASA open. Index time (owner 2026-10-31): step = engine cycle, written at 1970-01-01 + cycle s. Split group with N-CMAPSS."
+  notes: "Probe 2026-10-31: data.nasa.gov 404 (NASA moved its data). Now from the PHM Society mirror of NASA's Prognostics Center of Excellence repository (item 6, not marked offline; acknowledge the repository and the donors). NASA open. The zip may hold a nested CMAPSSData.zip. Index time (owner 2026-10-31): step = engine cycle, written at 1970-01-01 + cycle s. Split group with N-CMAPSS."
 
 D391:
   slug: petrobras_3w
@@ -866,13 +905,19 @@ D391:
 D394:
   slug: steel_energy
   country: KR
-  loader: adapter:pending
   fetch:
     urls: ["https://archive.ics.uci.edu/static/public/851/steel+industry+energy+consumption.zip"]
+  read: {format: csv, zip_member: "Steel_industry_data\\.csv$"}
+  time: {col: date, format: "%d/%m/%Y %H:%M"}
+  tz: Asia/Seoul
+  id: [plant]
+  value: Usage_kWh
   tasks: [{freq: 15min, how: sum}]
-  select: {max_series: 500}
-  confirm: ["the CSV columns (date, Usage_kWh, reactive power, CO2, WeekStatus, Load_Type)"]
-  notes: "CC BY 4.0 (UCI). DAEWOO Steel (KR), 2018. Few series: pooled (< 30 windows). TIME Smart_Manufacturing: value check."
+  select: {max_series: 500, derive: {plant: "'daewoo'"}}
+  confirm: ["the zip member name and columns (UCI documents date, Usage_kWh, Lagging_Current_Reactive.Power_kVarh, CO2(tCO2),
+            ..., WeekStatus, Load_Type)"]
+  notes: "probe 2026-10-31: the zip answered 200 (members are listed after the full download). CC BY 4.0. One series (DAEWOO Steel,
+          2018): pooled (< 30 windows). TIME Smart_Manufacturing: value-level check."
 
 D401:
   slug: neso_demand
@@ -891,7 +936,7 @@ D182:
   country: GB
   loader: adapter:pending
   fetch:
-    urls: ["https://cycling.data.tfl.gov.uk/"]
+    urls: ["https://s3-eu-west-1.amazonaws.com/cycling.data.tfl.gov.uk/?list-type=2&prefix=usage-stats/"]
   tasks: [{freq: D, how: count}]
   select: {max_series: 500}
   confirm: ["the usage-stats file list (weekly CSVs, journey rows: start date, start station)"]
@@ -902,24 +947,29 @@ D014:
   country: IN
   loader: adapter:pending
   fetch:
-    urls: ["https://report.grid-india.in/"]
+    manual: true
   tasks: [{freq: D, how: mean}]
   select: {max_series: 500}
-  confirm: ["the terms of use, read in a browser: automated access must be allowed, else the source is dropped (owner rule) and D403 replaces it",
-            "the daily PSP report format"]
-  notes: "Terms not readable from the dev machine (the page renders only in a browser). No scraping unless the terms allow automated access. Held-out IN."
+  confirm: ["Grid-India's terms (automated access) read in a browser", "whether the daily PSP report exists as xls / csv
+            (search results show PDFs only)"]
+  notes: "probe 2026-10-31: DNS failure from NERSC. Daily PSP reports are PDFs in report.grid-india.in/ReportData/Daily Report/PSP
+          Report/<fiscal year>/<Month YYYY>/<dd.mm.yy>_NLDC_PSP.pdf. A PDF table reader would be a NEW DEPENDENCY (owner
+          decision); without one, D014 is dropped for the standby D403 (CEA monthly, data.gov.in). Held-out IN."
 
 D373:
   slug: agmarknet
   country: IN
   loader: adapter:pending
   fetch:
-    urls: ["https://agmarknet.ceda.ashoka.edu.in/README.html"]
-  tasks: [{freq: D, how: sum}]
+    manual: true
+  tasks: [{freq: M, how: sum}]
   select: {max_series: 500}
-  confirm: ["the CEDA mirror's bulk files (arrivals and modal prices per market and commodity)",
-            "or the data.gov.in resource API"]
-  notes: "GODL India. Daily arrivals (tonnes) per market and commodity. Held-out IN."
+  confirm: ["the CEDA download's columns (month, state, district, commodity, arrivals in tonnes, modal price; original
+            Agmarknet names + the CEDA Census-2011 mapping)"]
+  notes: "probe 2026-10-31: the CEDA mirror timed out from NERSC. CEDA's portal (https://agmarknet.ceda.ashoka.edu.in) gives MONTHLY
+          district-level arrivals and prices as CSV downloads (its README: data up to 28 Feb 2022); daily data is only on
+          agmarknet.gov.in's report forms (browser). Taken monthly from CEDA (tasks M), downloaded by hand into
+          <raw>/agmarknet/files/, then `ingest register`. GODL India. Held-out IN."
 
 D384:
   slug: seoul_bike
@@ -947,13 +997,19 @@ D219:
 D383:
   slug: melbourne_pedestrians
   country: AU
-  loader: adapter:pending
   fetch:
-    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/pedestrian-counting-system-monthly-counts-per-hour/records?limit=5"]
+    urls: ["https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/pedestrian-counting-system-monthly-counts-per-hour/exports/csv?delimiter=%2C"]
+    timeout_s: 3600
+  read: {format: csv, usecols: [location_id, sensing_date, hourday, pedestriancount], dtype: {location_id: str}}
+  time: {cols: [sensing_date, hourday], format: "%Y-%m-%d %H"}
+  tz: Australia/Melbourne
+  id: [location_id]
+  value: pedestriancount
   tasks: [{freq: h, how: sum}]
   select: {max_series: 500}
-  confirm: ["the dataset id and the export URL of the hourly counts per sensor"]
-  notes: "CC BY 4.0. pretrain-flagged (Monash pedestrian_counts is in Chronos / LOTSA): reported apart in E0.5's ranks. Held-out AU."
+  confirm: ["the export's column names equal the records API fields"]
+  notes: "probe 2026-10-31: 1,628,682 records; fields location_id, sensing_date, hourday (0-23), direction_1 / 2, pedestriancount,
+          sensor_name. CC BY 4.0. pretrain-flagged (Monash pedestrian_counts is in Chronos / LOTSA). Held-out AU."
 
 D402:
   slug: anac_vra
@@ -983,10 +1039,16 @@ D403:
 D345:
   slug: stats19
   country: GB
-  loader: adapter:pending
   fetch:
     urls: ["https://data.dft.gov.uk/road-accidents-safety-data/dft-road-casualty-statistics-collision-1979-latest-published-year.csv"]
+    timeout_s: 7200
+  read: {format: csv, usecols: [date, police_force], dtype: {police_force: str}}
+  time: {col: date, format: "%d/%m/%Y"}
+  id: [police_force]
+  events: {how: count}
   tasks: [{freq: D, how: count}]
   select: {max_series: 500}
-  confirm: ["columns (date, police force, severity) and the file size (~1 GB)"]
-  notes: "OGL. In batch 2 because D401 is in the locked role (split), so GB's tuning sources are D182 + D345 (G2.4). Daily collisions per police force."
+  confirm: []
+  notes: "probe 2026-10-31: one CSV, 1.53 GB, 1979-latest; columns include date (dd/mm/yyyy), police_force (code), collision_severity.
+          Daily collisions per police force. OGL. In batch 2 because D401 is in the locked role (split), so GB's tuning
+          sources are D182 + D345 (G2.4)."

@@ -102,14 +102,13 @@ grid_india_calendar:
     holiday: {country: IN, role: known, oracle: false}
   notes: "weather deferred: the targets span several regions and point_weather takes one point; per-series points after the probe gives the series ids; dropped with D014 if Grid-India's terms forbid automated access"
 
-agmarknet_price_holidays:
-  target: {source: D373, freq: D}
+agmarknet_price:
+  target: {source: D373, freq: M}
   join: same_source
-  tz: Asia/Kolkata
   covariates:
     modal_price: {role: past, oracle: false}
-    holiday: {country: IN, role: known, oracle: false}
-  notes: "column name to confirm in the probe"
+  notes: "monthly since the 2026-10-31 probe (CEDA's data is monthly). The approved holiday flags are dropped: at monthly
+          frequency they would mark only a month's first day (wrong data). Column name to confirm"
 
 seoul_bike_weather:
   target: {source: D384, freq: h}
