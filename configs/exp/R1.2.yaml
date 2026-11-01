@@ -1,0 +1,18 @@
+id: R1.2
+base: b0
+gen:
+  gen_additions:
+    tv_season: true
+    breaks: true
+switches:
+  cal_engine:
+    exposure: 0.75
+  family_share:
+    family: long_cycle
+    share: 0.15
+  amfm:
+    share: 0.04
+    mode: add
+train: {dropout: 0.0}
+seeds: [0]
+notes: C2 mix, 5M, dropout 0 (experiments/R1.2.md)

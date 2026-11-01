@@ -1,0 +1,6 @@
+id: R1.3
+base: b0
+recipe: m30
+train: {dropout: 0.0}
+seeds: [0]
+notes: B0, m30, dropout 0 (experiments/R1.3.md)

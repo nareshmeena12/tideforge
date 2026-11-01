@@ -334,6 +334,15 @@ python -m tideforge.eval.where report --root $TF_ROOT/eval_t0 --a <tag> --b0 <B0
 ```
 Each fev report is a LOOKS.md row.
 
+**H5. R1: dropout 0 and m30** (2026-11-02). Check on one interactive GPU (under 10 min), then the node job.
+```
+salloc --nodes 1 --qos interactive --time 00:30:00 --constraint gpu --gpus 1 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO && python tools/m30_check.py
+python -m tideforge.train.r1job --time <max(30M projected, 2 x 5M projected) x 1.3, HH:MM:SS> --micro-rows <from the check>
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/r1.sbatch
+```
+The check fails on any architecture difference from ft3_main other than dropout. fev rows go to $TF_ROOT/looks_pending.md.
+
 ---
 
 ## Dependencies at a glance

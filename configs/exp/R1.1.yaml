@@ -1,0 +1,5 @@
+id: R1.1
+base: b0
+train: {dropout: 0.0}
+seeds: [0]
+notes: B0, 5M, dropout 0 (experiments/R1.1.md)

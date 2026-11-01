@@ -334,6 +334,7 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | X4 | Data budget: final recipe at 200B vs 100B (a richer mix may need more points even at 5M). |
 
 - 2026-11-01 (owner): C1, a stack ahead of X1: G2.3b + G3.1a + G4.3 + G4.4 + G5.2a + G5.3a + G6.2 + G7.4b, seeds 0, 1.
+- 2026-11-02 (owner): R1, dropout-0 runs and a 30M recipe (m30, ft3_main's architecture, one run per GPU): R1.1-R1.6, with R1.5 and R1.6 adding attn_gate sigmoid (experiments/R1.*.md). An owner-approved exception to the fixed 5M model for these runs.
 - 2026-11-01 (owner): C1 replaced before it ran by C2: G5.1 + G2.3b + G3.1a + G5.2a + G4.1, seeds 0, 1, against B0 seeds 6, 7 from the same srun launch (experiments/C2.md).
 
 - 2026-10-29 (owner): X3 is a RegMix-style search, replacing the DoReMi-style one. DoReMi balances excess loss over the

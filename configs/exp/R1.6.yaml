@@ -1,0 +1,19 @@
+id: R1.6
+base: b0
+gen:
+  gen_additions:
+    tv_season: true
+    breaks: true
+switches:
+  cal_engine:
+    exposure: 0.75
+  family_share:
+    family: long_cycle
+    share: 0.15
+  amfm:
+    share: 0.04
+    mode: add
+train: {dropout: 0.0, d_ff: 832, params: 5351136}
+model: {attn_gate: sigmoid}
+seeds: [0]
+notes: C2 mix, 5M, dropout 0, gated attention, param-matched (experiments/R1.6.md)
