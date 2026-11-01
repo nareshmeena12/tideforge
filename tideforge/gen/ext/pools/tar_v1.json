@@ -1,0 +1,26 @@
+{
+ "builder": "python tools/build_loop_pool.py --family tar --out $TF_DATA/pools --name tar_v1 --n 65536 --T 16384 --chunk 8192 --seed 0 --device cpu",
+ "content": {
+  "meta.npy": "c0c263ed0b392a410f7311351373a27516e9af824488d344f58552f66d7c9e7a",
+  "traj.npy": "6c71ab436f44f18d76c6ea4e08ebcb6a9cb74aeeaefcf9628d688d2e36ad117c"
+ },
+ "device": "cpu",
+ "family": "tar",
+ "files": {
+  "meta.npy": "fe4cab39a1fe82d543801ed8ddce12104a0db6763c913bf4614eb656e3a9849a",
+  "traj.npy": "c46298c9496ff289ab4abecd767bfb731f2e0044c775961a4732c2777c249e68"
+ },
+ "meta_columns": "tar: regimes, form; garch_jump: nu, lambda",
+ "name": "tar_v1",
+ "seed": 0,
+ "shape": [
+  65536,
+  16384,
+  1
+ ],
+ "versions": {
+  "numpy": "2.4.4",
+  "python": "3.12.13",
+  "torch": "2.13.0+cu130"
+ }
+}

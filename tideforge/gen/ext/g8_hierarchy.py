@@ -8,6 +8,8 @@ Lanes [0, g) of the group, every lane a target:
             lanes 1, 2 = middle nodes, leaves 3..g-1 split between them (at least 2 each); each node = sum of its leaves
   parent    exact sums, added in float64 then cast (exact when the leaves are integers); smoother than its children by
             construction (independent parts average out)
+A standardised spike can reach about sqrt(L) sd: z is cleaned and sigma z capped at +-MAX_LOG, or exp overflows and the Poisson
+rate turns NaN (screen session 1: a device-side assert that killed the run; a RuntimeError on CPU).
 """
 from __future__ import annotations
 
@@ -17,6 +19,8 @@ from tideforge.gen.ext import g1_common as C
 from tideforge.gen.ext._rand import bern, randint, u
 from tideforge.gen.groups import ROLE_TARGET
 from tideforge.gen.switches import Switch, register
+
+MAX_LOG = 12.0
 
 
 def build(g, z, gsz, dev, p):
@@ -29,7 +33,8 @@ def build(g, z, gsz, dev, p):
     w = C.log_u(g, (n, V), 0.1, 10.0, dev)
     dom = randint(g, 0, V - 1, (n, 1), dev)
     w = torch.where(bern(g, (n, 1), 0.3, dev) & (lane == dom), 10 * w, w)
-    c = w.unsqueeze(-1) * torch.exp(u(g, (n, 1, 1), 0.2, 0.8, dev) * z)
+    log_c = (u(g, (n, 1, 1), 0.2, 0.8, dev) * torch.nan_to_num(z)).clamp(-MAX_LOG, MAX_LOG)
+    c = w.unsqueeze(-1) * torch.exp(log_c)
     cnt = leaf & bern(g, (n, V), p["count_p"], dev)
     m = C.log_u(g, (n, V, 1), 0.1, 3.0, dev)
     lam = c * m / (c.mean(-1, keepdim=True) + 1e-9)

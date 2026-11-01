@@ -445,3 +445,14 @@ def test_manifest_lands_next_to_the_pool(tmp_path):
     _pool.write(tmp_path, "p", t, m, {})
     assert (tmp_path / "p" / "manifest.json").exists()
     assert json.loads((REPO / "tideforge/gen/ext/pools/ode_v1.json").read_text())["shape"] == [20480, 16384, 3]
+
+
+def test_hierarchy_survives_a_huge_spike_and_stays_exact():
+    from tideforge.gen.ext import g8_hierarchy as H
+    z = torch.randn(4, 8, 512)
+    z[:, 1, 5], z[:, 2, 9] = 180.0, float("nan")
+    gsz = torch.tensor([8, 8, 5, 3])
+    y, info = H.build(torch.Generator().manual_seed(0), z, gsz, torch.device("cpu"), dict(two_level_p=0.3, count_p=1.0))
+    assert torch.isfinite(y).all()
+    one = ~info["two"][:, 0]
+    assert torch.allclose(y[one, 0], y[one, 1:].sum(1), rtol=1e-4)

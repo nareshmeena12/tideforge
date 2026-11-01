@@ -1,0 +1,26 @@
+{
+ "builder": "python tools/build_loop_pool.py --family garch_jump --out $TF_DATA/pools --name garch_jump_v1 --n 65536 --T 16384 --chunk 8192 --seed 0 --device cpu",
+ "content": {
+  "meta.npy": "23412fe0c18fb76a77581cb407299ce7daac58baf8a6e33cd38b063c630eb1a1",
+  "traj.npy": "e75febba77ddf634f9b4b97ba52eaa79029c1a6fb4f9d6417058d6de9c3637cc"
+ },
+ "device": "cpu",
+ "family": "garch_jump",
+ "files": {
+  "meta.npy": "7759c20d43feb1cd7a276705b4c79311559450cf3f844cc6eed934fd6bb988bb",
+  "traj.npy": "add7251dc4a25a440d2ffb2ab2c70fb714d9d3d07b8713b41bfe206e70c62b11"
+ },
+ "meta_columns": "tar: regimes, form; garch_jump: nu, lambda",
+ "name": "garch_jump_v1",
+ "seed": 0,
+ "shape": [
+  65536,
+  16384,
+  1
+ ],
+ "versions": {
+  "numpy": "2.4.4",
+  "python": "3.12.13",
+  "torch": "2.13.0+cu130"
+ }
+}
