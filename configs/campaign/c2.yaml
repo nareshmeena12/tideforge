@@ -1,0 +1,5 @@
+# C2: stack, owner 2026-11-01 (experiments/C2.md); replaces C1, which never ran. Launched with `runner run c2`, the same srun as B0 seeds 6, 7.
+name: c2
+seeds: [0, 1]
+runs:
+  - C2

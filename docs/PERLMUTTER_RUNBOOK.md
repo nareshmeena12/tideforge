@@ -321,6 +321,19 @@ python -m tideforge.campaign.board --results $TF_ROOT/results/results.csv --nois
 ```
 - **Paste back:** the M1 lines, board.md, cells_P1_G1.13a.md, cells_P1_G1.8.md.
 
+**H4. C2 and the per-task report** (2026-11-01). C2 goes through `runner run` (srun -c32), not sbatch: its comparison is B0 seeds 6, 7
+from that launch. Measure tv_season first: it is C2's one generator cost not yet known at GPU.
+```
+salloc --nodes 1 --qos interactive --time 02:00:00 --constraint gpu --gpus-per-node 4 --cpus-per-task 32 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO
+python tools/gen_throughput.py --device cuda --exp G5.1                                       # paste back the table
+python -m tideforge.campaign.runner plan c2 --results $TF_ROOT/results/results.csv            # expect 2 pending
+python -m tideforge.campaign.runner run c2
+python -m tideforge.eval.where meta --root $TF_ROOT/eval_t0                                   # once, CPU
+python -m tideforge.eval.where report --root $TF_ROOT/eval_t0 --a <tag> --b0 <B0 tags> --out where_<tag>.md
+```
+Each fev report is a LOOKS.md row.
+
 ---
 
 ## Dependencies at a glance

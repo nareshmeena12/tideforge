@@ -333,6 +333,9 @@ Each block lists its probe, its dev slice, and the experiments. All are single s
 | X3 | Mixture search on the dev tuning set (DoReMi-style), never on fev or TIME. |
 | X4 | Data budget: final recipe at 200B vs 100B (a richer mix may need more points even at 5M). |
 
+- 2026-11-01 (owner): C1, a stack ahead of X1: G2.3b + G3.1a + G4.3 + G4.4 + G5.2a + G5.3a + G6.2 + G7.4b, seeds 0, 1.
+- 2026-11-01 (owner): C1 replaced before it ran by C2: G5.1 + G2.3b + G3.1a + G5.2a + G4.1, seeds 0, 1, against B0 seeds 6, 7 from the same srun launch (experiments/C2.md).
+
 - 2026-10-29 (owner): X3 is a RegMix-style search, replacing the DoReMi-style one. DoReMi balances excess loss over the
   training domains, which here are synthetic generator families, against a reference model; it does not target real dev
   data. Design:

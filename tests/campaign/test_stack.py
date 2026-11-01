@@ -75,3 +75,11 @@ def test_report_predicted_vs_observed(tmp_path):
     r = S.report(["G4.3", "G1.8"], str(b), str(n))
     assert r["predicted"].round(6).tolist() == [0.03, 0.05] and r["check"].tolist() == ["adds up", "interaction"]
     assert S.winners_from_board(str(b)) == ["G4.3", "G1.8"]
+
+
+def test_c2_is_the_requested_union_and_keeps_b0_model():
+    import yaml
+    d = yaml.safe_load((S.REPO / "configs" / "exp" / "C2.yaml").read_text(encoding="utf-8"))
+    u = S.union("G5.1 G2.3b G3.1a G5.2a G4.1".split())
+    assert d["switches"] == u["switches"] and d["gen"] == u["gen"] and d["seeds"] == [0, 1]
+    assert "model" not in d and "train" not in d and not [s for s in d["switches"] if s.startswith("sc_")]
