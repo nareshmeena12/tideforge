@@ -52,6 +52,7 @@ def dev_part(run_dirs: list[str]) -> dict:
 def probe_part(csvs: list[str]) -> dict:
     out = {}
     frames = [pd.read_csv(c) for c in csvs]
+    frames = [f[f["nan_variant"] == "baseline"].copy() if "nan_variant" in f else f for f in frames]   # rescores stay out
     for f in frames:
         f["_key"] = f[list(PROBE_KEY)].astype(str).agg("/".join, axis=1)
     common = set.intersection(*(set(f["_key"]) for f in frames))

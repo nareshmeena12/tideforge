@@ -291,6 +291,36 @@ python -m tideforge.campaign.board --results $TF_ROOT/results/results.csv --nois
 - Running `--write` happens in the repo: I run it on the pasted files, so the Part B tables and the index rows are generated
   from the results, never typed.
 
+**H3. Screen session 2** (after session 1, 2026-11-01; pull once first, then freeze the commit). The 48 finished runs are not
+retrained: `done` ignores the code version.
+1. Remaining training: G8.1, G5.4a/b, G9.2a/b, G10.1a/b (7 runs, about 6.4 GPU-h busy, about 2 h on 1 node; estimate):
+```
+python -m tideforge.campaign.runner plan phase2_screen --results $TF_ROOT/results/results.csv     # expect 7 pending
+salloc --nodes 2 --qos interactive --time 02:00:00 --constraint gpu --gpus-per-node 4 --cpus-per-task 32 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO
+python -m tideforge.campaign.runner run phase2_screen
+```
+2. P6 under nofill_mask, 7 checkpoints (GPU, same salloc; about 2 min each, estimate; repeatable):
+```
+python -m tideforge.campaign.rescore --results $TF_ROOT/results/results.csv --root $TF_DATA/probes \
+  --exps E0.7,G6.1,G6.2,G6.3,G6.4 --probes P6 --nan-variant nofill_mask
+```
+3. M1 check, read from the real checkpoints (login):
+```
+python -c "
+import csv, os, torch
+for r in csv.DictReader(open(os.environ['TF_ROOT'] + '/results/results.csv')):
+    if r['exp'] in ('G1.13a', 'E0.7') and r['ckpt'].endswith('final.pt'):
+        print(r['exp'], r['seed'], torch.load(r['ckpt'], map_location='cpu', weights_only=False)['cfg'].get('known_attn'))
+"
+```
+4. Board and P1 per cell (login, no GPU):
+```
+python -m tideforge.campaign.board --results $TF_ROOT/results/results.csv --noise $TF_ROOT/noise/e07.json \
+  --version dev-v1 --out $TF_ROOT/board --cells P1:G1.13a --cells P1:G1.8
+```
+- **Paste back:** the M1 lines, board.md, cells_P1_G1.13a.md, cells_P1_G1.8.md.
+
 ---
 
 ## Dependencies at a glance

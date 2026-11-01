@@ -73,10 +73,10 @@ def fixture(tmp_path):
 
 EXPECTED = """# Results board (dev-v1, vs E0.7: 3 seeds; E0.7 range MASE: dev +2.00%, dev_cov +3.00%)
 
-| Exp | Seeds | Dev MASE | Gain vs B0 | Dev-cov MASE | Gain vs B0 | ON vs hidden | Probe A/B0 | Worst domain | Verdict |
-|---|---|---|---|---|---|---|---|---|---|
-| G1.13a | 1 | 0.8100 | -1.25% | 0.8550 | +5.00% | +10.00% | P1 0.9000 | Energy 1.0150 | win, 1-seed screen: confirm with 3 seeds |
-| G4.3 | 1 | 0.7600 | +5.00% | 0.9000 | +0.00% | +5.00% | P4 n/a | Retail 1.0125 | no win |
+| Exp | Seeds | Dev MASE | Gain vs B0 | Dev-cov MASE | Gain vs B0 | ON vs hidden | Probe | Main metric [B0 range] | Probe verdict | SQL A/B0 | Worst domain | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1.13a | 1 | 0.8100 | -1.25% | 0.8550 | +5.00% | +10.00% | P1 | sql 1.3500 [1.5000, 1.5000] | improves | 0.9000 | Energy 1.0150 | win, 1-seed screen: confirm with 3 seeds |
+| G4.3 | 1 | 0.7600 | +5.00% | 0.9000 | +0.00% | +5.00% | P4 | step adoption err n/a [n/a, n/a]; transient adoption err n/a [n/a, n/a] | n/a / n/a | n/a | Retail 1.0125 | no win |
 """
 
 
@@ -128,3 +128,55 @@ def test_write_part_b_and_index_rows(tmp_path):
     assert (repo / "EXPERIMENTS.md").read_text(encoding="utf-8") == idx
     assert (repo / "experiments" / "G1.13a.md").read_text(encoding="utf-8") == log
     assert (tmp_path / "out" / "board.md").read_text(encoding="utf-8") == EXPECTED
+
+
+def _pf(rows):
+    return pd.DataFrame([dict(probe=p, cell=c, control=c == "control", mode=m, view="main", metric=k, value=v, nan_variant=nv)
+                         for p, c, m, k, v, nv in rows])
+
+
+def test_main_metric_range_verdicts_and_variants():
+    def seed(step, tr, gaps=None):
+        r = [("P4", "step_up", "main", "adoption", step, "baseline"), ("P4", "transient", "main", "adoption", tr, "baseline"),
+             ("P4", "control", "main", "sql", 9.0, "baseline"), ("P6", "block", "main", "sql_gaps_vs_clean", 1.1, "baseline")]
+        return _pf(r + ([("P6", "block", "main", "sql_gaps_vs_clean", gaps, "nofill_mask")] if gaps else []))
+    B = BD.Agg("E0.7", [0, 1, 2], seed_probes=[seed(0.9, 0.1, 1.5), seed(0.92, 0.12, 1.6), seed(0.94, 0.14, 1.7)])
+    good = {x["label"]: x for x in BD.main_lines(BD.Agg("G4.1", [0], seed_probes=[seed(0.99, 0.13)]), B, "P4")}
+    assert good["step adoption err"]["verdict"] == "improves" and good["transient adoption err"]["verdict"] == "no effect"
+    bad = BD.main_lines(BD.Agg("G4.1", [0], seed_probes=[seed(0.92, 0.5)]), B, "P4")
+    assert [x["verdict"] for x in bad] == ["no effect", "worse"]
+    p6 = {x["label"]: x for x in BD.main_lines(BD.Agg("G6.1", [0], seed_probes=[seed(0.9, 0.1, 1.2)]), B, "P6")}
+    assert p6["gaps/clean"]["verdict"] == "no effect" and p6["gaps/clean nofill_mask"]["verdict"] == "improves"
+    assert BD.main_lines(BD.Agg("G6.2", [0], seed_probes=[seed(0.9, 0.1)]), B, "P6")[1]["verdict"] == "n/a"
+
+
+def test_rescored_rows_stay_out_of_the_means(tmp_path):
+    from tideforge.eval import noise as NZ
+    f = _pf([("P6", "block", "main", "sql", 1.0, "baseline"), ("P6", "block", "main", "sql", 9.0, "nofill_mask")])
+    assert BD._variant(f)["value"].tolist() == [1.0]
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    f.to_csv(a, index=False)
+    f.to_csv(b, index=False)
+    assert NZ.probe_part([str(a), str(b)])["metrics"]["P6/block/main/main/sql"]["values"] == [1.0, 1.0]
+
+
+def test_rescore_runs_once_per_variant(tmp_path, monkeypatch):
+    from tideforge.campaign import rescore as RS
+    d = tmp_path / "run"
+    (d / "probes").mkdir(parents=True)
+    f = d / "probes" / "results.csv"
+    _pf([("P6", "block", "main", "sql", 1.0, "baseline")]).to_csv(f, index=False)
+    res = tmp_path / "results.csv"
+    pd.DataFrame([dict(run_id="r", exp="G6.1", seed=0, ckpt=str(d / "final.pt"), run_dir=str(d))]).to_csv(res, index=False)
+    calls = []
+
+    def fake(model, probes, root, out, variant):
+        calls.append(variant)
+        _pf([("P6", "block", "main", "sql", 2.0, variant)]).to_csv(f, mode="a", header=False, index=False)
+
+    monkeypatch.setattr(RS.PR, "run", fake)
+    ids = (res, tmp_path, ["G6.1"], ["P6"], "nofill_mask")
+    quiet = lambda *a: None                                              # noqa: E731
+    assert RS.rescore(*ids, log=quiet, make_model=lambda *a: None) == 1
+    assert RS.rescore(*ids, log=quiet, make_model=lambda *a: None) == 0
+    assert calls == ["nofill_mask"]
