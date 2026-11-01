@@ -2,6 +2,7 @@
 
     python -m tideforge.train.trainer --exp E0.7 --seed 0 --out $TF_ROOT/runs [--device cuda] [--smoke-points 5e8]
                                       [--max-steps N] [--gen-mode det|default] [--allow-dirty] [--no-finish]
+                                      [--micro-rows N]
 
 A step: the next batch is generated on the MAIN thread (owner 2026-10-29: torch.use_deterministic_algorithms is process-global, so
 generation never overlaps a model kernel launch; the batcher sets the flag around generation only), then forward in bf16
@@ -71,6 +72,26 @@ def atomic_save(obj, path: Path) -> None:
 def slim(raw, cfg, step, points, run_id, note) -> dict:
     return dict(model=raw.state_dict(), cfg=cfg, step=step, points_seen=points, packed=True, synthetic_only=True,
                 run_name=run_id, note=note)
+
+
+def accum_backward(fwd, b, rows: int, M: int, amp) -> torch.Tensor:
+    """Gradient accumulation with the gradients of the full batch: its loss is the mean over the series that carry loss, so each
+    micro-batch weighs by its count of such series. Returns the batch loss; non-finite = the gradients are not usable."""
+    total, n = 0.0, 0.0
+    for sub in TB.split_rows(b, rows, M):
+        with amp():
+            out = TB.packed_forward(fwd, sub)
+        loss = out["loss"]
+        if not torch.isfinite(loss):
+            return loss.detach()
+        w = float((~torch.isnan(out["per_series_loss"])).sum())
+        (loss * w).backward()
+        total, n = total + float(loss.detach()) * w, n + w
+    n = max(n, 1.0)
+    for p in fwd.parameters():
+        if p.grad is not None:
+            p.grad.div_(n)
+    return torch.tensor(total / n)
 
 
 class Run:
@@ -146,7 +167,20 @@ class Run:
         b = self.batcher.next_batch()
         for gp in self.opt.param_groups:
             gp["lr"] = lr_at(self.points, self.opt_cfg)
-        with torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.amp_on):
+        micro = self.rc.sections["run"].get("micro_rows")
+        if micro and int(micro) < self.cfg["pack_rows"]:
+            self.opt.zero_grad(set_to_none=True)
+            loss = accum_backward(self.fwd, b, int(micro), self.cfg["max_segs_per_row"], self._amp)
+            self.step += 1
+            if not torch.isfinite(loss):
+                self.opt.zero_grad(set_to_none=True)
+                self.n_bad += 1
+                return float("nan")
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.opt_cfg["grad_clip"])
+            self.opt.step()
+            self.points += b["points"]
+            return float(loss)
+        with self._amp():
             loss = TB.packed_forward(self.fwd, b)["loss"]
         self.step += 1
         if not torch.isfinite(loss):
@@ -159,6 +193,9 @@ class Run:
         self.opt.step()
         self.points += b["points"]
         return float(loss.detach())
+
+    def _amp(self):
+        return torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.amp_on)
 
     def validate(self) -> dict:
         vl, bands = self.C.evaluate_packed(self.fwd, self.val, torch.bfloat16, self.amp_on, self.device)
@@ -242,7 +279,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--recipe", default="ab5m_cpm")
+    ap.add_argument("--recipe", default=None, help="default: the experiment's recipe: key, else ab5m_cpm")
+    ap.add_argument("--micro-rows", type=int, default=None, help="gradient accumulation: rows per forward (same gradients, same run id)")
     ap.add_argument("--smoke-points", type=float, default=None, help="train this many points (LR schedule over them)")
     ap.add_argument("--max-steps", type=int, default=None)
     ap.add_argument("--gen-mode", choices=["det", "default"], default=None, help="E0.9: override the generator mode")
@@ -253,6 +291,8 @@ def main(argv=None) -> int:
     if code.endswith("+dirty") and not a.allow_dirty:
         raise SystemExit(f"code version {code}: commit first (real runs need a clean tree; smoke runs: --allow-dirty)")
     rc = RC.load(a.exp, a.recipe)
+    if a.micro_rows:
+        rc.sections["run"]["micro_rows"] = a.micro_rows
     if a.smoke_points:
         rc.sections["optim"]["target_points"] = float(a.smoke_points)
         rc.sections["optim"]["milestone_points"] = 0.0

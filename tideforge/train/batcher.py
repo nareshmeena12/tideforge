@@ -340,6 +340,22 @@ def packed_forward(model, b):
                  loss_mask=b.get("loss_ok"))
 
 
+def split_rows(b, rows: int, M: int):
+    """[tf] A packed batch cut into micro-batches of `rows` rows (whole blocks, renumbered slots). Attention, stats and the
+    per-series loss never cross a block, so every series' loss is the one of the full batch."""
+    R, V = b["x"].shape[0], b["lanes"]
+    if rows % V or R % rows:
+        raise ValueError(f"micro_rows {rows} must be a multiple of group_lanes {V} and divide pack_rows {R}")
+    for r0 in range(0, R, rows):
+        r1, s0 = r0 + rows, r0 * M
+        sub = dict(lanes=V, x=b["x"][r0:r1], mask=b["mask"][r0:r1], blank=b["blank"][r0:r1], role=b["role"][r0:r1],
+                   seg_patch=b["seg_patch"][r0:r1] - s0, gid=b["gid"][r0:r1] - s0, slot_valid=b["slot_valid"][s0:r1 * M],
+                   slot_loss=b["slot_loss"][s0:r1 * M])
+        if b.get("loss_ok") is not None:
+            sub["loss_ok"] = b["loss_ok"][r0:r1]
+        yield sub
+
+
 def layout_stats(batcher, n_layouts=20):
     """ft3_core.layout_stats (L2892-L2902): realised length distribution of the sampler (CPU only, no generation)."""
     cs, per_row = [], []

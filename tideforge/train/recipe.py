@@ -28,9 +28,9 @@ from tideforge.gen.config import load_ft3_cfg
 REPO = Path(__file__).resolve().parents[2]
 TRAIN_DIR = REPO / "configs" / "train"
 SECTIONS = ("model", "batch", "optim", "run")
-RUN_EXTRA = {"max_steps": None, "smoke_points": None}          # run settings an experiment / the smoke script may add
+RUN_EXTRA = {"max_steps": None, "smoke_points": None, "micro_rows": None}          # run settings an experiment / the smoke script may add
 # settings that only write extra files (no effect on training): left out of the train hash, so adding one keeps run ids
-UNHASHED = {("run", "extra_ckpt_points")}
+UNHASHED = {("run", "extra_ckpt_points"), ("run", "micro_rows")}     # micro_rows: same gradients (trainer.accum_backward)
 
 
 def load_recipe(name: str = "ab5m_cpm") -> dict:
@@ -105,5 +105,7 @@ def merge(exp: Exp, recipe: dict | None = None) -> Recipe:
     return Recipe(exp, rc, items)
 
 
-def load(exp_id: str, recipe: str = "ab5m_cpm") -> Recipe:
-    return merge(load_exp(exp_id), load_recipe(recipe))
+def load(exp_id: str, recipe: str | None = None) -> Recipe:
+    """recipe: default = the experiment's recipe: key, else ab5m_cpm."""
+    e = load_exp(exp_id)
+    return merge(e, load_recipe(recipe or e.raw.get("recipe", "ab5m_cpm")))

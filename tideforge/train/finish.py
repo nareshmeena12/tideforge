@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 
 ROW = ["date", "run_id", "exp", "seed", "code", "steps", "points", "holdout_final", "holdout_note", "dev", "dev_MASE",
-       "dev_CRPS", "probes", "ckpt", "dev_cov_MASE", "dev_cov_CRPS", "dev_cov_gain", "run_dir"]   # the last 4: 2026-10-29
+       "dev_CRPS", "probes", "ckpt", "dev_cov_MASE", "dev_cov_CRPS", "dev_cov_gain", "run_dir", "n_params"]   # the last 4: 2026-10-29
 HOLDOUT_NOTE = "training monitor only (B0's generator)"
 
 
@@ -100,7 +100,7 @@ def finish(ckpt: Path, run_dir: Path | None = None, dev: str | None = None, vers
     probe_root = probe_root if probe_root is not None else (str(Path(_env("TF_DATA")) / "probes") if _env("TF_DATA") else None)
     row = dict(date=dt.date.today().isoformat(), run_id=ck.get("run_name", info.get("run_id", "")), exp=info.get("exp", ""),
                seed=info.get("seed", ""), code=info.get("code", ""), steps=ck.get("step", ""), points=ck.get("points_seen", ""),
-               holdout_final=hold, holdout_note=HOLDOUT_NOTE, ckpt=str(ckpt), run_dir=str(run_dir))
+               holdout_final=hold, holdout_note=HOLDOUT_NOTE, ckpt=str(ckpt), run_dir=str(run_dir), n_params=info.get("n_params", ""))
     row.update(dev_score(ckpt, run_dir, dev, version, device, log))
     row.update(probes(ckpt, run_dir, probe_root, device, log))
     res = Path(results or (Path(_env("TF_ROOT") or run_dir.parent) / "results" / "results.csv"))

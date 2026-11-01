@@ -1,0 +1,60 @@
+# m30: ft3_main's architecture (FT3 = configs/ft3_main_cfg.json) on the ab5m_cpm training recipe; only peak_lr differs from ab5m_cpm.yaml.
+# peak_lr 3e-4: the owner's fallback (2026-11-02). reference/tide_v5_pretrain_1T.py is not on the dev PC and the tidemark pilot's choice is only in
+# its Perlmutter pilot_choice.json. 3e-4 is also the upper rate of tidemark's 30M pilot grid (config.py PILOT_LRS, scale.py). Not tuned.
+# setting it; OWNER = owner decision 2026-10-29 (T3 proposal); INFERRED = not known from ab5m (its scripts are lost).
+name: m30
+model:
+  d_model: 512          # FT3
+  n_layers: 6           # FT3
+  n_heads: 8            # FT3
+  d_kv: 64              # AB5M
+  d_ff: 2048            # FT3
+  patch_len: 32         # AB5M
+  dropout: 0.1          # AB5M
+  group_attn: true      # AB5M (group attention, 8 lanes)
+  group_lanes: 8        # AB5M
+  arcsinh: true         # AB5M / FT3
+  mask_channel: true    # FT3
+  skip_group_attn: true # FT3
+  decoder: causal       # AB5M (CPM = the CausalPatchDecoder)
+  max_pass_patches: 32  # FT3
+  horizon_loss_share: 0.5   # FT3
+  params: 29248800      # measured with build_model (asserted at start)
+batch:
+  pack_rows: 1024       # OWNER, INFERRED: ft3 / ft3_main's value, the likeliest ab5m value (8.30M real points per step)
+  max_ctx: 8192         # FT3
+  min_ctx: 8            # FT3
+  max_segs_per_row: 32  # FT3
+  long_row_frac: 0.25   # FT3 (G3.3 changes it through an experiment's train: section)
+  long_min_ctx: 2048    # FT3
+  len_bucket_edges: [16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]   # FT3
+  gen_pool_points: 16000000.0   # FT3
+  gen_pool_max_rows: 32768      # FT3
+  cpm_prob: 0.8         # FT3
+  cpm_min_patches: 2    # FT3
+  cpm_max_patches: 16   # FT3
+  cpm_suffix_frac: 0.75 # FT3
+  cpm_long_p: 0.3       # FT3
+  cpm_long_max: 32      # FT3
+  pred_len: 128         # FT3 (unused by the causal decoder)
+optim:
+  peak_lr: 0.0003       # see the header
+  betas: [0.9, 0.95]    # AB5M
+  weight_decay: 0.01    # TORCH (ft3's trainer passes none: AdamW's default), OWNER
+  warmup_frac: 0.02     # AB5M
+  warmup_start_frac: 0.04   # OWNER: peak / 25 (ft3's OneCycle default)
+  final_lr_frac: 0.0    # OWNER: cosine to 0 (ft3's OneCycle ends near 0)
+  grad_clip: 1.0        # AB5M
+  target_points: 100000000000.0   # AB5M
+  milestone_points: 50000000000.0 # AB5M (milestone at 50B)
+run:
+  amp: bf16             # FT3 (auto -> bf16 on A100)
+  compile: true         # FT3
+  deterministic_gen: true   # E0.9 decision (owner 2026-10-27): the generator in deterministic mode, the model in default mode
+  val_every: 500        # OWNER (ft3: 2000)
+  val_batches: 2        # FT3
+  val_corpus: clean     # FT3 (the holdout is B0's own generator: a training monitor only)
+  val_group_prob: 0.7   # FT3
+  ckpt_every_s: 600     # OWNER (~10 min)
+  extra_ckpt_points: [10000000000.0]   # OWNER 2026-10-29: ckpt_10B.pt (X3's cheap rank signal); not in the train hash
+  print_every: 50       # FT3

@@ -3,6 +3,7 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
 
     id: G4.1                      # must equal the file name (configs/exp/G4.1.yaml)
     base: b0                      # b0 (ft3_main's cfg, configs/ft3_main_cfg.json) | defaults (ft3_core CONFIG; tests only)
+    recipe: m30                   # configs/train/<name>.yaml; absent = ab5m_cpm
     gen:                          # GenConfig field changes vs base; gen_additions entries are merged
       gen_additions: {breaks: true}
     switches:                     # name: true | {param: value}; parameters not given keep their defaults
@@ -12,9 +13,11 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
 
     train:                        # batcher / training settings: stored and validated now, applied by T3 (5M recipe port)
       long_row_frac: 0.5
+      dropout: 0.0                # every dropout site (recipe default 0.1; another value changes the train hash)
     model:                        # model options (tideforge.model.OPTIONS), off when absent; non-default ones join the run id
       known_attn: mask            # M1 (G1.13): off | mask
       known_lookahead: 32         # M1's band in patches (G1.13c); absent = the whole window
+      attn_gate: sigmoid          # gated attention; absent = none
     win:                          # the board's win rule (tideforge.campaign.board); absent = rule 5's default:
       - {score: dev, beat: range}           #   dev beats B0 by more than E0.7's range, and
       - {domains_within: 0.01}              #   no domain slice worse than B0 by more than 1%
@@ -33,10 +36,10 @@ from tideforge.gen.config import GenConfig, b0
 
 REPO = Path(__file__).resolve().parents[1]
 EXP_DIR = REPO / "configs" / "exp"
-KEYS = {"id", "base", "gen", "switches", "seeds", "notes", "train", "model", "win"}
+KEYS = {"id", "base", "recipe", "gen", "switches", "seeds", "notes", "train", "model", "win"}
 # train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
 TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict, "crop_breaks": dict, "max_steps": int, "pack_rows": int,
-              "deterministic_gen": bool, "smoke_points": float, "target_points": float}
+              "deterministic_gen": bool, "smoke_points": float, "target_points": float, "dropout": float, "micro_rows": int, "d_ff": int, "params": int}
 LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
 WIN_KINDS = ("score", "probe", "slice", "domains_within")
@@ -44,7 +47,7 @@ WIN_KEYS = {"score": {"score", "beat", "not_worse"}, "probe": {"probe", "cells",
             "slice": {"slice"}, "domains_within": {"domains_within"}}
 DEFAULT_WIN = ({"score": "dev", "beat": "range"}, {"domains_within": 0.01})      # EXPERIMENTS.md rule 5 (own slice: give one)
 # model: options (owner 2026-10-29, M1); the same names and defaults as tideforge.model.OPTIONS (a test checks it)
-MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None}
+MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None, "attn_gate": ("none", "sigmoid")}
 
 
 @dataclass(frozen=True)
@@ -68,7 +71,7 @@ class Exp:
 
 def model_fragment(model: dict) -> str:
     """'-kamask-kl32' for {known_attn: mask, known_lookahead: 32}; '' when every option is off."""
-    short = {"known_attn": "ka", "known_lookahead": "kl"}
+    short = {"known_attn": "ka", "known_lookahead": "kl", "attn_gate": "ag"}
     return "".join(f"-{short[k]}{model[k]}" for k in MODEL_KEYS if k in model)
 
 
@@ -158,10 +161,13 @@ def check_model(model: dict | None, where="") -> dict:
     ka = model.get("known_attn", "off")
     if ka not in MODEL_KEYS["known_attn"]:
         raise ValueError(f"{where}: model.known_attn must be one of {MODEL_KEYS['known_attn']}, not {ka!r}")
+    if model.get("attn_gate", "none") not in MODEL_KEYS["attn_gate"]:
+        raise ValueError(f"{where}: model.attn_gate must be one of {MODEL_KEYS['attn_gate']}")
     K = model.get("known_lookahead")
     if K is not None and (isinstance(K, bool) or not isinstance(K, int) or K < 1 or ka == "off"):
         raise ValueError(f"{where}: model.known_lookahead must be an int >= 1 and needs known_attn: mask")
-    return {k: v for k, v in model.items() if not (k == "known_attn" and v == "off") and v is not None}
+    return {k: v for k, v in model.items() if not (k == "known_attn" and v == "off") and not (k == "attn_gate" and v == "none")
+            and v is not None}
 
 
 def check_train(train: dict | None, where="") -> dict:
@@ -172,6 +178,8 @@ def check_train(train: dict | None, where="") -> dict:
     for k, typ in TRAIN_KEYS.items():
         if k in train and not isinstance(train[k], (int, float) if typ is float else typ):
             raise TypeError(f"{where}: train.{k} must be {typ.__name__}")
+    if "dropout" in train and not 0 <= train["dropout"] < 1:
+        raise ValueError(f"{where}: train.dropout must be in [0, 1)")
     if "long_row_frac" in train and not 0 <= train["long_row_frac"] <= 1:
         raise ValueError(f"{where}: train.long_row_frac must be in [0, 1]")
     bad = sorted(set(train.get("lead_noise", {})) - LEAD_NOISE_KEYS)
