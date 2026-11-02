@@ -125,7 +125,8 @@ class Run:
         self.C = C
         prof = G.configure(rc.exp.gen, seed=self.seed)
         self.batcher = TB.PackedBatcher(self.cfg, dev, prof, seed=self.seed + 1, deterministic_gen=self.det,
-                                        crop_breaks=rc.items.get("crop_breaks"), lead_noise=rc.items.get("lead_noise"))
+                                        crop_breaks=rc.items.get("crop_breaks"), lead_noise=rc.items.get("lead_noise"),
+                                        cov_only=bool(rc.items.get("cov_only")))
         o = self.opt_cfg
         self.opt = torch.optim.AdamW(self.model.parameters(), lr=o["peak_lr"] * o["warmup_start_frac"],
                                      betas=tuple(o["betas"]), weight_decay=o["weight_decay"], fused=dev.type == "cuda")

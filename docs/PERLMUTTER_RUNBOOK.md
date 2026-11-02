@@ -357,6 +357,29 @@ run 0 R1.4 r14 & run 1 R1.2 r12 & wait
 python -m tideforge.eval.score board --root $TF_ROOT/eval_t0 | tail -n 20
 ```
 
+**H7. Adapter: AD.1-AD.4** (2026-11-03). All times are estimates; `tools/ad_check.py` replaces them with a measured rate.
+Needs R1.2's final.pt, and R1.4's for AD.3 / AD.4. First build P11 (once, CPU, about a minute): `python -m tideforge.probes build --root $TF_DATA/probes --probes P11`,
+paste back the line for registry.json.
+```
+# GPU check, 10 min
+salloc --nodes 1 --qos interactive --time 00:30:00 --constraint gpu --gpus 1 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO && git pull && python tools/ad_check.py --exp AD.2
+exit
+# pilot: two 1B runs side by side, then P1 + P11 on both and on R1.2
+python -m tideforge.train.adjob write pilot --time <1B projected x 1.5 + 01:00:00>
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/ad_pilot.sbatch
+python -m tideforge.train.adjob choose --probes $TF_ROOT/probes_ad --tags lr3e-4 lr1e-3
+# AD.1, AD.2: four 5B runs (one per GPU), finish, then fev on all four
+python -m tideforge.train.adjob write ad12 --time <5B projected x 1.5 + finish + fev> --lr <chosen>
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/ad_ad12.sbatch
+# the column (one report per AD run vs its backbone)
+python -m tideforge.eval.where report --root $TF_ROOT/eval_t0 --a ad2s0baseon_s0 --b0 r12baseon_s0 --out $TF_ROOT/where_ad2s0.md
+# only if AD.2 beat AD.1
+python -m tideforge.train.adjob write ad34 --time <...> --lr <chosen>
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/ad_ad34.sbatch
+```
+fev rows go to $TF_ROOT/looks_pending.md; a job fails if the non-covariate tasks differ from the backbone.
+
 ---
 
 ## Dependencies at a glance

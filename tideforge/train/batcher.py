@@ -20,6 +20,8 @@ Ported verbatim except the lines marked [tf]:
       lead_noise   G1.2: dict(p_noisy, sigma0_lo, sigma0_hi, step): on the known lanes of a cell whose target has a CPM span,
                    g1_lead_noise.lead_noise from the first hidden point of that span
       long_row_frac  G3.3: the cfg value (ft3's own setting)
+      cov_only     adapter training: only blocks with a covariate in a group of 2 or more are kept (rejection, so the mix is unchanged)
+      effect       causal_cov: the true effect strength per series, b["effect"] (S,), when that switch is on
     Their draws come from the batcher's own generator (hook_gen), seeded from (seed, stream, batch number): never torch's global
     stream, so switching one on changes nothing else.
 """
@@ -32,6 +34,7 @@ import time
 import torch
 
 import tideforge.gen as G
+from tideforge.gen.ext import causal_cov as CC
 from tideforge.gen.ext import g1_lead_noise as LN
 from tideforge.gen.ext import g4_breaks as GB
 from tideforge.gen.groups import ROLE_KNOWN
@@ -47,11 +50,19 @@ def _loguniform_int(shape, lo, hi, gen=None):
     return v.floor().long().clamp_(lo, hi)
 
 
+def has_covariate(role, lgid) -> torch.Tensor:                                      # [tf]
+    """(N,) bool: the block has a past or known lane that shares its group with another lane."""
+    same = lgid.unsqueeze(2) == lgid.unsqueeze(1)
+    other = ~torch.eye(role.shape[1], dtype=torch.bool, device=role.device)
+    return ((role != 0) & (same & other).any(2)).any(1)
+
+
 class PackedBatcher:
     """ft3_core.PackedBatcher (see its docstring: fixed-shape packed rows, blocks of V lanes sharing one layout, CPM spans)."""
 
     def __init__(self, cfg, device, profile: str, seed: int, stream: int = 0, weights=None, pool_mode: str = "seeded",  # [tf]
-                 deterministic_gen: bool = True, crop_breaks: dict | None = None, lead_noise: dict | None = None):  # [tf]
+                 deterministic_gen: bool = True, crop_breaks: dict | None = None, lead_noise: dict | None = None,
+                 cov_only: bool = False):  # [tf]
         self.pl = cfg["patch_len"]
         self.W = cfg["max_ctx"]
         assert self.W % self.pl == 0, "max_ctx must be a multiple of patch_len"
@@ -95,7 +106,8 @@ class PackedBatcher:
         self.pool_mode, self.seed, self.stream = pool_mode, int(seed), int(stream)
         self.pool_state: dict[int, dict] = {}
         self.deterministic_gen = bool(deterministic_gen)
-        self.crop_breaks, self.lead_noise = crop_breaks, lead_noise
+        self.crop_breaks, self.lead_noise, self.cov_only = crop_breaks, lead_noise, cov_only
+        self.has_effect = False
         self.n_batches = 0
 
     # ---- layout ---------------------------------------------------------------
@@ -159,8 +171,20 @@ class PackedBatcher:
         if self.deterministic_gen:
             torch.use_deterministic_algorithms(True)
         try:
-            return G.generate_blocks(nb, self.V, Lb, self.device, self.weights, profile=self.profile,
-                                     group_prob=self.group_prob)
+            parts = []
+            while True:
+                out = G.generate_blocks(nb, self.V, Lb, self.device, self.weights, profile=self.profile,
+                                        group_prob=self.group_prob)
+                eff = CC.pop_effect()
+                if eff is not None:
+                    out = (*out, eff.to(self.device))
+                    self.has_effect = True
+                if not self.cov_only:
+                    return out
+                keep = has_covariate(out[1], out[2])
+                parts.append(tuple(t[keep] for t in out))
+                if sum(p[0].shape[0] for p in parts) >= nb:
+                    return tuple(torch.cat(c, 0)[:nb] for c in zip(*parts))
         finally:
             torch.use_deterministic_algorithms(prev, warn_only=prev_warn)
 
@@ -221,6 +245,7 @@ class PackedBatcher:
         lane = torch.arange(V, device=dev)
         ROLE = torch.zeros(self.Sb, V, dtype=torch.long, device=dev)
         LG = lane.expand(self.Sb, V).clone()
+        EFF = torch.zeros(self.Sb, V, device=dev)                                     # [tf]
 
         c, row, start, n, slot = lay["c"], lay["row"], lay["start"], lay["n"], lay["slot"]
         first_pt = ((row.unsqueeze(1) * V + torch.arange(V).unsqueeze(0)) * W
@@ -230,7 +255,7 @@ class PackedBatcher:
             sel = (bucket == bi).nonzero().squeeze(1)
             k = sel.numel()
             E = int(self.edges[bi])
-            gx, grole, glg = self._take(bi, k)                 # (k, V, E + pred), (k, V), (k, V)
+            gx, grole, glg, *rest = self._take(bi, k)          # (k, V, E + pred), (k, V), (k, V), [effect (k, V)]
             cs = c[sel].to(dev)
             st = (torch.rand(k, device=dev) * (E - cs + 1).float()).floor().long()  # ONE crop per block
             j = torch.arange(E, device=dev).view(1, 1, E)
@@ -247,6 +272,8 @@ class PackedBatcher:
             sl = slot[sel].to(dev)
             ROLE[sl] = grole
             LG[sl] = glg
+            if rest:                                                                  # [tf] causal_cov
+                EFF[sl] = rest[0]
             if pred:
                 tidx = (st + cs).view(k, 1, 1) + torch.arange(pred, device=dev).view(1, 1, pred)
                 Y[(sl.unsqueeze(1) * V + lane.unsqueeze(0)).reshape(-1)] = \
@@ -265,6 +292,8 @@ class PackedBatcher:
                 X = self._lead_noise(X.view(self.R, W), MK.view(self.R, W), blank, role_p, seg_full, hg).reshape(-1)
             out = dict(blank=blank, lanes=V, gid=gid, role=role_p,
                        slot_loss=(ROLE != ROLE_KNOWN).reshape(-1))
+        if self.has_effect:                                                           # [tf]
+            out["effect"] = EFF.reshape(-1)
         return dict(out, x=X.view(self.R, W), mask=MK.view(self.R, W), y=Y,
                     seg_patch=seg_full, slot_valid=lay["slot_valid"].to(dev).repeat_interleave(V),
                     slot_ctx_len=torch.zeros(self.Sb, dtype=torch.long).index_put_(

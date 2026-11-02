@@ -27,6 +27,9 @@ from tideforge.eval.flip import use_flip
 from tideforge.eval.nan_variants import CODE, VARIANTS, use_variant, variant_of
 
 
+IDENTICAL_TOL = 1e-5        # the same frozen forward on another batch layout: float noise only
+
+
 def variant_name(name: str, variant: str) -> str:
     return f"{name}{CODE[variant]}"
 
@@ -164,9 +167,25 @@ def cmd_compare_board(a) -> int:
     return 0
 
 
+def cmd_check_identical(a) -> int:
+    """The non-covariate fev tasks of tag --a must equal tag --b (an adapter must not touch them); exit 1 if not."""
+    import pandas as pd
+    from tideforge.eval.where import errors
+    meta = pd.read_csv(Path(a.root) / "eval" / "fev_meta.csv")
+    tasks = meta.loc[meta.covariates == "no", "task"]
+    ea, eb = errors(a.root, a.a).reindex(tasks).dropna(), errors(a.root, a.b).reindex(tasks).dropna()
+    common = ea.index.intersection(eb.index)
+    if len(common) < len(tasks):
+        print(f"{a.a} / {a.b}: {len(common)} of {len(tasks)} non-covariate tasks scored in both")
+        return 1
+    rel = ((ea[common] - eb[common]).abs() / eb[common].abs().clip(lower=1e-12)).max()
+    print(f"{a.a} vs {a.b}: {len(common)} non-covariate tasks, max relative difference {rel:.3g}")
+    return 0 if rel <= IDENTICAL_TOL else 1
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=("score", "board", "table", "compare-log", "compare-board"))
+    ap.add_argument("cmd", choices=("score", "board", "table", "compare-log", "compare-board", "check-identical"))
     ap.add_argument("--root", required=True)
     ap.add_argument("--ckpt", action="append", default=[], metavar="NAME=PATH")
     ap.add_argument("--variant", choices=VARIANTS, default="baseline")
@@ -184,6 +203,8 @@ def main(argv=None) -> int:
     ap.add_argument("--looks-file", default=None, help="default $TF_ROOT/looks_pending.md; a path in the repo is redirected there")
     ap.add_argument("--experiment", default=None)
     ap.add_argument("--why", default=None)
+    ap.add_argument("--a", default=None, help="check-identical: the adapter's tag")
+    ap.add_argument("--b", default=None, help="check-identical: the backbone's tag")
     ap.add_argument("--name", default="ft3mainbase", help="compare-log: checkpoint name")
     ap.add_argument("--log", default="reference/fev_log_ft3.txt")
     ap.add_argument("--ref", default=None, help="compare-board: the reference scores_long.csv")
@@ -194,7 +215,8 @@ def main(argv=None) -> int:
         if not a.ckpt:
             raise SystemExit("score needs at least one --ckpt NAME=PATH")
         return cmd_score(a)
-    return {"board": cmd_board, "table": cmd_table, "compare-log": cmd_compare, "compare-board": cmd_compare_board}[a.cmd](a)
+    return {"board": cmd_board, "table": cmd_table, "compare-log": cmd_compare, "compare-board": cmd_compare_board,
+            "check-identical": cmd_check_identical}[a.cmd](a)
 
 
 if __name__ == "__main__":

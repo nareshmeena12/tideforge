@@ -31,7 +31,7 @@ from tideforge.probes import common, metrics as M
 from tideforge.probes.models import make
 
 MODULES = {"P1": "p01_covariates", "P2": "p02_calendar", "P3": "p03_cycles", "P4": "p04_breaks", "P5": "p05_quasiperiodic",
-           "P6": "p06_gaps", "P7": "p07_counts", "P8": "p08_hierarchy", "P9": "p09_dynamics", "P10": "p10_tails"}
+           "P6": "p06_gaps", "P7": "p07_counts", "P8": "p08_hierarchy", "P9": "p09_dynamics", "P10": "p10_tails", "P11": "p11_overtrust"}
 COLUMNS = ["date", "git", "model", "ckpt_sha", "nan_variant", "probe", "version", "cell", "control", "mode", "view", "metric",
            "value", "ci_lo", "ci_hi", "n"]
 

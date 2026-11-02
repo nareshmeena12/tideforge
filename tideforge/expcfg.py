@@ -18,6 +18,7 @@ generator code behind a switch lives in tideforge/gen/ext/ and is off unless a c
       known_attn: mask            # M1 (G1.13): off | mask
       known_lookahead: 32         # M1's band in patches (G1.13c); absent = the whole window
       attn_gate: sigmoid          # gated attention; absent = none
+      adapter_every: 1            # covariate adapter blocks on a frozen backbone; absent = 0
     win:                          # the board's win rule (tideforge.campaign.board); absent = rule 5's default:
       - {score: dev, beat: range}           #   dev beats B0 by more than E0.7's range, and
       - {domains_within: 0.01}              #   no domain slice worse than B0 by more than 1%
@@ -39,7 +40,8 @@ EXP_DIR = REPO / "configs" / "exp"
 KEYS = {"id", "base", "recipe", "gen", "switches", "seeds", "notes", "train", "model", "win"}
 # train: keys T3 will apply (owner 2026-10-28): the batcher's long_row_frac (G3.3) and G1.2's lead noise on known lanes
 TRAIN_KEYS = {"long_row_frac": float, "lead_noise": dict, "crop_breaks": dict, "max_steps": int, "pack_rows": int,
-              "deterministic_gen": bool, "smoke_points": float, "target_points": float, "dropout": float, "micro_rows": int, "d_ff": int, "params": int}
+              "deterministic_gen": bool, "smoke_points": float, "target_points": float, "dropout": float, "micro_rows": int, "d_ff": int, "params": int,
+              "peak_lr": float, "compile": bool, "cov_only": bool}
 LEAD_NOISE_KEYS = {"p_noisy", "sigma0_lo", "sigma0_hi", "step"}
 GEN_FIELDS = set(GenConfig.__dataclass_fields__) - {"version", "switches"}
 WIN_KINDS = ("score", "probe", "slice", "domains_within")
@@ -47,7 +49,7 @@ WIN_KEYS = {"score": {"score", "beat", "not_worse"}, "probe": {"probe", "cells",
             "slice": {"slice"}, "domains_within": {"domains_within"}}
 DEFAULT_WIN = ({"score": "dev", "beat": "range"}, {"domains_within": 0.01})      # EXPERIMENTS.md rule 5 (own slice: give one)
 # model: options (owner 2026-10-29, M1); the same names and defaults as tideforge.model.OPTIONS (a test checks it)
-MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None, "attn_gate": ("none", "sigmoid")}
+MODEL_KEYS = {"known_attn": ("off", "mask"), "known_lookahead": None, "attn_gate": ("none", "sigmoid"), "adapter_every": (0, 1, 2)}
 
 
 @dataclass(frozen=True)
@@ -71,7 +73,7 @@ class Exp:
 
 def model_fragment(model: dict) -> str:
     """'-kamask-kl32' for {known_attn: mask, known_lookahead: 32}; '' when every option is off."""
-    short = {"known_attn": "ka", "known_lookahead": "kl", "attn_gate": "ag"}
+    short = {"known_attn": "ka", "known_lookahead": "kl", "attn_gate": "ag", "adapter_every": "ae"}
     return "".join(f"-{short[k]}{model[k]}" for k in MODEL_KEYS if k in model)
 
 
@@ -163,11 +165,13 @@ def check_model(model: dict | None, where="") -> dict:
         raise ValueError(f"{where}: model.known_attn must be one of {MODEL_KEYS['known_attn']}, not {ka!r}")
     if model.get("attn_gate", "none") not in MODEL_KEYS["attn_gate"]:
         raise ValueError(f"{where}: model.attn_gate must be one of {MODEL_KEYS['attn_gate']}")
+    if model.get("adapter_every", 0) not in MODEL_KEYS["adapter_every"]:
+        raise ValueError(f"{where}: model.adapter_every must be one of {MODEL_KEYS['adapter_every']}")
     K = model.get("known_lookahead")
     if K is not None and (isinstance(K, bool) or not isinstance(K, int) or K < 1 or ka == "off"):
         raise ValueError(f"{where}: model.known_lookahead must be an int >= 1 and needs known_attn: mask")
     return {k: v for k, v in model.items() if not (k == "known_attn" and v == "off") and not (k == "attn_gate" and v == "none")
-            and v is not None}
+            and not (k == "adapter_every" and v == 0) and v is not None}
 
 
 def check_train(train: dict | None, where="") -> dict:

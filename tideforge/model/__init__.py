@@ -7,6 +7,7 @@ without them (ft3_main.pt) is all "off". Options:
   known_attn       off | mask        M1 (tideforge/model/m1.py, owner OK 2026-10-29); off = the port itself, bit-exact
   known_lookahead  None | K >= 1     M1's band: a token never sees a known value beyond K + 1 patches ahead (None = whole segment)
   attn_gate        none | sigmoid    gated attention (tideforge/model/gated.py, owner 2026-11-02); none = no change at all
+  adapter_every    0 | 1 | 2         covariate adapter blocks (tideforge/model/adapter.py, owner 2026-11-03); 0 = no change at all
 Any other option raises, so a config cannot silently ask for an unbuilt model.
 
 load(path, device) is the strict checkpoint loader for every scorer (the probes' Ft3 / M5 adapters, devscore, finish), and
@@ -19,7 +20,7 @@ import contextlib
 
 from tideforge.model import ft3_model as FM
 
-OPTIONS = {"known_attn": "off", "known_lookahead": None, "attn_gate": "none"}
+OPTIONS = {"known_attn": "off", "known_lookahead": None, "attn_gate": "none", "adapter_every": 0}
 
 
 def options_of(cfg: dict) -> dict:
@@ -38,6 +39,9 @@ def check_options(options: dict | None) -> dict:
     from tideforge.model.gated import ATTN_GATE
     if opts["attn_gate"] not in ATTN_GATE:
         raise NotImplementedError(f"model option attn_gate={opts['attn_gate']!r} is not built (known: {ATTN_GATE})")
+    from tideforge.model.adapter import ADAPTER_EVERY
+    if opts["adapter_every"] not in ADAPTER_EVERY:
+        raise NotImplementedError(f"model option adapter_every={opts['adapter_every']!r} is not built (known: {ADAPTER_EVERY})")
     K = opts["known_lookahead"]
     if K is not None and (opts["known_attn"] == "off" or isinstance(K, bool) or not isinstance(K, int) or K < 1):
         raise ValueError(f"known_lookahead={K!r}: an int >= 1, and only with known_attn: mask")
@@ -52,10 +56,13 @@ def build(cfg: dict, options: dict | None = None):
     else:
         from tideforge.model.m1 import build_m1
         model = build_m1(cfg, opts["known_attn"], opts["known_lookahead"])
-    if opts["attn_gate"] == "none":
-        return model
-    from tideforge.model.gated import install
-    return install(model)
+    if opts["attn_gate"] != "none":
+        from tideforge.model.gated import install
+        model = install(model)
+    if opts["adapter_every"]:
+        from tideforge.model.adapter import install
+        model = install(model, opts["adapter_every"])
+    return model
 
 
 def n_params(model) -> int:

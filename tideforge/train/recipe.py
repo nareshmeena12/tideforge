@@ -93,6 +93,9 @@ def merge(exp: Exp, recipe: dict | None = None) -> Recipe:
         if k in ("lead_noise", "crop_breaks"):
             items[k] = dict(v)
             continue
+        if k == "cov_only":
+            items[k] = bool(v)
+            continue
         for sec in SECTIONS:
             if k in rc[sec]:
                 rc[sec][k] = v

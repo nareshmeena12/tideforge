@@ -1,0 +1,26 @@
+id: AD.2
+base: b0
+gen:
+  gen_additions:
+    tv_season: true
+    breaks: true
+switches:
+  cal_engine:
+    exposure: 0.75
+  family_share:
+    family: long_cycle
+    share: 0.15
+  amfm:
+    share: 0.04
+    mode: add
+  causal_cov: {}
+model:
+  adapter_every: 1
+train:
+  dropout: 0.0
+  cov_only: true
+  target_points: 5000000000.0
+  peak_lr: 0.0003
+  compile: false
+seeds: [0, 1]
+notes: R1.2 + adapter on causal_cov data (experiments/AD.2.md)

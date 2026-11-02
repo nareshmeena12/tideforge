@@ -5,7 +5,7 @@
 #   amount: the switch parameters X3 scales (capped at 0.95); a switch without one is on / off only.
 groups:
   covariates:
-    switches: [sc_load, sc_price, sc_retail, sc_pv, sc_events, causal_graph, cov_count]
+    switches: [sc_load, sc_price, sc_retail, sc_pv, sc_events, causal_graph, cov_count, causal_cov]
     gen: [second_group_p, cov_small_group_p, group_kind_probs]
     train: [lead_noise]
   calendar:

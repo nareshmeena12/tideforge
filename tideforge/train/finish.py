@@ -56,7 +56,8 @@ def probes(ckpt: Path, run_dir: Path, root: str | None, device: str, log=print) 
         return dict(probes="probes missing")
     from tideforge.probes import run as PR
     from tideforge.probes.models import make
-    PR.run(make("m5", str(ckpt), device), PR.probe_ids("all"), Path(root), run_dir / "probes")
+    built = [p for p in PR.probe_ids("all") if (Path(root) / p).exists()]       # a probe not built yet (P11) is skipped
+    PR.run(make("m5", str(ckpt), device), built, Path(root), run_dir / "probes")
     return dict(probes=str(run_dir / "probes" / "results.csv"))
 
 

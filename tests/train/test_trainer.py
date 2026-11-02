@@ -148,7 +148,7 @@ def test_m1_run_trains_and_its_checkpoint_reloads_as_m1(tmp_path):
     assert "-kamask" in r.run_id
     assert r.train(max_steps=2) == TR.EXIT_DONE
     info = json.loads((r.dir / "run.json").read_text())
-    assert info["model_options"] == {"known_attn": "mask", "known_lookahead": None, "attn_gate": "none"}
+    assert info["model_options"] == {"known_attn": "mask", "known_lookahead": None, "attn_gate": "none", "adapter_every": 0}
     m, cfg, _ = TM.load(r.dir / "final.pt", "cpu")
     assert type(m) is M1Decoder and cfg["known_attn"] == "mask"
     assert all(torch.equal(a, b) for a, b in zip(m.state_dict().values(), r.model.state_dict().values()))

@@ -376,6 +376,9 @@ Budget estimate: ~85 training runs at 5M + evaluation + public-model scoring on 
 
 ---
 
+- 2026-11-03 (owner): AD.1-AD.4 add a covariate adapter on frozen R1.2 / R1.4, the causal_cov switch and P11. Primary comparison: each AD run vs its
+  backbone on the 42-task covariate column, 2 adapter seeds. Backbones without M1: the firewall covers the adapter's path only.
+
 ## 9. Index (one line per experiment; keep newest first)
 
 Rows ending in `<!-- board -->` are written by `python -m tideforge.campaign.board --write` from results.csv; do not edit

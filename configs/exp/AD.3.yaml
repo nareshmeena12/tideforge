@@ -1,0 +1,26 @@
+id: AD.3
+base: b0
+recipe: m30
+gen:
+  gen_additions:
+    tv_season: true
+    breaks: true
+switches:
+  cal_engine:
+    exposure: 0.75
+  family_share:
+    family: long_cycle
+    share: 0.15
+  amfm:
+    share: 0.04
+    mode: add
+model:
+  adapter_every: 2
+train:
+  dropout: 0.0
+  cov_only: true
+  target_points: 5000000000.0
+  peak_lr: 0.0003
+  compile: false
+seeds: [0, 1]
+notes: R1.4 + adapter on its own covariate data (experiments/AD.3.md)
