@@ -4,6 +4,9 @@ Written for: the owner, running tideforge on Perlmutter. This is every Perlmutte
 with the exact command, where it runs, the expected time, what to paste back and what it unblocks. It replaces the
 "First-Perlmutter checklist" that was in CLAUDE.md. Times are **estimates** unless a step says measured.
 
+Nothing on Perlmutter writes to the repo. Every `--looks` appends to `$TF_ROOT/looks_pending.md`; paste those rows back, and
+they go into the tracked LOOKS.md in a commit from the dev machine.
+
 Where a step runs:
 - **login**: a login node (network, no GPU; keep it to light CPU work).
 - **GPU (interactive)**: first `salloc --nodes 1 --qos interactive --time <T> --constraint gpu --gpus <n> --account=$NERSC_ACCOUNT`.
@@ -128,7 +131,7 @@ bash $S/e05_public.sh check
 **E3. fev wrapper check** (batch, 1 regular node, ~0.9 h / 3.3 GPU-h; needs E2)
 ```
 sbatch $S/e05_public.sbatch
-bash $S/e05_public.sh table --looks      # after it finishes: one LOOKS.md row per model
+bash $S/e05_public.sh table --looks      # after it finishes: one LOOKS row per model
 ```
 - **Paste back:** the table.
 - **Unblocks:** public-model dev scoring (F6).
@@ -321,7 +324,7 @@ python -m tideforge.campaign.board --results $TF_ROOT/results/results.csv --nois
 ```
 - **Paste back:** the M1 lines, board.md, cells_P1_G1.13a.md, cells_P1_G1.8.md.
 
-**H4. C2 and the per-task report** (2026-11-01). C2 goes through `runner run` (srun -c32), not sbatch: its comparison is B0 seeds 6, 7
+**H4. C2 and the per-task report** (2026-11-01). C2 goes through `runner run`, not sbatch: its comparison is B0 seeds 6, 7
 from that launch. Measure tv_season first: it is C2's one generator cost not yet known at GPU.
 ```
 salloc --nodes 1 --qos interactive --time 02:00:00 --constraint gpu --gpus-per-node 4 --cpus-per-task 32 --account=$NERSC_ACCOUNT
@@ -330,9 +333,9 @@ python tools/gen_throughput.py --device cuda --exp G5.1                         
 python -m tideforge.campaign.runner plan c2 --results $TF_ROOT/results/results.csv            # expect 2 pending
 python -m tideforge.campaign.runner run c2
 python -m tideforge.eval.where meta --root $TF_ROOT/eval_t0                                   # once, CPU
-python -m tideforge.eval.where report --root $TF_ROOT/eval_t0 --a <tag> --b0 <B0 tags> --out where_<tag>.md
+python -m tideforge.eval.where report --root $TF_ROOT/eval_t0 --a <tag> --b0 <B0 tags> --out $TF_ROOT/where_<tag>.md
 ```
-Each fev report is a LOOKS.md row.
+Each fev report is a LOOKS row in $TF_ROOT/looks_pending.md.
 
 **H5. R1: dropout 0 and m30** (2026-11-02). Check on one interactive GPU (under 10 min), then the node job.
 ```
@@ -342,6 +345,17 @@ python -m tideforge.train.r1job --time <max(30M projected, 2 x 5M projected) x 1
 cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/r1.sbatch
 ```
 The check fails on any architecture difference from ft3_main other than dropout. fev rows go to $TF_ROOT/looks_pending.md.
+
+**H6. Flip averaging, R1.2 and R1.4** (2026-11-02). Inference only, about twice a plain score (estimate). One interactive 4-GPU node.
+```
+salloc --nodes 1 --qos interactive --time 04:00:00 --constraint gpu --gpus 4 --account=$NERSC_ACCOUNT
+source $S/env.sh && cd $TF_REPO && git pull
+run() { CUDA_VISIBLE_DEVICES=$1 OMP_NUM_THREADS=32 python -m tideforge.eval.score score --root $TF_ROOT/eval_t0 --flip-avg \
+  --ckpt "$3=$(ls -t $TF_ROOT/runs/$2-*/final.pt | head -1)" --modes on --skip-time > $TF_ROOT/logs/flip_$2.log 2>&1 && \
+  echo "| $(date +%F) | $2 | $3flipbaseon_s0 (groups ON, flip-avg) | fev-bench | flip averaging, one counted look | scored; skill from the board |" >> $TF_ROOT/looks_pending.md; }
+run 0 R1.4 r14 & run 1 R1.2 r12 & wait
+python -m tideforge.eval.score board --root $TF_ROOT/eval_t0 | tail -n 20
+```
 
 ---
 

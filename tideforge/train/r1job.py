@@ -18,8 +18,13 @@ from tideforge.train import recipe as RC
 
 RUNS = ("R1.1", "R1.2", "R1.3", "R1.4", "R1.5", "R1.6")
 GPUS = (("R1.3",), ("R1.4",), ("R1.1", "R1.5"), ("R1.2", "R1.6"))    # one chain per GPU, one run after the other
-STEP = "srun -N1 -n1 --gpus-per-task=1 --cpus-per-task=32 --mem=55G --exact"
+NGPU = len(GPUS)
 EVAL_ROOT = "$TF_ROOT/eval_t0"
+
+
+def step(gpu) -> str:
+    """Background processes in the batch script, not parallel srun steps: in job 60660013 only one of four steps ran."""
+    return f"CUDA_VISIBLE_DEVICES={gpu} OMP_NUM_THREADS=32 python"
 
 
 def tag(exp: str) -> str:
@@ -29,14 +34,15 @@ def tag(exp: str) -> str:
 def render(time: str, micro: int, account: str) -> str:
     if not re.fullmatch(r"\d+:\d\d:\d\d", time):
         raise ValueError(f"--time {time!r}: HH:MM:SS")
-    score = []
     item = lambda e: f"{e}:{micro if RC.load(e).sections['model']['d_model'] == 512 else 0}"    # noqa: E731
-    train = ['chain "' + " ".join(item(e) for e in g) + '"' for g in GPUS]
-    for e in RUNS:
-        score.append(f'ck=$(ls -t "$TF_ROOT"/runs/{e}-*/final.pt | head -1)\n'
-                     f'[ -n "$ck" ] || {{ echo "no final.pt for {e}"; exit 1; }}\n'
-                     f'{STEP} python -m tideforge.eval.score score --root "{EVAL_ROOT}" --ckpt "{tag(e)}=$ck" --modes on --skip-time '
-                     f'> "$TF_ROOT/logs/r1_fev_{e}.log" 2>&1 &\nPIDS+=($!)')
+    train = [f'chain {i} "' + " ".join(item(e) for e in g) + '"' for i, g in enumerate(GPUS)]
+    score = []
+    for i in range(NGPU):                                               # one queue per GPU
+        body = "".join(f'    ck=$(ls -t "$TF_ROOT"/runs/{e}-*/final.pt | head -1)\n'
+                       f'    [ -n "$ck" ] || {{ echo "no final.pt for {e}"; exit 1; }}\n'
+                       f'    {step(i)} -m tideforge.eval.score score --root "{EVAL_ROOT}" --ckpt "{tag(e)}=$ck" --modes on --skip-time '
+                       f'> "$TF_ROOT/logs/r1_fev_{e}.log" 2>&1 || exit 1\n' for e in RUNS[i::NGPU])
+        score.append(f"(\n{body}) &\nPIDS+=($!)")
     looks = "\n".join(f'echo "| $(date +%F) | {e} | {tag(e)}baseon_s0 (groups ON) | fev-bench | R1, one counted look | scored; '
                       f'skill from the board |" >> "$TF_ROOT/looks_pending.md"' for e in RUNS)
     nl = "\n"
@@ -63,20 +69,20 @@ mkdir -p "$TF_ROOT/runs" "$TF_ROOT/logs" "{EVAL_ROOT}"
 git log --oneline -1
 PIDS=()
 forward() {{
-    echo "$(date) SIGUSR1: asking the steps to save and stop"
+    echo "$(date) SIGUSR1: asking the runs to save and stop"
     for p in "${{PIDS[@]}}"; do kill -USR1 "$p" 2>/dev/null; done
     wait
     scontrol requeue "$SLURM_JOB_ID"; exit 0
 }}
 trap forward USR1
-# one GPU's runs in order; a subshell ignores the parent's trap, so it forwards USR1 to its own step and keeps waiting for it
+# one GPU's runs in order; a subshell ignores the parent's trap, so it forwards USR1 to its own process and keeps waiting for it
 chain() {{
     (
     trap 'kill -USR1 "$p" 2>/dev/null' USR1
-    for item in $1; do
+    for item in $2; do
         e=${{item%:*}}; m=${{item#*:}}
         extra=""; [ "$m" -eq 0 ] || extra="--micro-rows $m"
-        {STEP} python -m tideforge.train.trainer --exp "$e" --seed 0 --out "$TF_ROOT/runs" $extra > "$TF_ROOT/logs/r1_$e.log" 2>&1 &
+        {step("$1")} -m tideforge.train.trainer --exp "$e" --seed 0 --out "$TF_ROOT/runs" $extra > "$TF_ROOT/logs/r1_$e.log" 2>&1 &
         p=$!
         wait "$p"; c=$?
         while kill -0 "$p" 2>/dev/null; do wait "$p"; c=$?; done

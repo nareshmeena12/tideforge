@@ -158,7 +158,7 @@ def cmd_table(a) -> int:
                                  why="wrapper check: published per-task numbers within 2%", result=summary_line(r))
                 for r in res]
         added = looks.append_looks(rows, a.looks_file)
-        print(f"{len(added)} LOOKS row(s) added to {a.looks_file}")
+        print(f"{len(added)} LOOKS row(s) added to {looks.target(a.looks_file)}")
     return 0
 
 
@@ -171,7 +171,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="runs/public/fevcheck")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--looks", action="store_true")
-    ap.add_argument("--looks-file", default=str(looks.LOOKS))
+    ap.add_argument("--looks-file", default=None, help="default $TF_ROOT/looks_pending.md; a path in the repo is redirected there")
     a = ap.parse_args(argv)
     if a.cmd == "run" and not (a.model and a.root and a.fev):
         raise SystemExit("run needs --model, --root and --fev")

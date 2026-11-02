@@ -31,6 +31,7 @@ import csv
 import json
 import math
 import re
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -457,6 +458,8 @@ def main(argv=None) -> int:
     ap.add_argument("--cells", action="append", default=[], metavar="PROBE:EXP", help="also write a per-cell table, e.g. P1:G1.13a")
     ap.add_argument("--repo", default=str(REPO), help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
+    if a.write and os.environ.get("SLURM_JOB_ID"):
+        raise SystemExit("--write edits tracked files: run it on the dev machine, not in a job")
     b = build(a.results, a.noise, a.version, a.b0)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)

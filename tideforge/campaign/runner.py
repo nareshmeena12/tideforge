@@ -3,7 +3,7 @@
     python -m tideforge.campaign.runner plan phase2_screen [--results $TF_ROOT/results/results.csv] [--strict-code] [--write]
     python -m tideforge.campaign.runner run  phase2_screen      # inside a salloc of 1-4 GPU nodes, in tmux, in the foreground
 
-run: one trainer + finish per GPU (srun per task, 32 CPUs), the next pending run whenever a GPU frees up, never a run that
+run: one trainer + finish per GPU (a local process per GPU, srun --overlap only to reach another node, 32 CPUs), the next pending run whenever a GPU frees up, never a run that
 cannot finish before the allocation ends (remaining points at the measured rate + finish + MARGIN_S). Restart-safe: rerun the
 same command in a new salloc: done runs are skipped, a killed run resumes from last.pt, a run killed during finish reruns
 finish. Resuming needs the same git commit (the code version is in the run directory's name). Failed runs are reported and
@@ -32,6 +32,7 @@ import json
 import math
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -208,13 +209,17 @@ def seconds_needed(run: Run, out: Path) -> float:
     return max(0.0, run.points - done) / slurm.train_rate()[0] + slurm.FINISH_H * 3600
 
 
-def command(run: Run, out: Path, host: str) -> list[str]:
+def command(run: Run, out: Path, host: str, gpu: int = 0) -> list[str]:
     d = run_dir(run, out)
     if d and (d / "final.pt").exists():
         task = ["python", "-m", "tideforge.train.finish", "--ckpt", str(d / "final.pt")]
     else:
         task = ["python", "-m", "tideforge.train.trainer", "--exp", run.exp, "--seed", str(run.seed), "--out", str(out)]
-    return ["srun", "--exact", "-N1", "-n1", f"-c{CPUS_PER_RUN}", "--gpus=1", "-w", host, *task]
+    # not parallel --exact steps: in job 60660013 only one of four ran, the others stayed "Requested nodes are busy"
+    task = ["env", f"CUDA_VISIBLE_DEVICES={gpu}", f"OMP_NUM_THREADS={CPUS_PER_RUN}", *task]
+    if host == socket.gethostname().split(".")[0]:
+        return task
+    return ["srun", "--overlap", "-N1", "-n1", f"--gpus-per-node={slurm.NODE_GPUS}", "-w", host, *task]
 
 
 def schedule(pending: list[Run], slots: list[str], out: Path, left, start, sleep=time.sleep, poll_s: float = 30, log=print) -> dict:
@@ -255,7 +260,8 @@ def run_campaign(name: str, results: str, out: Path, logs: Path) -> int:
 
     def start(run, slot):
         f = open(logs / f"{name}_{run.exp}_s{run.seed}.log", "a", encoding="utf-8")
-        procs.append(subprocess.Popen(command(run, out, slot.split("/")[0]), stdout=f, stderr=subprocess.STDOUT))
+        host, gpu = slot.split("/")
+        procs.append(subprocess.Popen(command(run, out, host, int(gpu)), stdout=f, stderr=subprocess.STDOUT))
         return procs[-1]
 
     def stop(signum, frame):                   # trainers save last.pt and exit 3; the next session resumes them

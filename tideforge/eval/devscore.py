@@ -259,7 +259,7 @@ def cmd_score(a) -> int:
         rows = [looks.format_row(experiment=a.experiment, checkpoint=f"{a.model} ({m})", benchmark=f"dev locked {a.version} {run['set']}",
                                  why=a.why, result=_fmt(run["scores"][m]["overall"])) for m in modes]
         added = looks.append_looks(rows, a.looks_file)
-        print(f"{len(added)} LOOKS row(s) added to {a.looks_file}:", *added, sep="\n")
+        print(f"{len(added)} LOOKS row(s) added to {looks.target(a.looks_file)}:", *added, sep="\n")
     return 0
 
 
@@ -426,7 +426,7 @@ def main(argv=None) -> int:
     ap.add_argument("--locked", action="store_true", help="required to score the locked role")
     ap.add_argument("--experiment")
     ap.add_argument("--why")
-    ap.add_argument("--looks-file", default=str(looks.LOOKS))
+    ap.add_argument("--looks-file", default=None, help="default $TF_ROOT/looks_pending.md; a path in the repo is redirected there")
     ap.add_argument("--model")
     ap.add_argument("--ckpt")
     ap.add_argument("--device", default="cuda")

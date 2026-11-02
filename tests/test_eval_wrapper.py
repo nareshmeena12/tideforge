@@ -1,4 +1,5 @@
 """tideforge.eval.score (argument passing to score_groups, variant in the tags, LOOKS rows) and tideforge.eval.looks."""
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +7,7 @@ import pytest
 
 import tidemark.real.score_groups as G
 import tidemark.real.ft3_core as C
+from tideforge.campaign import board
 from tideforge.eval import looks, score
 
 LOOKS_TEMPLATE = """# Looks at fev-bench and TIME
@@ -103,3 +105,64 @@ def test_compare_board_summary_writes_looks(tmp_path):
                        "--experiment", "E0.3", "--why", "w", "--looks-file", str(lf)]) == 0
     body = lf.read_text()
     assert "ft3maincmask (groups ON, vs ft3main)" in body and "test_error ratio vs baseline 1.2500" in body
+
+
+SKIP = {".git", "__pycache__", ".pytest_cache"}
+
+
+def repo_files() -> dict:
+    out = {}
+    for d, sub, names in os.walk(looks.REPO):
+        sub[:] = [x for x in sub if x not in SKIP]
+        out.update({Path(d) / n: (Path(d) / n).stat().st_mtime_ns for n in names})
+    return out
+
+
+def row(ck="c"):
+    return looks.format_row(experiment="R1", checkpoint=ck, benchmark="fev-bench", why="w", result="r")
+
+
+def test_target_is_pending_and_never_the_repo(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("TF_ROOT", str(tmp_path))
+    pending = tmp_path / "looks_pending.md"
+    assert looks.target() == pending and looks.target(looks.LOOKS) == pending and looks.target(tmp_path / "x.md") == tmp_path / "x.md"
+    before = looks.LOOKS.read_bytes()
+    assert looks.append_looks([row()], looks.LOOKS) == [row()]
+    assert "redirected" in capsys.readouterr().out and looks.LOOKS.read_bytes() == before
+    assert looks.append_looks([row(), row("d")]) == [row("d")]                  # dedupe, append order, no header needed
+    assert pending.read_text().splitlines() == [row(), row("d")]
+    monkeypatch.setenv("TF_ROOT", str(looks.REPO / "runs"))
+    with pytest.raises(SystemExit):
+        looks.target()
+    monkeypatch.delenv("TF_ROOT")
+    with pytest.raises(SystemExit):
+        looks.append_looks([row()])
+
+
+def test_board_and_table_commands_write_nothing_in_the_repo(tmp_path, monkeypatch):
+    monkeypatch.setenv("TF_ROOT", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(G, "main", lambda argv: 0)                              # the table itself writes under --root
+    root = tmp_path / "R"
+    (root / "eval" / "board").mkdir(parents=True)
+    pd.DataFrame({"checkpoint": ["r11base"], "fev skill ON": [40.0], "fev skill OFF": [float("nan")],
+                  "TIME MASE ON": [float("nan")], "TIME MASE OFF": [float("nan")]}).to_csv(
+        root / "eval" / "board" / "real_table_modes.csv", index=False)
+    cols = "model,arm,seed,benchmark,metric,task,window,err\n"
+    (root / "eval" / "board" / "scores_long.csv").write_text(cols + "x,r11on,0,fev,test_error,t1,all,0.5\n")
+    ref = tmp_path / "ref.csv"
+    ref.write_text(cols + "x,ft3mainon,0,fev,test_error,t1,all,0.4\n")
+    before = repo_files()
+    common = ["--looks", "--experiment", "R1", "--why", "w"]
+    assert score.main(["table", "--root", str(root), "--names", "r11base", "--base", "r11base"] + common) == 0
+    assert score.main(["compare-board", "--root", str(root), "--name", "r11", "--ref", str(ref), "--summary"] + common) == 0
+    assert score.main(["table", "--root", str(root), "--names", "r11base", "--base", "r11base", "--looks-file",
+                       str(looks.LOOKS), "--experiment", "R2", "--why", "w", "--looks"]) == 0
+    assert repo_files() == before
+    assert len((tmp_path / "looks_pending.md").read_text().splitlines()) == 3
+
+
+def test_board_write_is_refused_in_a_job(tmp_path, monkeypatch):
+    monkeypatch.setenv("SLURM_JOB_ID", "1")
+    with pytest.raises(SystemExit, match="dev machine"):
+        board.main(["--results", str(tmp_path / "r.csv"), "--out", str(tmp_path), "--write"])

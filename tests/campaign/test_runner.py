@@ -112,4 +112,6 @@ def test_resume_counts_remaining_points_and_finish_only(tmp_path):
     (d / "final.pt").write_bytes(b"x")
     assert R.seconds_needed(run, tmp_path) == slurm.FINISH_H * 3600
     cmd = R.command(run, tmp_path, "n1")
-    assert "tideforge.train.finish" in cmd and cmd[:2] == ["srun", "--exact"]
+    assert "tideforge.train.finish" in cmd and cmd[:2] == ["srun", "--overlap"] and "CUDA_VISIBLE_DEVICES=0" in cmd
+    R.socket.gethostname = lambda: "n1.local"
+    assert R.command(run, tmp_path, "n1", 2)[:2] == ["env", "CUDA_VISIBLE_DEVICES=2"]

@@ -112,8 +112,8 @@ def test_r1_configs():
 
 def test_job_file():
     t = J.render("30:00:00", 512, "m0000_g")
-    assert 'chain "R1.3:512"' in t and 'chain "R1.4:512"' in t and 'chain "R1.1:0 R1.5:0"' in t and 'chain "R1.2:0 R1.6:0"' in t
-    assert t.count("--gpus-per-task=1 --cpus-per-task=32 --mem=55G --exact") == 7
+    assert 'chain 0 "R1.3:512"' in t and 'chain 1 "R1.4:512"' in t and 'chain 2 "R1.1:0 R1.5:0"' in t and 'chain 3 "R1.2:0 R1.6:0"' in t
+    assert "srun" not in t and all(f"CUDA_VISIBLE_DEVICES={i} OMP_NUM_THREADS=32 python -m tideforge.eval.score" in t for i in range(4))
     assert "#SBATCH -q regular" in t and "#SBATCH -t 30:00:00" in t and t.count("--modes on --skip-time") == 6
     assert "LOOKS.md" not in t and "\r" not in t and "R1.3:0" in J.render("30:00:00", 0, "m0000_g")
     with pytest.raises(ValueError):

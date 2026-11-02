@@ -13,7 +13,7 @@ is appended to the checkpoint name, so it is part of every result tag: ft3main +
 ft3mainbaseon_s0 (ON); nofill_delete -> ft3mainnfdel; nofill_mask -> ft3mainnfmask. score_groups resumes per (tag, task): use a
 fresh evaluation root for a new reproduction, never one with old results under the same tags.
 `table --gate` checks the base checkpoint against score_groups.GATE (ON fev 43.78, TIME 0.680 / 0.571; OFF fev 42.09,
-TIME 0.687 / 0.575; tolerance 0.2 fev, 0.002 TIME). `--looks` adds one LOOKS.md row per checkpoint, benchmark and mode.
+TIME 0.687 / 0.575; tolerance 0.2 fev, 0.002 TIME). `--looks` adds to $TF_ROOT/looks_pending.md one row per checkpoint, benchmark and mode.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 from tideforge.eval import looks, thirdparty
+from tideforge.eval.flip import use_flip
 from tideforge.eval.nan_variants import CODE, VARIANTS, use_variant, variant_of
 
 
@@ -38,7 +39,7 @@ def cmd_score(a) -> int:
         name, sep, path = item.partition("=")
         if not sep:
             raise SystemExit(f"--ckpt {item!r}: expected NAME=PATH")
-        names.append(variant_name(name, a.variant))
+        names.append(variant_name(name + ("flip" if a.flip_avg else ""), a.variant))   # its own tag, never the plain one
         argv += ["--ckpt", f"{names[-1]}={path}"]
     for flag in ("smoke", "cpu", "skip_time", "skip_fev"):
         if getattr(a, flag):
@@ -47,7 +48,7 @@ def cmd_score(a) -> int:
         argv += ["--num-proc", str(a.num_proc)]
     print(f"variant {a.variant}: checkpoint names {', '.join(names)} (tags NAME_s0 = OFF, NAMEon_s0 = ON)", flush=True)
     from tideforge import model as TM
-    with use_variant(a.variant), TM.use_loader():      # checkpoints built from their cfg's model options (M1)
+    with use_variant(a.variant), TM.use_loader(), use_flip(a.flip_avg):      # checkpoints built from their cfg's model options (M1)
         return G.main(argv)
 
 
@@ -90,7 +91,7 @@ def cmd_table(a) -> int:
         df = pd.read_csv(Path(a.root) / "eval" / "board" / "real_table_modes.csv")
         names = a.names.split(",") if a.names else list(df.checkpoint)
         added = looks.append_looks(look_rows(df, names, a.experiment, a.why), a.looks_file)
-        print(f"\n{len(added)} row(s) added to {a.looks_file} (paste them back if this checkout is not the one you commit from):")
+        print(f"\n{len(added)} row(s) added to {looks.target(a.looks_file)} (move them to LOOKS.md and commit):")
         print("\n".join(added))
     return rc
 
@@ -155,7 +156,7 @@ def cmd_compare_board(a) -> int:
                 rows.append(looks.format_row(experiment=a.experiment, checkpoint=f"{a.name} ({mode}, vs {a.ref_name})",
                                              benchmark="fev-bench" if b == "fev" else "TIME", why=a.why, result=res))
             added = looks.append_looks(rows, a.looks_file)
-            print(f"{len(added)} row(s) added to {a.looks_file}:", *added, sep="\n")
+            print(f"{len(added)} row(s) added to {looks.target(a.looks_file)}:", *added, sep="\n")
         return 0
     print(j.to_string(index=False, float_format=lambda v: f"{v:.6g}"))
     print(f"\n{len(j)} task rows compared; max relative difference {j['rel_diff'].max():.3g}; "
@@ -175,11 +176,12 @@ def main(argv=None) -> int:
     ap.add_argument("--skip-time", action="store_true")
     ap.add_argument("--skip-fev", action="store_true")
     ap.add_argument("--num-proc", type=int, default=None)
+    ap.add_argument("--flip-avg", action="store_true", help="score: average with the negated targets, tag NAMEflip (tideforge.eval.flip)")
     ap.add_argument("--names", default=None, help="table: comma-separated checkpoint names incl. the variant code")
     ap.add_argument("--base", default="ft3mainbase")
     ap.add_argument("--gate", action="store_true")
     ap.add_argument("--looks", action="store_true", help="table: add the LOOKS.md rows")
-    ap.add_argument("--looks-file", default=str(looks.LOOKS))
+    ap.add_argument("--looks-file", default=None, help="default $TF_ROOT/looks_pending.md; a path in the repo is redirected there")
     ap.add_argument("--experiment", default=None)
     ap.add_argument("--why", default=None)
     ap.add_argument("--name", default="ft3mainbase", help="compare-log: checkpoint name")

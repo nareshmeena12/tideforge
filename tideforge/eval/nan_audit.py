@@ -223,7 +223,7 @@ def main(argv=None) -> int:
     ap.add_argument("--skip-time", action="store_true")
     ap.add_argument("--num-proc", type=int, default=4)
     ap.add_argument("--looks", action="store_true", help="add the 'data only, no model scored' row to LOOKS.md")
-    ap.add_argument("--looks-file", default=str(looks.LOOKS))
+    ap.add_argument("--looks-file", default=None, help="default $TF_ROOT/looks_pending.md; a path in the repo is redirected there")
     a = ap.parse_args(argv)
     if a.report:
         import pandas as pd
@@ -241,7 +241,7 @@ def main(argv=None) -> int:
         row = looks.format_row(experiment="E0.3", checkpoint="none (data only, no model scored)", benchmark=bench,
                                why="NaN audit of inference contexts", result="; ".join(lines))
         added = looks.append_looks([row], a.looks_file)
-        print(f"{len(added)} row(s) added to {a.looks_file}:", *added, sep="\n")
+        print(f"{len(added)} row(s) added to {looks.target(a.looks_file)}:", *added, sep="\n")
     return 0
 
 
