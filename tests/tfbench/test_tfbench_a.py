@@ -598,3 +598,17 @@ def test_non_time_series_files_skipped():
                                    "images/x.parquet", "data/load.parquet"]})
     p = DL.plan(sel, files).set_index("path")
     assert list(p.index[p["fetch"]]) == ["data/load.parquet", "photometry.zip"]
+
+
+def test_zeros_are_not_missing():
+    """80% zeros is a sparse series, not a missing one: only NaN counts toward max_nan_share."""
+    from tideforge.tfbench.canon import series_filter
+    v = np.zeros(1000)
+    v[::5] = np.arange(200) + 1.0
+    x = pd.DataFrame({"y": v})
+    assert series_filter(x, ["y"], 100, 0.5) is None
+    x.loc[: 599, "y"] = np.nan                       # 60% NaN -> missing
+    assert series_filter(x, ["y"], 100, 0.5) == "mostly_missing"
+    ts = pd.date_range("2020-01-01", periods=1000, freq="h")
+    out, _ = regularise(pd.DataFrame({"timestamp": ts, "y": v}), "h", ["y"])
+    assert out["y"].isna().sum() == 0 and (out["y"] == 0).mean() == 0.8
