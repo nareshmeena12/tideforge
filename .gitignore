@@ -40,3 +40,13 @@ logs/
 
 # campaign node jobs (tideforge.campaign.runner --write): depend on the results file
 scripts/perlmutter/generated/
+
+# Hugging Face profiler: cached API answers and footers (tideforge.devdata.hf_profile)
+.hf_cache/
+
+# tfbench: built data, downloads and logs (tideforge.tfbench); the 79 MB files list is committed gzipped
+tideforge/devdata/tfbench/data/
+tideforge/devdata/tfbench/logs/
+tideforge/devdata/hf_profile_files.csv
+Claude outputs/
+.venv/

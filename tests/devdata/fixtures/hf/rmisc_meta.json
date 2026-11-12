@@ -1,0 +1,23 @@
+{
+    "name": "SP500",
+    "source": "https://github.com/liorsidi/sp500-stock-similarity-time-series/tree/master",
+    "desp": "The S&P dataset contains daily historical data for all the S&P (Standard & Poor) 500 stock market index companies from 2012 to 2017. The features given are date, open price, closing price, highest price, lowest price, volume, and the short name of the stock. The S&P is an American stock index of the largest companies listed in NYSE or NASDAQ, maintained by S&P Dow Jones Indices. It covers about 80 percent of the American equity market by capitalization.",
+    "domain": "Finance",
+    "license": "Unknown",
+    "targets": [
+        "Low",
+        "Open",
+        "High",
+        "Volume",
+        "Close"
+    ],
+    "covariates": [],
+    "timestamp": null,
+    "freq": null,
+    "num_series": 500,
+    "num_timesteps": 603027,
+    "num_datapoints": 3013877,
+    "split": "train",
+    "quality": "high",
+    "timestamp_as_covariate": false
+}
