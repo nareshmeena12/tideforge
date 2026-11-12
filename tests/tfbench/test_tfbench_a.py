@@ -415,3 +415,91 @@ def test_pick_smoke_covers_cases():
     picks = dict(pick_smoke(sel, prof))
     assert set(picks) == {"d1", "d2", "d3", "d4", "d5", "d6"}
     assert "monthly or yearly" in picks["d1"] and "covariates" in picks["d1"]
+
+
+# ---- synthetic time (LOTSA-style starts outside pandas' range), canon --plan, regex warning, file cap ----------------------
+def test_nested_out_of_range_start_uses_synthetic_time(tmp_path):
+    t = pa.table({"item_id": ["a", "b"], "start": ["2010-01-01", "1500-01-01"], "freq": ["H", "H"],
+                  "target": [walk(300, 1).tolist(), walk(300, 2).tolist()]})
+    f = tmp_path / "n.parquet"
+    pq.write_table(t, f)
+    m = build(tmp_path, [f])
+    d = pd.read_parquet(tmp_path / "out/ds/data.parquet")
+    assert m["synthetic_time"] is True and m["n_series"] == 2
+    assert d.groupby("item_id")["timestamp"].min().eq(pd.Timestamp("2000-01-01")).all()
+    assert any(x["step"] == "synthetic time" for x in m["transformations"])
+
+
+def test_synthetic_time_keeps_last_points_when_clock_is_short(tmp_path):
+    t = pa.table({"item_id": ["a"], "start": ["1000-01-01"], "freq": ["A"], "target": [walk(400, 1).tolist()]})
+    f = tmp_path / "y.parquet"
+    pq.write_table(t, f)
+    m = build(tmp_path, [f], ov={"synthetic_time": True})
+    d = pd.read_parquet(tmp_path / "out/ds/data.parquet")
+    assert m["synthetic_time"] and len(d) < 400 and d["timestamp"].max() < pd.Timestamp("2262-01-01")
+    assert d["target"].iloc[-1] == pytest.approx(walk(400, 1)[-1])
+
+
+def test_canon_plan(tmp_path):
+    from tideforge.tfbench.canon import plan_dataset
+    t = pa.table({"item_id": ["a", "b"], "start": ["2010-01-01", "1500-01-01"], "freq": ["H", "H"],
+                  "target": [walk(300, 1).tolist(), walk(300, 2).tolist()]})
+    f = tmp_path / "n.parquet"
+    pq.write_table(t, f)
+    p = plan_dataset(row(), [(f, f.name, 1)], {}, S, tmp_path / "w")
+    assert p["status"] == "ok" and p["layout"] == "nested" and p["rows_out_of_range"] == 1 and p["synthetic_time"]
+    g = tmp_path / "x.csv"
+    pd.DataFrame({"a": np.arange(10.0), "b": np.arange(10.0)}).to_csv(g, index=False)
+    p = plan_dataset(row(), [(g, g.name, 1)], {}, S, tmp_path / "w")
+    assert p["status"] == "not built" and "time column" in p["reason"]
+    assert not (tmp_path / "out").exists()
+
+
+def test_drop_items_regex_with_groups_no_warning(tmp_path):
+    import warnings
+    f = tmp_path / "a.parquet"
+    pq.write_table(pa.Table.from_pandas(long_table()), f)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        m = build(tmp_path, [f], status="keep_filtered", ov={"drop_items": "(^|_)s[01]$"})
+    assert m["n_series"] == 4
+
+
+def _plan_frame(paths_by_repo):
+    rows = [dict(repo_id=r, revision="main", path=p, bytes=10, dataset_ids="d", ext=DL.ext(p), fetch=True, why="")
+            for r, ps in paths_by_repo.items() for p in ps]
+    return pd.DataFrame(rows)
+
+
+def test_file_cap_series_repo_only():
+    s = Settings(max_files_per_series_repo=5)
+    tickers = [f"prices/1d/T{i:03d}.csv" for i in range(20)]
+    days = [f"snap/date=2026-10-{d:02d}/part-202610{d:02d}T101010Z-{d:012x}.parquet" for d in range(1, 29)]
+    months = [f"{y}/{m:02d}/{c}.csv.gz" for y in (2021, 2022) for m in range(1, 13) for c in (35045, 19145, 39139)]
+    p = _plan_frame({"o/tick": tickers + ["README.json"], "o/days": days, "o/county": months})
+    caps = DL.file_caps(p, s)
+    assert list(caps["repo_id"]) == ["o/tick"]
+    t = p[p["repo_id"] == "o/tick"]
+    assert t.loc[t["ext"] == "csv", "fetch"].sum() == 5 and t.loc[t["path"] == "README.json", "fetch"].all()
+    assert p.loc[p["repo_id"] != "o/tick", "fetch"].all()           # time partitions and month x county: never cut
+    kept = set(t.loc[t["fetch"] & (t["ext"] == "csv"), "path"])
+    p2 = _plan_frame({"o/tick": tickers + [f"prices/1d/T{i:03d}.csv" for i in range(20, 25)]})
+    DL.file_caps(p2, s)
+    kept2 = set(p2.loc[p2["fetch"], "path"])
+    assert len(kept2) == 5 and len(kept & kept2) >= 3                # stable order: new files rarely displace old ones
+    assert DL.file_caps(_plan_frame({"o/tick": tickers}), Settings(max_files_per_series_repo=0)).empty
+
+
+def test_series_key():
+    assert DL.series_key("2022/04/35045.csv.gz") == "35045.csv.gz"
+    assert DL.series_key("meteocat/DP/2020-09.csv.gz") == "meteocat/DP/.csv.gz"
+    assert DL.series_key("station_status/year=2026/month=09/day=18/part-20260918T094513Z-20260918T095443Z-acd9b4b10e8a.parquet") \
+        == "station_status/part---.parquet"
+    assert DL.series_key("prices/1d/BP.csv") == "prices/1d/BP.csv"
+
+
+@pytest.mark.parametrize("freq", ["MS", "YS", "QS", "W-SUN", "D"])
+def test_regularise_calendar_frequencies_with_point_cap(freq):
+    ts = pd.date_range("1900-01-01", periods=120, freq=freq).delete([5, 6])
+    out, _ = regularise(pd.DataFrame({"timestamp": ts, "y": np.arange(118.0)}), freq, ["y"], keep_last=50_000)
+    assert len(out) == 120 and out["timestamp"].iloc[0] == ts[0] and out["y"].isna().sum() == 2

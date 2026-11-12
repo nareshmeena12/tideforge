@@ -3,6 +3,7 @@
     python -m tideforge.tfbench.run select                    # A1, local or JarvisLabs (no network)
     python -m tideforge.tfbench.run download --jobs 6         # A2, JarvisLabs only
     python -m tideforge.tfbench.run refs                      # A2, the three reference benchmarks
+    python -m tideforge.tfbench.run canon --plan --jobs 24    # A3 dry check: layout, columns, synthetic time; no build
     python -m tideforge.tfbench.run canon --jobs 24           # A3
     python -m tideforge.tfbench.run audit --jobs 24           # A5 (fingerprints the references once)
     python -m tideforge.tfbench.run report                    # A4 -> devdata/tfbench/BUILD_REPORT_A.md
@@ -124,22 +125,63 @@ def _canon_one(row: dict, files: list, ov: dict, s: C.Settings, data_root: str) 
     return st
 
 
-def step_canon(a, paths, s):
+def _plan_one(row, files, ov, s, data_root):
+    from tideforge.tfbench.canon import plan_dataset
+    work = Path(data_root) / "tmp" / ("plan_" + row["dataset_id"])
+    try:
+        return plan_dataset(row, [(Path(f[0]), f[1], f[2]) for f in files], ov, s, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def canon_jobs(a, paths):
     sel = selected(paths, a.only)
     prof = read_profile(catalog_only=True).set_index("catalog_row")
     man = pd.read_csv(paths.data / "manifest.csv")
     man = man[man["status"] == "ok"]
+    plan_csv = paths.data / "download_plan.csv"
+    if plan_csv.exists():   # files fetched before a file cap was set are not used
+        pl = pd.read_csv(plan_csv, usecols=["repo_id", "path", "fetch"])
+        ok = set(zip(pl.loc[pl["fetch"], "repo_id"], pl.loc[pl["fetch"], "path"]))
+        man = man[[(r, p) in ok for r, p in zip(man["repo"], man["path"])]]
+    ids = man["dataset_ids"].astype(str).str.split(";")
     ov_all = read_overrides(paths)
-    jobs = []
+    out = []
     for r in sel.to_dict("records"):
         did = r["dataset_id"]
-        if (paths.canon / did / "status.json").exists() and not a.redo:
-            continue
         p = prof.loc[int(r["catalog_row"])].to_dict()
         row = {**{k: (None if v != v else v) for k, v in p.items()}, **r}
-        mine = man[man["dataset_ids"].astype(str).str.split(";").apply(lambda x: did in x)]
+        mine = man[ids.apply(lambda x: did in x)]
         files = [(str(paths.raw / slug(m["repo"]) / m["path"]), m["path"], int(m["bytes"])) for m in mine.to_dict("records")]
-        jobs.append((row, files, ov_all.get(did, {}) or {}))
+        out.append((row, files, ov_all.get(did, {}) or {}))
+    return out
+
+
+def step_canon_plan(a, paths, s):
+    """canon --plan: per dataset, the layout / time / id / target columns the adapter would use, unreadable files, and
+    nested rows whose real timestamps overflow (synthetic time). Writes $TFB_DATA/canon_plan.csv; builds nothing."""
+    jobs = canon_jobs(a, paths)
+    with ProcessPoolExecutor(a.jobs or 8) as ex:
+        res = list(ex.map(_plan_one, *zip(*[(row, files, ov, s, str(paths.data)) for row, files, ov in jobs]))) if jobs else []
+    df = pd.DataFrame(res)
+    df.to_csv(paths.data / "canon_plan.csv", index=False)
+    if df.empty:
+        log.info("canon plan: no datasets")
+        return
+    log.info("canon plan: %s", df["status"].value_counts().to_dict())
+    for r in df[df["status"] != "ok"].itertuples():
+        log.info("  %s: %s %s", r.dataset_id, r.status, r.reason)
+    if "synthetic_time" in df:
+        syn = df[df["synthetic_time"].fillna(False).astype(bool)]
+        log.info("canon plan: %d datasets need synthetic time: %s", len(syn), ", ".join(syn["dataset_id"]))
+    log.info("canon plan -> %s", paths.data / "canon_plan.csv")
+
+
+def step_canon(a, paths, s):
+    if getattr(a, "plan", False):
+        return step_canon_plan(a, paths, s)
+    jobs = [j for j in canon_jobs(a, paths)
+            if a.redo or not (paths.canon / j[0]["dataset_id"] / "status.json").exists()]
     log.info("canon: %d datasets to build", len(jobs))
     with ProcessPoolExecutor(a.jobs or 8) as ex:
         futs = {ex.submit(_canon_one, row, files, ov, s, str(paths.data)): row["dataset_id"] for row, files, ov in jobs}
@@ -449,6 +491,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="upload: list files and size only")
     ap.add_argument("--max-gb", type=float, default=100.0)
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
+    ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
     steps = STEPS if a.step == "all" or a.smoke else [a.step]

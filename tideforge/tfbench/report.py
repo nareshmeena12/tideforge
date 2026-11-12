@@ -37,6 +37,11 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
     L += ["## 1. Selection (A1)", f"Catalog rows: {len(selection)}. Selected: {len(sel_in)}. Dropped: {len(selection) - len(sel_in)}.", ""]
     L.append(_md(selection[selection["keep"].astype(str).str.lower() != "true"]["reason"].str.split(":").str[0]
                  .value_counts().rename_axis("reason").reset_index(name="rows")))
+    caps = Path(canon).parent / "file_caps.csv"
+    if caps.exists():
+        c = pd.read_csv(caps)
+        L += ["### Repos with a file cap (series sampled; time partitions are never capped)",
+              _md(c[["repo_id", "files_before", "files_after", "series_keys", "reason"]])]
     ok = st[st["status"] == "ok"] if not st.empty else st
     bad = st[st["status"] != "ok"] if not st.empty else st
     L += ["## 2. Canonical datasets (A3)", f"Built: {len(ok)}. Not built: {len(bad)}.", ""]

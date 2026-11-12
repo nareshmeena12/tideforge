@@ -47,6 +47,19 @@ class Fail(Exception):
     """The generic adapter cannot read this dataset; the reason goes into the report."""
 
 
+class NeedSyntheticTime(Exception):
+    """A series' real timestamps do not fit pandas' datetime range (e.g. LOTSA starts far in the past)."""
+
+
+SYNTHETIC_START = pd.Timestamp("2000-01-01")
+
+
+def synthetic_capacity(alias: str) -> int:
+    """Steps of `alias` that fit from SYNTHETIC_START to pandas' last timestamp (minus a year of margin)."""
+    span = (pd.Timestamp("2261-01-01") - SYNTHETIC_START).total_seconds()
+    return int(span // rules.freq_seconds(alias))
+
+
 # ---- schema -> roles ----------------------------------------------------------------------------------------------------
 def _kind(t: pa.DataType) -> tuple[str, int]:
     depth = 0
@@ -287,7 +300,18 @@ def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, st
                 f = ov.get("freq") or (row.get(fcol) if fcol else None) or ds_freq
                 if not f:
                     raise Fail("nested: no frequency (no freq column, none in overrides.yaml or the profile)")
-                ts = pd.Series(pd.date_range(pd.Timestamp(row[start]), periods=n, freq=_gluonts_alias(f)))
+                fa = _gluonts_alias(f)
+                if ov.get("synthetic_time"):
+                    keep = min(n, synthetic_capacity(fa))
+                    if keep < n:          # the synthetic clock cannot hold the whole series: keep its last points
+                        y = y[..., n - keep:]
+                        n = keep
+                    ts = pd.Series(pd.date_range(SYNTHETIC_START, periods=n, freq=fa))
+                else:
+                    try:
+                        ts = pd.Series(pd.date_range(pd.Timestamp(row[start]), periods=n, freq=fa))
+                    except (pd.errors.OutOfBoundsDatetime, OverflowError, ValueError) as e:
+                        raise NeedSyntheticTime(f"{iid}: start {row[start]!r}, {n} steps of {fa}: {e}")
             x = pd.DataFrame({"item_id": iid, "timestamp": parse_time(ts)})
             if y.ndim == 1:
                 x["target"] = y
@@ -299,6 +323,8 @@ def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, st
                 if v is None:
                     continue
                 a = np.asarray(v, dtype=np.float64)
+                if ov.get("synthetic_time") and a.shape[-1] > n:
+                    a = a[..., a.shape[-1] - n:]
                 a = a.T if a.ndim == 2 and a.shape[0] > a.shape[1] and a.shape[0] == n else a
                 if a.ndim == 1 and len(a) >= n:
                     x[c] = a[:n]
@@ -406,7 +432,8 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     items = enumerate_items(layout, parts, r, ov)
     n_items = len(items)
     if ov.get("drop_items"):
-        m = items["item_id"].astype(str).str.contains(ov["drop_items"], regex=True)
+        pat = re.compile(ov["drop_items"])
+        m = items["item_id"].astype(str).map(lambda x: bool(pat.search(x)))
         T.append({"step": "drop_items (catalog overlap rule)", "pattern": ov["drop_items"], "count": int(m.sum())})
         items = items[~m]
     if ov.get("ref_ids"):
@@ -422,59 +449,68 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
         raise Fail("no items")
     items = stratified_order(items, s.seed)
 
-    targets: list[str] = []
-    freq = ov.get("freq")
-    freq_share = None
-    min_len = None
-    kept, drops, hashes = [], defaultdict(list), set()
-    reg_stats = defaultdict(int)
-    for c0 in range(0, len(items), s.max_series):
-        if len(kept) >= s.max_series:
+    for attempt in (0, 1):
+        try:
+            targets: list[str] = []
+            freq = ov.get("freq")
+            freq_share = None
+            min_len = None
+            kept, drops, hashes = [], defaultdict(list), set()
+            reg_stats = defaultdict(int)
+            for c0 in range(0, len(items), s.max_series):
+                if len(kept) >= s.max_series:
+                    break
+                chunk = items.iloc[c0:c0 + s.max_series]
+                if layout in ("long", "events"):
+                    df = load_long(parts, r, chunk, ([] if events else r["target_cols"] + covs), static, events)
+                elif layout == "wide":
+                    df = load_wide(parts, r, chunk, covs)
+                else:
+                    df = load_nested(parts, r, chunk, ov, freq or _alias_from_profile(row), static)
+                if df.empty:
+                    continue
+                n_nat = int(df["timestamp"].isna().sum())
+                if n_nat:
+                    reg_stats["rows without a readable timestamp"] += n_nat
+                    df = df.dropna(subset=["timestamp"])
+                if not targets:
+                    targets = [events["name"]] if events else (
+                        [c for c in df.columns if c == "target" or c.startswith("target_")] if layout in ("wide", "nested")
+                        else list(r["target_cols"]))
+                    if layout == "nested":
+                        covs = [c for c in df.columns if c not in ["item_id", "timestamp"] + targets + static]
+                if not freq:
+                    freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id")["timestamp"])
+                    if not freq:
+                        raise Fail("frequency: fewer than two timestamps per series")
+                if min_len is None:
+                    min_len = rules.min_length(freq, s)
+                vals = targets + [c for c in covs if c in df.columns]
+                for iid, g in df.groupby("item_id", sort=False):
+                    agg = {**(ov.get("agg") or {}), **({events["name"]: "sum"} if events else {})}
+                    x, st = regularise(g.drop(columns="item_id"), freq, vals, agg=agg, fill_zero=bool(events),
+                                       keep_last=s.max_points)
+                    for k, v in st.items():
+                        reg_stats[k] += v
+                    why = series_filter(x, targets, min_len, s.max_nan_share)
+                    if why is None:
+                        h = series_hash(x, targets)
+                        if h in hashes:
+                            why = "duplicate"
+                        hashes.add(h)
+                    if why:
+                        drops[why].append(iid)
+                        continue
+                    kept.append(x.assign(item_id=iid))
+                    if len(kept) >= s.max_series:
+                        break
             break
-        chunk = items.iloc[c0:c0 + s.max_series]
-        if layout in ("long", "events"):
-            df = load_long(parts, r, chunk, ([] if events else r["target_cols"] + covs), static, events)
-        elif layout == "wide":
-            df = load_wide(parts, r, chunk, covs)
-        else:
-            df = load_nested(parts, r, chunk, ov, freq or _alias_from_profile(row), static)
-        if df.empty:
-            continue
-        n_nat = int(df["timestamp"].isna().sum())
-        if n_nat:
-            reg_stats["rows without a readable timestamp"] += n_nat
-            df = df.dropna(subset=["timestamp"])
-        if not targets:
-            targets = [events["name"]] if events else (
-                [c for c in df.columns if c == "target" or c.startswith("target_")] if layout in ("wide", "nested")
-                else list(r["target_cols"]))
-            if layout == "nested":
-                covs = [c for c in df.columns if c not in ["item_id", "timestamp"] + targets + static]
-        if not freq:
-            freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id")["timestamp"])
-            if not freq:
-                raise Fail("frequency: fewer than two timestamps per series")
-        if min_len is None:
-            min_len = rules.min_length(freq, s)
-        vals = targets + [c for c in covs if c in df.columns]
-        for iid, g in df.groupby("item_id", sort=False):
-            agg = {**(ov.get("agg") or {}), **({events["name"]: "sum"} if events else {})}
-            x, st = regularise(g.drop(columns="item_id"), freq, vals, agg=agg, fill_zero=bool(events),
-                               keep_last=s.max_points)
-            for k, v in st.items():
-                reg_stats[k] += v
-            why = series_filter(x, targets, min_len, s.max_nan_share)
-            if why is None:
-                h = series_hash(x, targets)
-                if h in hashes:
-                    why = "duplicate"
-                hashes.add(h)
-            if why:
-                drops[why].append(iid)
-                continue
-            kept.append(x.assign(item_id=iid))
-            if len(kept) >= s.max_series:
-                break
+        except NeedSyntheticTime as e:
+            if attempt or layout != "nested":
+                raise Fail(f"timestamps out of range even on the synthetic clock: {e}")
+            ov = {**ov, "synthetic_time": True}
+            T.append({"step": "synthetic time", "rule": f"real timestamps do not fit pandas' range ({str(e)[:200]}); every "
+                      f"series re-indexed from {SYNTHETIC_START.date()} at its frequency; calendar position is not real"})
     if not kept:
         raise Fail(f"no series left after the filters ({ {k: len(v) for k, v in drops.items()} }, min length {min_len})")
 
@@ -493,6 +529,7 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     fs = rules.freq_seconds(freq)
     conflict = bool(pf == pf and pf not in (None, "") and float(pf) > 0 and abs(np.log(fs / float(pf))) > 0.1)
     meta.update(
+        synthetic_time=bool(ov.get("synthetic_time")),
         frequency=freq, freq_share=freq_share, freq_source="overrides.yaml" if ov.get("freq") else "timestamps (mode of differences)",
         freq_conflict_with_profile=conflict, freq_band=rules.band(freq), short_horizon=rules.short_horizon(freq),
         min_length=min_len, targets=targets, covariates={c: roles[c] for c in covs}, static=[c for c in static if c in data.columns],
@@ -539,6 +576,73 @@ def ref_ids(refs_dir: Path | None, rule: dict, workdir: Path) -> set[str]:
                         out |= {str(v) for v in t.column(0).to_pylist() if v is not None}
         except Unreadable:
             continue
+    return out
+
+
+def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Settings, workdir: Path) -> dict:
+    """canon --plan: what build_dataset would use, without building. Reads schemas, the id / list-length / start columns
+    only. -> {status, reason, layout, rule, time_col, id_cols, targets, covariates, parts, unreadable, nested rows,
+    rows whose real timestamps overflow (-> synthetic time)}."""
+    import pyarrow.compute as pc
+    out = {"dataset_id": row["dataset_id"], "status": "ok", "reason": "", "files": len(files)}
+    try:
+        if ov.get("skip"):
+            raise Fail(f"skipped in overrides.yaml: {ov['skip']}")
+        if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
+                                                         or ov.get("ref_ids") or ov.get("audit_only")):
+            raise Fail("keep_filtered: no drop rule in overrides.yaml")
+        parts, bad = open_all([(f[0], f[1]) for f in files], workdir)
+        out["unreadable"] = len(bad)
+        if bad:
+            out["unreadable_example"] = bad[0][:200]
+        if not parts:
+            raise Fail("no readable table" + (f" ({bad[0]})" if bad else ""))
+        parts, other = main_table(parts, {f[1]: f[2] for f in files}, ov)
+        if not parts:
+            raise Fail("no table left after the table / drop_parts overrides")
+        r, layout, rule = roles_for(parts[0].schema, ov)
+        out.update(layout=layout, rule=rule, time_col=r["time_col"], id_cols=";".join(r["id_cols"]),
+                   targets=";".join(r["target_cols"][:5]), n_targets=len(r["target_cols"]),
+                   covariates=len(r["covariate_cols"]), parts=len(parts), other_tables=len(other),
+                   columns=";".join(parts[0].schema.names[:30]))
+        if layout == "unknown":
+            raise Fail(f"layout unknown ({rule})")
+        if layout != "nested" and not r["time_col"]:
+            raise Fail("no time column (set time_col in overrides.yaml)")
+        if layout == "nested":
+            tgt = r["target_cols"][0]
+            names = parts[0].schema.names
+            start = ov.get("start_col") or next((c for c in ("start", "start_date", "timestamp", "date") if c in names), None)
+            fcol = next((c for c in r.get("freq_cols", []) if c in names), None)
+            tlist = next((f.name for f in parts[0].schema if _kind(f.type)[0] == "list_time"), None)
+            if not tlist and not start:
+                raise Fail("nested: no start column or timestamp list (set start_col in overrides.yaml)")
+            rows = over = 0
+            first_bad = ""
+            if start and not tlist:
+                for p in parts:
+                    for t in p.batches([c for c in (tgt, start, fcol) if c]):
+                        lens = pc.list_value_length(t.column(tgt)).to_numpy(zero_copy_only=False)
+                        lens = np.where(np.isnan(lens.astype(float)), 0, lens).astype(np.int64)
+                        if lens.ndim and _kind(t.schema.field(tgt).type)[1] == 2:   # 2-D: steps are the inner length
+                            inner = pc.list_value_length(pc.list_flatten(t.column(tgt))).to_numpy(zero_copy_only=False)
+                            lens = np.full(len(lens), int(np.nanmax(inner)) if len(inner) else 0)
+                        st = t.column(start).to_pylist()
+                        fq = t.column(fcol).to_pylist() if fcol else [None] * len(st)
+                        for n, a, f in zip(lens, st, fq):
+                            rows += 1
+                            fa = _gluonts_alias(ov.get("freq") or f or _alias_from_profile(row) or "D")
+                            try:
+                                pd.date_range(pd.Timestamp(a), periods=max(int(n), 1), freq=fa)
+                            except (pd.errors.OutOfBoundsDatetime, OverflowError, ValueError) as e:
+                                over += 1
+                                first_bad = first_bad or f"start {a!r}, {n} x {fa}: {str(e)[:80]}"
+            out.update(nested_rows=rows, rows_out_of_range=over, synthetic_time=bool(over or ov.get("synthetic_time")),
+                       out_of_range_example=first_bad)
+    except Fail as e:
+        out.update(status="not built", reason=str(e)[:300])
+    except Exception as e:
+        out.update(status="error", reason=f"{type(e).__name__}: {str(e)[:300]}")
     return out
 
 

@@ -103,11 +103,11 @@ def regularise(df: pd.DataFrame, alias: str, value_cols: list[str], agg: dict | 
         return d, stats
     end = d["timestamp"].iloc[-1]
     start = d["timestamp"].iloc[0]
-    n = keep_last or max_grid
-    grid = pd.date_range(end=end, periods=min(n, max_grid), freq=alias) if keep_last else None
-    full = pd.date_range(start, end, freq=alias) if grid is None else grid[grid >= start]
-    if len(full) > max_grid:
-        full = full[-max_grid:]
+    from tideforge.tfbench.rules import freq_seconds
+    n = min(keep_last or max_grid, max_grid)
+    span = int((end - start).total_seconds() // max(freq_seconds(alias), 1.0)) + 2   # steps from start to end (approx.)
+    full = pd.date_range(end=end, periods=min(n, span), freq=alias)                  # never reaches before start - 1 step
+    full = full[full >= start]
     out = d.set_index("timestamp").reindex(full)
     stats["grid_added"] = int(len(full) - out[value_cols].notna().any(axis=1).sum())
     if fill_zero:

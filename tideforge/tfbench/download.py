@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import logging
 import os
 import shutil
@@ -43,8 +44,52 @@ def ext(path: str) -> str:
     return name.rsplit(".", 1)[-1] if "." in name else ""
 
 
-def plan(selection: pd.DataFrame, files: pd.DataFrame) -> pd.DataFrame:
-    """One row per unique file: repo, revision, path, bytes, dataset_ids, fetch (bool), why."""
+_DATE_SEG = re.compile(r"^(?:(?:19|20)\d{2}(?:[-_.]?\d{2}){0,2}|\d{2}[-_.]\d{2}[-_.](?:19|20)\d{2}|(?:0?[1-9]|1[0-2])|"
+                       r"(?:0?[1-9]|[12]\d|3[01])|(?:year|month|day|date|dt|hour|week)=.*)$", re.I)
+_DATE_TOK = re.compile(r"(?:19|20)\d{6}T\d{4,6}Z?|(?:19|20)\d{2}(?:[-_.]?(?:0[1-9]|1[0-2]))(?:[-_.]?(?:0[1-9]|[12]\d|3[01]))?"
+                       r"|\d{2}[-_.]\d{2}[-_.](?:19|20)\d{2}|(?<![a-z0-9])(?:19|20)\d{2}(?![0-9])|[0-9a-f]{8,}|\d{8,}", re.I)
+
+
+def series_key(path: str) -> str:
+    """The part of a file path that names a series: folders that are dates (2022, 04, year=2026, dt=...) dropped, and
+    dates, timestamps, long digit runs and hashes removed from the rest. Files of one series over time share a key; time
+    partitions of all series collapse to a few keys."""
+    segs = path.split("/")
+    keep = [x for x in segs[:-1] if not _DATE_SEG.match(x)]
+    name = _DATE_TOK.sub("", segs[-1])
+    return "/".join(keep + [name])
+
+
+def file_caps(p: pd.DataFrame, s: Settings) -> pd.DataFrame:
+    """Per repo with more than max_files_per_series_repo distinct series keys: keep the files of a seeded sample of that
+    many keys (sha256(seed|repo|key) order, stable when files are added). Marks p.fetch / p.why / p.sampled in place and
+    returns one row per capped repo."""
+    p["sampled"] = False
+    rows = []
+    cap = int(s.max_files_per_series_repo or 0)
+    if cap <= 0:
+        return pd.DataFrame(rows, columns=["repo_id", "files_before", "files_after", "series_keys", "keys_kept", "reason"])
+    data_ext = ~p["ext"].isin({"json", "yaml", "yml", "md", "txt"}) | (p["bytes"] > 1_000_000)
+    for repo, g in p[p["fetch"] & data_ext].groupby("repo_id"):
+        keys = g["path"].map(series_key)
+        uk = keys.unique()
+        if len(uk) <= cap:
+            continue
+        order = sorted(uk, key=lambda k: hashlib.sha256(f"{s.seed}|{repo}|{k}".encode()).hexdigest())
+        kept = set(order[:cap])
+        drop = g.index[~keys.isin(kept)]
+        p.loc[drop, "fetch"] = False
+        p.loc[drop, "why"] = f"file cap: series not in the seeded sample of {cap}"
+        p.loc[g.index[keys.isin(kept)], "sampled"] = True
+        rows.append(dict(repo_id=repo, files_before=len(g), files_after=int(len(g) - len(drop)), series_keys=len(uk),
+                         keys_kept=cap, reason=f"{len(uk)} series keys (one series per file or folder) > {cap}; "
+                         f"example key {uk[0]!r}"))
+    return pd.DataFrame(rows, columns=["repo_id", "files_before", "files_after", "series_keys", "keys_kept", "reason"])
+
+
+def plan(selection: pd.DataFrame, files: pd.DataFrame, s: Settings | None = None) -> pd.DataFrame:
+    """One row per unique file: repo, revision, path, bytes, dataset_ids, fetch (bool), why, sampled. With s, the per-repo
+    file cap is applied (p.attrs["caps"] holds the capped repos)."""
     sel = selection[selection["keep"].astype(str).str.lower() == "true"]
     ids = dict(zip(sel["catalog_row"].astype(int), sel["dataset_id"]))
     f = files[files["catalog_row"].astype(int).isin(ids)].copy()
@@ -55,6 +100,9 @@ def plan(selection: pd.DataFrame, files: pd.DataFrame) -> pd.DataFrame:
     g["ext"] = g["path"].map(ext)
     g["fetch"] = ~g["ext"].isin(SKIP_EXT)
     g["why"] = g.apply(lambda r: "" if r["fetch"] else f"format {r['ext']} not read in v1", axis=1)
+    g["sampled"] = False
+    if s is not None:
+        g.attrs["caps"] = file_caps(g, s)
     return g
 
 
@@ -119,7 +167,8 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
     t0 = time.time()
 
     def one(r, mf):
-        e = {"repo": repo, "revision": r["revision"], "path": r["path"], "dataset_ids": r["dataset_ids"]}
+        e = {"repo": repo, "revision": r["revision"], "path": r["path"], "dataset_ids": r["dataset_ids"],
+             "sampled": bool(r.get("sampled", False))}
         try:
             lp = Path(with_retry(lambda: fetch(repo, r["path"], r["revision"], root), sleep=sleep))
             e.update(bytes=lp.stat().st_size, sha256=sha256(lp), status="ok")
@@ -150,9 +199,14 @@ def _hf_fetch(repo: str, path: str, revision: str, local_dir: Path) -> str:
 
 def run(selection: pd.DataFrame, files: pd.DataFrame, paths: Paths, s: Settings, only: list[str] | None = None,
         jobs: int | None = None) -> pd.DataFrame:
-    p = plan(selection, files)
+    p = plan(selection, files, s)
     paths.data.mkdir(parents=True, exist_ok=True)
     p.to_csv(paths.data / "download_plan.csv", index=False)
+    caps = p.attrs.get("caps")
+    if caps is not None:
+        caps.to_csv(paths.data / "file_caps.csv", index=False)
+        for r in caps.itertuples():
+            log.info("file cap %s: %d -> %d files (%s)", r.repo_id, r.files_before, r.files_after, r.reason)
     skipped = p[~p["fetch"]]
     log.info("plan: %d files (%.1f GB) to fetch, %d files (%.1f GB) skipped by format", int(p["fetch"].sum()),
              p.loc[p["fetch"], "bytes"].sum() / 1e9, len(skipped), skipped["bytes"].sum() / 1e9)
