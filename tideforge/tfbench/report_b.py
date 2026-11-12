@@ -36,12 +36,19 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
     for f in sorted(Path(task_root).glob("*/subset.json")):
         r = json.loads(f.read_text(encoding="utf-8"))
         for v in r["variants"]:
-            vr.append(dict(config=v["config"], agg=", ".join(f"{k}:{a}" for k, a in (v.get("agg") or {}).items()) or "native",
-                           series=v.get("series", 0), dropped_short=v.get("dropped_short", 0),
-                           nan_in_eval=v.get("nan_in_eval", 0), zero_scale=v.get("zero_scale", 0),
-                           skipped=v.get("skipped", "")))
+            agg = ", ".join(f"{k}:{a}" for k, a in (v.get("agg") or {}).items()) or "native"
+            if not v.get("horizons"):
+                vr.append(dict(config=v["config"], horizon="", agg=agg, series=0, too_short=v.get("dropped_short", 0),
+                               nan_in_eval=0, zero_scale=0, skipped=v.get("skipped", "")))
+            for cls, hr in (v.get("horizons") or {}).items():
+                vr.append(dict(config=hr.get("config", v["config"]), horizon=f"{cls} (H={hr['H']})", agg=agg,
+                               series=hr.get("series", 0),
+                               too_short=hr.get("too_short", 0) + (v.get("dropped_short", 0) if cls == "short" else 0),
+                               nan_in_eval=hr.get("nan_in_eval", 0), zero_scale=hr.get("zero_scale", 0),
+                               skipped=hr.get("skipped", "")))
     vr = pd.DataFrame(vr)
-    L += ["## Frequency variants: series kept and dropped; aggregation rule per column (for review)", _md(vr)]
+    L += ["## Series per frequency variant and horizon (drops counted per horizon; aggregation rule per column, for "
+          "review)", _md(vr)]
     b = baseline.merge(man[["task", "split", "band", "horizon_class"]], on="task", how="left")
     fl = b[b["flag"].fillna("") != ""]
     L += ["## Seasonal naive baseline",

@@ -2,13 +2,13 @@
 
 Input: canon/<id> without the audit's dropped series and without cross-dataset copies (split.crossdups).
 Series subset: one per dataset (canon's seeded sample minus those drops), recorded in subset.json, shared by every
-variant. Inside one frequency variant all tasks (horizons, covariates on / off, joint) use the same series:
+variant. Inside one frequency variant and horizon, covariates on / off and joint tasks use the same series file:
   - a series too short for the variant is dropped from the variant;
-  - medium / long horizons exist only when >= horizon_min_share of the series are long enough for them; the shorter
-    series are then dropped from the variant (so every horizon has the same series);
-  - NaN is allowed in context only: series with NaN in any target inside the variant's evaluation span (the largest
-    n_windows x H over its tasks) are dropped; so are series whose in-sample seasonal-difference scale is zero (MASE
-    undefined).
+  - the short horizon keeps every series that has min_context + one H; medium / long tasks (owner 2026-11-12) get their
+    own series file with only the series long enough for them (config <freq config>__medium / __long; the short file is
+    reused when the series are the same), created when >= horizon_min_share (75%) of the variant's series qualify;
+  - NaN is allowed in context only: per horizon file, series with NaN in any target inside that horizon's evaluation
+    span (n_windows x H) are dropped; so are series whose in-sample seasonal-difference scale is zero (MASE undefined).
 Every drop is counted in the variant's record.
 
 Per frequency variant x horizon: a target-only task; a with-covariates task when covariates exist (past + known_candidate
@@ -111,52 +111,49 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
         H0 = hz["short"]
         short_ok = lens[lens >= HZ.context_needed(alias, H0, s) + H0]
         rec["dropped_short"] += int(len(lens) - len(short_ok))
-        chosen = {"short": H0}
-        for cls in ("medium", "long"):
-            if cls in hz:
-                H = hz[cls]
-                ok = short_ok[short_ok >= HZ.context_needed(alias, H, s) + H]
-                if len(short_ok) and len(ok) >= s.horizon_min_share * len(short_ok):
-                    chosen[cls] = H
-        need = max(HZ.context_needed(alias, H, s) + H for H in chosen.values())
-        ok_ids = short_ok[short_ok >= need].index
-        rec["dropped_for_long_horizons"] = int(len(short_ok) - len(ok_ids))
-        df = df[df["item_id"].isin(ok_ids)]
-        if df.empty:
+        rec["horizons"] = {}
+        if short_ok.empty:
             rec["skipped"] = "no series long enough"
             record["variants"].append(rec)
             continue
-        lens = df.groupby("item_id").size()
-        nw = {cls: HZ.n_windows(lens.to_numpy(), H, s) for cls, H in chosen.items()}
-        R = max(nw[c] * chosen[c] for c in chosen)
         m = HZ.seasonality(alias)
-        df, drops = eligible(df, targets, R, m)
-        rec.update(drops)
-        if df.empty:
-            rec["skipped"] = "no series left after the NaN / scale rules"
-            record["variants"].append(rec)
-            continue
-        vcols = targets + [c for c in covs if c in df.columns]
-        vcols = [c for c in vcols if c in targets or df[c].notna().any()]
-        tbl = to_fev(df, vcols, static)
-        path = out / f"{cfg}.parquet"
-        pq.write_table(tbl, path, compression="zstd")
-        lens = df.groupby("item_id").size()
-        y = df[targets].to_numpy(np.float64)
-        rec.update(series=int(len(lens)), points=int(len(df)), series_ids=sorted(map(str, lens.index)))
-        record["variants"].append(rec)
-        past = [c for c, r in covs.items() if r != "known" and c in vcols]
-        known = [c for c, r in covs.items() if r == "known" and c in vcols]
-        base_tags = dict(domain=meta.get("domain"), band=rules.band(alias), freq=alias,
-                         intermittency=round(intermittency(y), 3),
-                         series_length_band=len_band(float(lens.median())))
-        for cls, H in chosen.items():
-            ctx = HZ.context_needed(alias, H, s)
-            common = dict(dataset_path=dataset_path, dataset_config=cfg, horizon=int(H), num_windows=int(nw[cls]),
-                          window_step_size=int(H), min_context_length=int(ctx), seasonality=int(m),
+        written: dict[tuple, str] = {}           # series set -> config already written (medium reuses short's file)
+        for cls, H in hz.items():
+            ok = short_ok[short_ok >= HZ.context_needed(alias, H, s) + H]
+            hr = {"H": int(H), "too_short": int(len(short_ok) - len(ok))}
+            rec["horizons"][cls] = hr
+            if cls != "short" and len(ok) < s.horizon_min_share * len(short_ok):
+                hr["skipped"] = f"{len(ok)} of {len(short_ok)} series long enough (< {s.horizon_min_share:.0%})"
+                continue
+            d = df[df["item_id"].isin(ok.index)]
+            nw = HZ.n_windows(ok.to_numpy(), H, s)
+            d, drops = eligible(d, targets, nw * H, m)
+            hr.update(drops)
+            if d.empty:
+                hr["skipped"] = "no series left after the NaN / scale rules"
+                continue
+            vcols = targets + [c for c in covs if c in d.columns]
+            vcols = [c for c in vcols if c in targets or d[c].notna().any()]
+            hl = d.groupby("item_id").size()
+            key = tuple(sorted(map(str, hl.index)))
+            if key in written:
+                hcfg = written[key]
+            else:
+                hcfg = cfg if cls == "short" else f"{cfg}__{cls}"
+                pq.write_table(to_fev(d, vcols, static), out / f"{hcfg}.parquet", compression="zstd")
+                written[key] = hcfg
+            hr.update(config=hcfg, series=int(len(hl)), points=int(len(d)), n_windows=int(nw), series_ids=list(key))
+            y = d[targets].to_numpy(np.float64)
+            past = [c for c, r in covs.items() if r != "known" and c in vcols]
+            known = [c for c, r in covs.items() if r == "known" and c in vcols]
+            tags0 = dict(domain=meta.get("domain"), band=rules.band(alias), freq=alias, intermittency=round(intermittency(y), 3),
+                         series_length_band=len_band(float(hl.median())), horizon=cls, multivariate=False,
+                         history_length_band=len_band(max(float(hl.median()) - nw * H, 0)))
+            common = dict(dataset_path=dataset_path, dataset_config=hcfg, horizon=int(H), num_windows=int(nw),
+                          window_step_size=int(H), min_context_length=int(HZ.context_needed(alias, H, s)), seasonality=int(m),
                           eval_metric="MASE", extra_metrics=["WQL", "SQL"], quantile_levels=list(s.quantile_levels),
                           id_column="id", timestamp_column="timestamp")
-            hist = float(lens.median()) - nw[cls] * H
+            base = dict(dataset_id=did, config=hcfg, freq_config=cfg, horizon_class=cls, n_windows=int(nw))
             variants = [("target", [], [], [])]
             if past or known:
                 variants.append(("cov", past, known, static))
@@ -167,18 +164,20 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
                 else:
                     t.update(target=targets[0])
                 t["task_name"] = f"{cfg}/{cls}/{name}"
-                tasks.append(dict(task=t, dataset_id=did, config=cfg, horizon_class=cls, variant=name, multivariate=False,
-                                  n_series=int(len(lens)) * (len(targets) if multivar else 1), n_windows=int(nw[cls]),
-                                  tags=dict(base_tags, horizon=cls, covariates="known" if (name == "cov" and k_) else
-                                            "past" if name == "cov" else "none", multivariate=False,
-                                            history_length_band=len_band(max(hist, 0)))))
+                tasks.append(dict(base, task=t, variant=name, multivariate=False,
+                                  n_series=int(len(hl)) * (len(targets) if multivar else 1),
+                                  tags=dict(tags0, covariates="known" if (name == "cov" and k_) else
+                                            "past" if name == "cov" else "none")))
             if multivar:
                 t = dict(common, target=list(targets), past_dynamic_columns=[], known_dynamic_columns=[], static_columns=[],
                          task_name=f"{cfg}/{cls}/joint")
-                tasks.append(dict(task=t, dataset_id=did, config=cfg, horizon_class=cls, variant="joint", multivariate=True,
-                                  n_series=int(len(lens)), n_windows=int(nw[cls]),
-                                  tags=dict(base_tags, horizon=cls, covariates="none", multivariate=True,
-                                            history_length_band=len_band(max(hist, 0)))))
+                tasks.append(dict(base, task=t, variant="joint", multivariate=True, n_series=int(len(hl)),
+                                  tags=dict(tags0, covariates="none", multivariate=True)))
+        if "short" in rec["horizons"] and "series" in rec["horizons"]["short"]:
+            rec.update(series=rec["horizons"]["short"]["series"], series_ids=rec["horizons"]["short"]["series_ids"])
+        else:
+            rec["skipped"] = rec.get("skipped") or "short horizon has no series"
+        record["variants"].append(rec)
     for t in tasks:
         t["task_sha256"] = task_sha(t["task"])
     (out / "tasks.json").write_text(json.dumps(tasks, indent=1, default=str), encoding="utf-8")

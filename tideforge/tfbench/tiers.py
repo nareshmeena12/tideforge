@@ -16,7 +16,8 @@ def core(tasks: pd.DataFrame) -> pd.Series:
     t = tasks[tasks["variant"] != "joint"].copy()
     t["_h"] = t["horizon_class"].map({"medium": 0, "short": 1, "long": 2})
     t["_c"] = (t["variant"] != "cov").astype(int)
-    pick = t.sort_values(["config", "_h", "_c"]).groupby("config").head(1).index
+    key = "freq_config" if "freq_config" in t else "config"
+    pick = t.sort_values([key, "_h", "_c"]).groupby(key).head(1).index
     return tasks.index.isin(pick)
 
 

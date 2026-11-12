@@ -58,6 +58,19 @@ def load_or_create(path: Path, datasets: dict[str, str]) -> dict:
     return out
 
 
+def force_locked(path: Path, ids: list, n: int) -> dict:
+    """Smoke splits only: the first n datasets by sha256 go to locked (marked how=smoke-forced)."""
+    path = Path(path)
+    if path.name == "splits.json":
+        raise ValueError("force_locked is for smoke splits only, never the real splits.json")
+    sp = json.loads(path.read_text(encoding="utf-8"))
+    have = [d for d in ids if sp["datasets"][d]["split"] == "locked"]
+    for d in sorted((d for d in ids if d not in have), key=h)[: max(0, n - len(have))]:
+        sp["datasets"][d].update(split="locked", how="smoke-forced")
+    path.write_text(json.dumps(sp, indent=1, sort_keys=True), encoding="utf-8")
+    return sp
+
+
 def _series(data: pd.DataFrame, targets: list[str]):
     for iid, g in data.groupby("item_id", sort=False):
         for t in targets:

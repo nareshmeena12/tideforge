@@ -13,6 +13,7 @@
     python -m tideforge.tfbench.run report_b --jobs 24        # seasonal naive on every task, BUILD_REPORT.md
     python -m tideforge.tfbench.run upload [--dry-run]        # B3 to $TF_BENCH_REPO (private), tag <version>
     python -m tideforge.tfbench.run all                       # A then B then upload
+    python -m tideforge.tfbench.run all --no-upload           # A then B, stops after report_b
     python -m tideforge.tfbench.run all --smoke               # the whole chain on the smoke datasets, upload dry-run
 Options: --only <dataset_id or repo id> (repeatable), --redo, --max-gb 100, --dry-run.
 Logs: devdata/tfbench/logs/<step>-<UTC time>.log. Smoke keeps its own splits, tasks and release (suffix _smoke).
@@ -222,6 +223,8 @@ def step_split(a, paths, s):
     from tideforge.tfbench import split as SP
     ds = passed(a, paths)
     sp = SP.load_or_create(splits_path(a, paths), {d: m.get("domain") or "unknown" for d, m in ds.items()})
+    if _sfx(a):   # smoke only, never the real splits.json: 2 datasets forced into locked so locked tasks are packaged
+        sp = SP.force_locked(splits_path(a, paths), sorted(ds), 2)
     n = pd.Series([v["split"] for d, v in sp["datasets"].items() if d in ds]).value_counts().to_dict()
     log.info("split: %s -> %s", n, splits_path(a, paths))
 
@@ -335,6 +338,26 @@ def step_package(a, paths, s):
     for b in bad:
         log.error("manifest: %s", b)
     log.info("package: %d tasks -> %s (%s)", len(man), rel, "manifest ok" if not bad else f"{len(bad)} problems")
+    if _sfx(a):
+        fev_check(rel)
+
+
+def fev_check(rel: Path) -> None:
+    """Smoke: load the first locked task and the first tuning task (from their local files) through fev."""
+    import fev
+    for base, sp in ((rel / "locked" / "tasks", "locked"), (rel / "tasks", "tuning")):
+        tl = (yaml.safe_load((base / "full.yaml").read_text(encoding="utf-8")) or {}).get("tasks", [])
+        if not tl:
+            log.warning("fev check: no %s task", sp)
+            continue
+        t = dict(tl[0])
+        cfg = t["dataset_config"] or Path(t["dataset_path"]).parent.name
+        t.update(dataset_path=str(rel / ("locked/data" if sp == "locked" else "data") / cfg / "data.parquet"),
+                 dataset_config=None)
+        w = list(fev.Task(**t).iter_windows())
+        past, _ = w[-1].get_input_data()
+        log.info("fev check: %s task %s loads, %d windows, %d series in the last window", sp, t["task_name"], len(w),
+                 len(past))
 
 
 def _baseline_one(path, task):
@@ -352,7 +375,8 @@ def step_report_b(a, paths, s):
     jobs = []
     for sp, base in (("tuning", rel / "tasks"), ("locked", rel / "locked" / "tasks")):
         for t in (yaml.safe_load((base / "full.yaml").read_text(encoding="utf-8")) or {}).get("tasks", []):
-            d = rel / ("locked/data" if sp == "locked" else "data") / t["task_name"].split("/")[0] / "data.parquet"
+            cfg = t["dataset_config"] or Path(t["dataset_path"]).parent.name
+            d = rel / ("locked/data" if sp == "locked" else "data") / cfg / "data.parquet"
             jobs.append((str(d), t))
     with ProcessPoolExecutor(a.jobs or 8) as ex:
         res = list(ex.map(_baseline_one, *zip(*jobs))) if jobs else []
@@ -417,6 +441,7 @@ def main(argv=None) -> int:
     ap.add_argument("--smoke", action="store_true", help="run every step on ~8 datasets that cover the cases (ids printed)")
     ap.add_argument("--dry-run", action="store_true", help="upload: list files and size only")
     ap.add_argument("--max-gb", type=float, default=100.0)
+    ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
     steps = STEPS if a.step == "all" or a.smoke else [a.step]
@@ -429,6 +454,8 @@ def main(argv=None) -> int:
             print(f"  {d}  ({why})")
         a.only = [d for d, _ in picks]
         steps = [x for x in STEPS if x != "select"]
+    if a.no_upload:
+        steps = [x for x in steps if x != "upload"]
     for step in steps:
         f = setup_logging(paths, step)
         log.info("step %s (data %s, log %s)", step, paths.data, f)

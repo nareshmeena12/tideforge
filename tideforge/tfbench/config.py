@@ -42,7 +42,7 @@ class Settings:
     max_windows: int = 20                              # per task
     window_share: float = 0.10                         # windows cover at most this share of a p25-length series
     window_len_quantile: float = 0.25                  # n_windows from this quantile of series lengths
-    horizon_min_share: float = 1.0                     # medium / long only if this share of series fits them (1.0: no series loses its short windows)
+    horizon_min_share: float = 0.75                    # medium / long tasks when this share of a variant's series fits them
     agg_coverage: float = 0.80                         # an aggregated bucket needs this share of its points, else NaN
     max_channels: int = 32                             # joint multivariate tasks
     flag_max_distinct: int = 12                        # integer covariates with <= this many values: categorical / flag

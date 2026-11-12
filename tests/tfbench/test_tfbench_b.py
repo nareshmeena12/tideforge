@@ -82,13 +82,24 @@ def test_window_count_and_cap():
     assert HZ.n_windows([10 ** 6] * 10, 48) == 20
 
 
-def test_medium_long_only_when_every_series_fits(tmp_path):
-    ts = all_tasks(tmp_path, long_df([2500, 2500], "h"), meta("a", "h"))
-    assert {t["horizon_class"] for t in ts if t["config"] == "a__h"} == {"short", "medium", "long"}
-    ts = all_tasks(tmp_path, long_df([2000, 400], "h"), meta("b", "h"))
-    assert {t["horizon_class"] for t in ts if t["config"] == "b__h"} == {"short"}
-    for t in ts:
+def test_medium_long_own_series_file(tmp_path):
+    """One short series in an hourly dataset: medium / long still exist on their own file; short keeps every series."""
+    ts = all_tasks(tmp_path, long_df([2500, 2500, 2500, 2500, 400], "h"), meta("a", "h"))
+    native = [t for t in ts if t["freq_config"] == "a__h"]
+    by = {t["horizon_class"]: t for t in native}
+    assert set(by) == {"short", "medium", "long"}
+
+    def n_ids(t):
+        return len(pq.read_table(tmp_path / "a" / f"{t['config']}.parquet", columns=["id"]))
+    assert by["short"]["config"] == "a__h" and n_ids(by["short"]) == 5
+    assert by["medium"]["config"] == "a__h__medium" and n_ids(by["medium"]) == 4
+    assert by["long"]["config"] == "a__h__medium" and n_ids(by["long"]) == 4      # same series: file reused
+    rec = json.loads((tmp_path / "a" / "subset.json").read_text())["variants"][0]["horizons"]
+    assert rec["medium"]["too_short"] == 1 and rec["long"]["too_short"] == 1 and rec["short"]["too_short"] == 0
+    for t in native:
         assert t["task"]["min_context_length"] == max(2 * t["task"]["horizon"], 256)
+    ts = all_tasks(tmp_path, long_df([2500, 400, 400], "h"), meta("b", "h"))     # under 75% fit: short only
+    assert {t["horizon_class"] for t in ts if t["freq_config"] == "b__h"} == {"short"}
 
 
 # ---- NaN, scale, aggregation, variants ---------------------------------------------------------------------------------
@@ -98,7 +109,7 @@ def test_nan_only_in_context_and_zero_scale(tmp_path):
     data.loc[(data["item_id"] == "s0_0") & (data.index % 400 == 10), "y"] = np.nan     # NaN in context: kept
     data.loc[data["item_id"] == "s0_2", "y"] = np.r_[np.full(380, 5.0), walk(20, 1)]  # flat context, scale 0 (D: m=1)
     all_tasks(tmp_path, data, meta("n", "D"))
-    rec = json.loads((tmp_path / "n" / "subset.json").read_text())["variants"][0]
+    rec = json.loads((tmp_path / "n" / "subset.json").read_text())["variants"][0]["horizons"]["short"]
     assert rec["series_ids"] == ["s0_0"] and rec["nan_in_eval"] == 1 and rec["zero_scale"] == 1
 
 
@@ -132,7 +143,7 @@ def test_daily_to_weekly_where_long_enough(tmp_path):
 
 def test_covariate_and_paired_tasks(tmp_path):
     ts = all_tasks(tmp_path, long_df([600, 600], "D", covs=True), meta("c", "D", covs={"temp": "past", "is_holiday": "known"}))
-    native = [t for t in ts if t["config"] == "c__d"]
+    native = [t for t in ts if t["freq_config"] == "c__d"]
     assert {t["variant"] for t in native} == {"target", "cov"}
     cov = next(t for t in native if t["variant"] == "cov")["task"]
     assert cov["past_dynamic_columns"] == ["temp"] and cov["known_dynamic_columns"] == ["is_holiday"]
@@ -239,6 +250,8 @@ def test_end_to_end(tmp_path, monkeypatch):
                    meta(did, "D", covs={"temp": "past", "is_holiday": "known"} if i % 2 == 0 else {}))
     a = types.SimpleNamespace(only=None, jobs=2, redo=False, smoke=False, dry_run=True, max_gb=100.0)
     RUN.step_split(a, paths, S)
+    with pytest.raises(ValueError):
+        SP.force_locked(paths.small / "splits.json", ids, 2)          # never on the real splits
     sp = json.loads((paths.small / "splits.json").read_text())["datasets"]
     locked = [d for d in ids if sp[d]["split"] == "locked"]
     tuning = [d for d in ids if sp[d]["split"] == "tuning"]
@@ -295,6 +308,33 @@ def test_end_to_end(tmp_path, monkeypatch):
     # upload: dry run lists, makes no call
     r = UP.upload(rel, "", S.version, 100.0, dry_run=True, api=object())
     assert r["files"] > 10 and not r["uploaded"]
+
+
+def test_smoke_forces_locked_and_fev_loads(tmp_path):
+    pytest.importorskip("fev")
+    paths = Paths(data=tmp_path / "data", small=tmp_path / "small")
+    paths.small.mkdir(parents=True)
+    ids = [f"sm{i}" for i in range(4)]
+    for i, did in enumerate(ids):
+        make_canon(paths, did, long_df([400, 420], "D", seed=i), meta(did, "D", domain=f"dom{i}"))
+    a = types.SimpleNamespace(only=None, jobs=2, redo=False, smoke=True, dry_run=True, max_gb=100.0)
+    for step in ("split", "crossdup", "tasks", "package"):
+        getattr(RUN, f"step_{step}")(a, paths, S)
+    sp = json.loads((paths.data / "splits_smoke.json").read_text())["datasets"]
+    assert sum(v["split"] == "locked" for v in sp.values()) == 2
+    assert not (paths.small / "splits.json").exists()
+    rel = RUN.release(a, paths, S)
+    assert yaml.safe_load((rel / "locked" / "tasks" / "full.yaml").read_text())["tasks"]
+    RUN.fev_check(rel)
+
+
+def test_no_upload_flag(monkeypatch):
+    called = []
+    for st in RUN.STEPS:
+        monkeypatch.setattr(RUN, f"step_{st}", lambda a, p, s, st=st: called.append(st))
+    monkeypatch.setattr(RUN, "setup_logging", lambda paths, step: Path("x"))
+    RUN.main(["all", "--no-upload"])
+    assert called == RUN.STEPS[:-1] and "report_b" in called
 
 
 # ---- upload guard -------------------------------------------------------------------------------------------------------
