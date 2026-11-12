@@ -95,9 +95,50 @@ def _arrow(path: Path, name: str) -> Part:
 ENCODINGS = ("utf-8", "cp1252", "latin-1")
 
 
-def detect_encoding(path: Path, gz: bool, chunk: int = 16 << 20) -> str:
-    """First of utf-8, cp1252, latin-1 that decodes the whole file (latin-1 always does)."""
+SAMPLE_FULL = 64 << 20          # files up to this size are decoded in full (streamed); larger ones are sampled
+SAMPLE_HEAD = 8 << 20
+SAMPLE_WINDOW = 1 << 20
+SAMPLE_WINDOWS = 16
+
+
+def _windows(path: Path, gz: bool) -> list[bytes]:
+    """Head (8 MB) of the file, plus for plain files 16 windows of 1 MB spread to the end. Window edges are cut at line
+    breaks, so a multi-byte character is never split."""
+    if gz:
+        with gzip.open(path, "rb") as fh:
+            b = fh.read(SAMPLE_HEAD + 1)
+        return [b[:b.rfind(b"\n") + 1] if len(b) > SAMPLE_HEAD else b]
+    size = path.stat().st_size
+    out = []
+    with open(path, "rb") as fh:
+        b = fh.read(SAMPLE_HEAD)
+        out.append(b[:b.rfind(b"\n") + 1] if size > SAMPLE_HEAD else b)
+        for k in range(1, SAMPLE_WINDOWS + 1):
+            pos = SAMPLE_HEAD + (size - SAMPLE_HEAD - SAMPLE_WINDOW) * k // SAMPLE_WINDOWS
+            fh.seek(max(pos, 0))
+            w = fh.read(SAMPLE_WINDOW)
+            i = w.find(b"\n")
+            j = w.rfind(b"\n") if pos + SAMPLE_WINDOW < size else len(w) - 1
+            if 0 <= i < j:
+                out.append(w[i + 1:j + 1])
+    return out
+
+
+def detect_encoding(path: Path, gz: bool, chunk: int = 16 << 20, full: bool = False) -> str:
+    """First of utf-8, cp1252, latin-1 that decodes the file (latin-1 always does). Never holds more than one chunk.
+    Plain files up to SAMPLE_FULL (and any file with full=True) are decoded in full; larger files and .gz files are
+    sampled (head + windows), and a later invalid-utf-8 error while reading re-runs this in full (see _csv)."""
     op = gzip.open if gz else open
+    if not full and (gz or path.stat().st_size > SAMPLE_FULL):
+        ws = _windows(path, gz)
+        for enc in ENCODINGS[:-1]:
+            try:
+                for w in ws:
+                    w.decode(enc)
+                return enc
+            except UnicodeDecodeError:
+                continue
+        return ENCODINGS[-1]
     for enc in ENCODINGS[:-1]:
         dec = codecs.getincrementaldecoder(enc)()
         try:
@@ -122,19 +163,18 @@ def _sniff_delim(path: Path, gz: bool, enc: str = "utf-8") -> str:
 
 def _csv(path: Path, name: str, e: str) -> Part:
     gz = e.endswith(".gz")
-    enc = detect_encoding(path, gz)
-    delim = "\t" if e.startswith("tsv") else _sniff_delim(path, gz, enc)
-    stats = {"encoding": enc, "rows": 0, "skipped": 0}
+    stats = {"encoding": detect_encoding(path, gz), "rows": 0, "skipped": 0}
+    delim = "\t" if e.startswith("tsv") else _sniff_delim(path, gz, stats["encoding"])
     count = {"skipped": 0}
 
     def skip(row):        # the input is transcoded to utf-8 first, so row.text never fails to decode
         count["skipped"] += 1
         return "skip"
     parse = pcsv.ParseOptions(delimiter=delim, newlines_in_values=False, invalid_row_handler=skip)
-    read = pcsv.ReadOptions(block_size=CSV_BLOCK, encoding=enc)
 
     def stream(conv):
         src = pa.input_stream(str(path), compression="gzip" if gz else None)
+        read = pcsv.ReadOptions(block_size=CSV_BLOCK, encoding=stats["encoding"])
         return pcsv.open_csv(src, read_options=read, parse_options=parse, convert_options=conv)
 
     try:
@@ -149,13 +189,28 @@ def _csv(path: Path, name: str, e: str) -> Part:
 
     def gen(cols):
         conv = pcsv.ConvertOptions(column_types=types, strings_can_be_null=True, include_columns=cols)
-        count["skipped"], n = 0, 0
-        try:
-            for b in stream(conv):
-                n += b.num_rows
-                yield pa.Table.from_batches([b])
-        except pa.ArrowInvalid as ex:  # a later chunk does not fit the types of the first one
-            raise Unreadable(f"csv chunk: {str(ex)[:200]}")
+        count["skipped"], n, skip_rows = 0, 0, 0
+        while True:
+            try:
+                for b in stream(conv):
+                    if skip_rows:                    # after an encoding restart: rows already handed out
+                        cut = min(skip_rows, b.num_rows)
+                        skip_rows -= cut
+                        b = b.slice(cut)
+                        if not b.num_rows:
+                            continue
+                    n += b.num_rows
+                    yield pa.Table.from_batches([b])
+                break
+            except pa.ArrowInvalid as ex:
+                if "utf8" in str(ex).lower().replace("-", "") and stats["encoding"] == "utf-8" and not stats.get("full"):
+                    # the sample missed a non-utf-8 byte: decode the whole file (streamed), restart after the rows done
+                    stats.update(encoding=detect_encoding(path, gz, full=True), full=True)
+                    if stats["encoding"] == "utf-8":
+                        raise Unreadable(f"csv chunk: {str(ex)[:200]}")
+                    skip_rows, count["skipped"] = n, 0
+                    continue
+                raise Unreadable(f"csv chunk: {str(ex)[:200]}")   # a later chunk does not fit the first one's types
         stats.update(rows=n, skipped=count["skipped"])
     return Part(name, schema, gen, stats)
 

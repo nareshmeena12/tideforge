@@ -187,3 +187,20 @@ def test_canon_inspect_writes_blocks_and_summary(tmp_path, monkeypatch):
     txt = (tmp_path / "canon_inspect.txt").read_text(encoding="utf-8")
     assert "=== bad" in txt and "brand" in txt and "would build: 1" in txt and "excluded (overrides skip): 1" in txt
     assert "no time axis" in txt
+
+
+def test_encoding_sampled_for_big_files_and_restart_when_sample_misses(tmp_path, monkeypatch):
+    monkeypatch.setattr(readers, "SAMPLE_FULL", 1000)
+    monkeypatch.setattr(readers, "SAMPLE_HEAD", 400)
+    monkeypatch.setattr(readers, "SAMPLE_WINDOW", 200)
+    monkeypatch.setattr(readers, "SAMPLE_WINDOWS", 2)
+    monkeypatch.setattr(readers, "CSV_BLOCK", 4096)
+    f = tmp_path / "big.csv"
+    lines = [f"name{i},{i}" for i in range(3000)]
+    lines[1500] = "café,1500"                       # one cp1252 byte, between the sampled windows
+    f.write_bytes(("name,value\n" + "\n".join(lines) + "\n").encode("cp1252"))
+    p = readers.open_parts(f, tmp_path / "w")[0]
+    assert p.stats["encoding"] == "utf-8"              # the sample did not see it
+    t = p.read()
+    assert p.stats["encoding"] == "cp1252" and t.num_rows == 3000 and p.stats["rows"] == 3000
+    assert t.column("name")[1500].as_py() == "café" and t.column("value")[2999].as_py() == 2999
