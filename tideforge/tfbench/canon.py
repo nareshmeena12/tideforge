@@ -93,9 +93,54 @@ def cols_of(schema: pa.Schema) -> list[D.Col]:
     return out
 
 
+NOT_TARGET = re.compile(
+    r"^(id|index|idx|record|record_?(no|num|number|id)|sort|sort_?(key|order)|rank|ranking|secs?|seconds|time|t|"
+    r"timestamp|epoch|unix_?time)$"                                     # the whole name
+    r"|[_\s](id|idx|index|sort|rank|secs|seconds|timestamp|epoch)$"     # ..._id, ons_sort, ..._timestamp
+    r"|^(id|sort|rank)[_\s]", re.I)                                     # id_..., sort_...
+
+
+def never_target(names: list[str]) -> tuple[list[str], list[str]]:
+    """(kept, removed): id / index / record / sort / rank / secs / time / timestamp / epoch columns are never targets."""
+    out = [c for c in names if NOT_TARGET.search(str(c))]
+    return [c for c in names if c not in out], out
+
+
+def is_counter(v) -> bool:
+    """Strictly increasing by a constant step (a row counter / clock), judged on >= 20 finite values."""
+    v = np.asarray(v, dtype=np.float64)
+    v = v[np.isfinite(v)]
+    if len(v) < 20:
+        return False
+    d = np.diff(v)
+    return bool((d > 0).all() and np.allclose(d, d[0], rtol=1e-6, atol=1e-9))
+
+
+def drop_counters(series: dict[str, list]) -> list[str]:
+    """Columns that are counters in most (>= half) of their sampled series."""
+    out = []
+    for c, arrs in series.items():
+        f = [is_counter(a) for a in arrs if len(a)]
+        if f and sum(f) >= 0.5 * len(f):
+            out.append(c)
+    return out
+
+
 def roles_for(schema: pa.Schema, ov: dict) -> tuple[dict, str, str]:
     cols = cols_of(schema)
     r = D.assign_roles(cols)
+    if "targets" not in ov:          # owner 2026-11-13: id / clock / sort columns are never targets (logged in meta)
+        kept, out = never_target(r["target_cols"])
+        if out:
+            log.info("target rule: %s not targets (id / clock / sort name)", out)
+            r["value_cols"] = [c for c in r.get("value_cols", []) if c not in out]
+            if not kept:     # the profiler's only pick was a sort / id column: the other value columns are the targets
+                num = {c.name for c in cols if c.kind in ("num", "bool")}
+                kept = [c for c in dict.fromkeys(r["value_cols"] + r["covariate_cols"]) if c in num and c not in out
+                        and c not in r["id_cols"] and c != r["time_col"] and not CALENDAR.search(c)
+                        and not NOT_TARGET.search(c)]
+            r["target_cols"], r["not_target"] = kept, out
+            r["covariate_cols"] = [c for c in r["covariate_cols"] if c not in out]
     layout, rule, _ = D.decide_layout(cols, r)
     names = set(schema.names)
     for k_ov, k in (("time_col", "time_col"), ("id_cols", "id_cols"), ("targets", "target_cols"),
@@ -544,6 +589,10 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
         raise Fail("no numeric target column")
     meta.update(layout=layout, layout_rule=layout_rule, time_col=r["time_col"], id_cols=r["id_cols"],
                 target_rule=r.get("target_rule"))
+    if r.get("not_target"):
+        T.append({"step": "target rule: not targets (id / clock / sort name)", "columns": r["not_target"]})
+        if not r["target_cols"] and layout != "nested":
+            raise Fail(f"no target left: {r['not_target']} are id / clock / sort columns (set targets in overrides.yaml)")
 
     # columns kept
     schema = parts[0].schema
@@ -594,7 +643,7 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     for attempt in (0, 1):
         try:
             targets: list[str] = []
-            freq = ov.get("freq")
+            freq = ov.get("freq") or (events["step"] if events else None)   # event counts: the grid is the step
             freq_share = None
             min_len = None
             kept, drops, hashes = [], defaultdict(list), set()
@@ -621,6 +670,15 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         else list(r["target_cols"]))
                     if layout == "nested":
                         covs = [c for c in df.columns if c not in ["item_id", "timestamp"] + targets + static]
+                    if layout == "long" and not events and "targets" not in ov:
+                        ctr = drop_counters(series_by_col(df, targets))
+                        if ctr:
+                            log.info("%s: target rule: %s are counters (constant step), not targets", did, ctr)
+                            T.append({"step": "target rule: counters (strictly increasing, constant step) not targets",
+                                      "columns": ctr})
+                            targets = [c for c in targets if c not in ctr]
+                            if not targets:
+                                raise Fail(f"no target left: {ctr} are counters (set targets in overrides.yaml)")
                     if events:
                         cum = {"diff": [], "named": [], "review": []}
                     else:
@@ -648,6 +706,9 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         dc = [c for c in cum["diff"] if c in x.columns]
                         x = x.assign(**{c: x[c].diff() for c in dc}).iloc[1:]
                     why = series_filter(x, targets, min_len, s.max_nan_share)
+                    if why is None and layout in ("wide", "nested") and "targets" not in ov and \
+                            all(is_counter(x[t]) for t in targets):
+                        why = "counter"              # a row counter / clock column, not a series (owner 2026-11-13)
                     if why is None:
                         h = series_hash(x, targets)
                         if h in hashes:
@@ -771,12 +832,17 @@ def plan_cumulative(parts: list[Part], r: dict, layout: str, ov: dict) -> dict:
         if layout == "long":
             d["item_id"] = _item_ids(d, r["id_cols"]) if r["id_cols"] else "all"
             series, names = series_by_col(d, tg), {c: c for c in tg}
+            ctr = drop_counters(series) if "targets" not in ov else []
+            if ctr:
+                series = {c: v for c, v in series.items() if c not in ctr}
+                names = {c: c for c in series}
+            extra = {"target_counters": ";".join(ctr)}
         else:                                   # wide: every target column is a series; one verdict for the dataset
             d = d.sort_values("timestamp")
             series = {"target": [pd.to_numeric(d[c], errors="coerce").to_numpy(dtype=np.float64) for c in tg]}
             names = {"target": "target"}
     cum = cumulative_rule(ov, names, [], monotone_cols(series))
-    return {"cumulative_diff": ";".join(names.get(c, c) for c in cum["diff"]), "cumulative_review": ";".join(cum["review"])}
+    return {**(extra if layout == "long" else {}), "cumulative_diff": ";".join(names.get(c, c) for c in cum["diff"]), "cumulative_review": ";".join(cum["review"])}
 
 
 def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Settings, workdir: Path) -> dict:
@@ -808,6 +874,7 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
         if ov.get("synthetic_time"):
             out["synthetic_time"] = True
         r, layout, rule = roles_for(parts[0].schema, ov)
+        out["not_target"] = ";".join(r.get("not_target", []))
         out.update(layout=layout, rule=rule, time_col=r["time_col"], id_cols=";".join(r["id_cols"]),
                    targets=";".join(r["target_cols"][:5]), n_targets=len(r["target_cols"]),
                    covariates=len(r["covariate_cols"]), parts=len(parts), other_tables=len(other),

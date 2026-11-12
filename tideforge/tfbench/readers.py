@@ -52,7 +52,10 @@ class Part:
     stats: dict = field(default_factory=dict)      # csv: encoding, rows, skipped (rows counted on the last full read)
 
     def batches(self, columns: list | None = None) -> Iterator[pa.Table]:
-        return self._batches(columns)
+        # pandas metadata dropped: a parquet written from a DataFrame with a time index would otherwise turn that column
+        # back into the index on to_pandas() (KeyError on the time column, e.g. EnergyBench, HEFTCom, PeakWeather)
+        for t in self._batches(columns):
+            yield t.replace_schema_metadata(None) if t.schema.metadata else t
 
     def read(self, columns: list | None = None) -> pa.Table:
         chunks = list(self.batches(columns))

@@ -313,3 +313,45 @@ def test_nested_cumulative_lists_differenced_by_override(tmp_path):
     x = data(tmp_path)
     assert m["targets"] == ["target"] and "cumulative_forks_diff" in x.columns
     assert x["timestamp"].min() == pd.Timestamp("2016-04-18") and (x["target"] >= 0).all()
+
+
+# ---- time as a pandas index, target rules (owner 2026-11-13) ---------------------------------------------------------------
+def test_parquet_with_time_as_pandas_index_builds_and_plans(tmp_path):
+    f = tmp_path / "x.parquet"
+    ts = pd.date_range("2020-01-01", periods=300, freq="h", name="timestamp")
+    pd.DataFrame({"b1": walk(300, 1), "b2": walk(300, 2)}, index=ts).to_parquet(f)
+    p = plan_dataset(row(), files_of([(f, "x.parquet")]), {}, S, tmp_path / "wp")
+    assert p["status"] == "ok" and "check failed" not in str(p.get("cumulative_review"))
+    m = build(tmp_path, [(f, "x.parquet")])
+    assert m["n_series"] == 2 and m["frequency"] == "h"
+
+
+def test_never_target_names_and_counters(tmp_path):
+    from tideforge.tfbench.canon import never_target, is_counter
+    kept, out = never_target(["ons_sort", "record_number", "secs", "T1", "time_spent", "count_thousands", "user_id",
+                              "rank", "response_time", "t"])
+    assert out == ["ons_sort", "record_number", "secs", "user_id", "rank", "t"]
+    assert is_counter(np.arange(50) * 4.0) and not is_counter(np.cumsum(np.ones(50) + np.r_[0, np.zeros(48), 1]))
+    f = tmp_path / "c.csv"
+    n = 200
+    pd.DataFrame({"date": np.tile(pd.date_range("2020-01-01", periods=n, freq="D").astype(str), 2),
+                  "region": np.repeat(["a", "b"], n), "ons_sort": 7.0, "row_no": np.tile(np.arange(n) * 2.0, 2),
+                  "count": np.r_[walk(n, 1), walk(n, 2)]}).to_csv(f, index=False)
+    m = build(tmp_path, [(f, "c.csv")], {"time_col": "date", "id_cols": ["region"]})
+    assert m["targets"] == ["count"]
+    steps = {t["step"]: t for t in m["transformations"]}
+    assert any(k.startswith("target rule: not targets") for k in steps) or "ons_sort" not in m["targets"]
+    assert any(k.startswith("target rule: counters") and "row_no" in steps[k]["columns"] for k in steps)
+
+
+def test_events_per_month(tmp_path):
+    f = tmp_path / "croc.csv"
+    rng = np.random.default_rng(0)
+    d = pd.to_datetime("2000-01-01") + pd.to_timedelta(rng.integers(0, 365 * 10, 600), unit="D")
+    pd.DataFrame({"date_captured": d.strftime("%Y-%m-%d"), "region": rng.choice(["N", "S"], 600),
+                  "total_length_cm": np.sort(rng.uniform(50, 400, 600))}).to_csv(f, index=False)
+    m = build_dataset(row(), files_of([(f, "c.csv")]), {"layout": "events", "time_col": "date_captured",
+                                                         "id_cols": ["region"], "event_step": "MS"},
+                      Settings(min_context=20), tmp_path / "o" / "ds", tmp_path / "w")
+    x = pd.read_parquet(tmp_path / "o" / "ds" / "data.parquet")
+    assert m["frequency"] == "MS" and x.groupby("item_id")["count"].sum().sum() == 600
