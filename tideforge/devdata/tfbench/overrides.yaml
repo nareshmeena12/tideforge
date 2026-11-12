@@ -44,10 +44,6 @@ zalizedata_us_grid_hourly_power_plants_dataset:
   drop_items: "(?i)ercot|(^|\\W)ERCO(\\W|$)"
   note: "draft: drop the ERCOT balancing authority (fev)"
 
-emulated_inc_sci_streamflow_ungauged_new_country:
-  drop_items: "(?i)saugeen"
-  note: "draft: drop the Saugeen River gauge (GIFT-Eval) if HYSETS has it; the value audit is the real check"
-
 cognitedata_ind_eval:
   drop_parts: "(?i)(^|/)(electricity|solar)(/|_|\\.)"
   note: "draft: drop configs electricity and solar"
@@ -61,10 +57,6 @@ yahya2491_3w_pipeline:
   drop_items: "(?i)simulated|drawn"
   note: "draft: real instances only (3W simulated files start with SIMULATED_, hand-drawn with DRAWN_)"
 
-torchspatiotemporal_processeddatasets:
-  drop_parts: "(?i)elergone|pvus"
-  note: "draft: drop Elergone (UCI electricity = GIFT) and PvUS (simulated)"
-
 autonlab_timeseries_pile_forecasting:
   drop_parts: "(?i)(m4_|hospital|covid_deaths|us_births|saugeen|temperature_rain|kdd_cup|car_parts|fred_md|electricity|solar)"
   note: "draft: drop the Monash sets that are in GIFT-Eval / fev"
@@ -72,11 +64,6 @@ autonlab_timeseries_pile_forecasting:
 autonlab_timeseries_pile_forecasting_autoformer:
   drop_parts: "(?i)ett|electricity|weather"
   note: "draft: drop ETT*, electricity, weather (Jena)"
-
-nju_zhangsq_rmisc_cryptocurrency:
-  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH|bitcoin|ethereum|litecoin)"
-  drop_parts: "(?i)(BTC|ETH|LTC|BCH|bitcoin|ethereum|litecoin)"
-  note: "draft: drop BTC, ETH, LTC, BCH (TIME)"
 
 time_hd_anonymous_high_dimensional_time_series:
   drop_parts: "(?i)(m5|ecl|etth|ettm|weather|traffic|solar|sirs|neurolib)"
@@ -90,10 +77,6 @@ yuiseki_un_wpp_wpp2024:
 yuiseki_undp_hdr:
   drop_items: "(?i)life.?expect|(^|\\W)le(_|\\W|$)"
   note: "draft: drop life expectancy (fev)"
-
-zaai_ai_hierarchical_time_series_datasets:
-  drop_parts: "(?i)touris|m5"
-  note: "draft: drop Tourism in Australia and M5 (fev)"
 
 hsilvosa_noaa_ghcn_daily:
   drop_items: "(?i)^SN|singapore"
@@ -119,10 +102,10 @@ datadog_boom:
     # BOOM item id or its folder name. The report counts both drops (by id here, by value in the audit).
   note: "owner 2026-11-12: build normally; audit drops BOOMLET matches"
 
-happyman11_karnataka_sldc:
+happyman11_karnataka_sldc_preprocessed:
   skip: "gated repo (no access); excluded (owner 2026-11-12)"
 
-netop_5g_network_energy_consumption:
+netop_5g_network_energy_consumption_ecstat_clstat_bsinfo:
   skip: "gated repo (no access); excluded (owner 2026-11-12)"
 
 nju_zhangsq_rmisc_alicar:
@@ -138,5 +121,332 @@ kashif_app_flow_default:
   note: "owner 2026-11-12: long hourly; rows exist only when value > 0, so missing hours are 0"
 
 ai_iot_energybench_neea:
-  table: "Energy-Load-Profiles/15min/"
+  skip: "only Dataset_V0.0/metadata/missing/NEEA.csv is on disk: the catalog file list for this config has no load profiles (needs a file-list fix + re-download; real data is under Dataset_V0.0/Energy-Load-Profiles/)"
   note: "owner 2026-11-12: real data under Dataset_V0.0/Energy-Load-Profiles/; 15min is the finest (B builds hourly)"
+
+# ===== Phase 2 (2026-11-13): the 71 datasets canon --plan could not build, from canon_inspect.txt ======================
+# Frequencies marked "source docs" are not in the files (RMISC dropped the time columns); they come from the original
+# dataset's documentation. Index-only time is synthetic (2000-01-01 + row order). Owner: confirm or turn into skip.
+
+ai_iot_energybench_save:
+  skip: "only Dataset_V0.0/metadata/missing/SAVE.csv is on disk (missing-value summary per building); load profiles not downloaded (file-list fix + re-download)"
+
+ai_iot_energybench_ukst:
+  skip: "only Dataset_V0.0/metadata/missing/UKST.csv is on disk (missing-value summary per building); load profiles not downloaded (file-list fix + re-download)"
+
+# --- RMISC (nju-zhangsq/RMISC): time columns removed upstream; _original_filename (coded) = one source file = one series
+nju_zhangsq_rmisc_amarketchina:
+  freq: D
+  id_cols: [_original_filename]
+  targets: [close]
+  covariates: [open, high, low, vol, amount]
+  note: "daily A-share bars (source docs); trading days indexed as consecutive days, synthetic calendar"
+
+nju_zhangsq_rmisc_niftystock:
+  freq: D
+  id_cols: [_original_filename]
+  targets: [Close]
+  covariates: [Open, High, Low, Volume]
+  note: "NIFTY-50 daily bars (source docs); trading days as consecutive days, synthetic calendar"
+
+nju_zhangsq_rmisc_sp500:
+  freq: D
+  id_cols: [_original_filename]
+  targets: [Close]
+  covariates: [Open, High, Low, Volume]
+  note: "S&P 500 constituents daily bars (source docs); trading days as consecutive days, synthetic calendar"
+
+nju_zhangsq_rmisc_stockmarketdata:
+  freq: D
+  id_cols: [_original_filename]
+  targets: [Close]
+  note: "CNNpred daily index data (source docs); other columns are past covariates (capped at 32)"
+
+nju_zhangsq_rmisc_britaincoal:
+  freq: 5min
+  id_cols: [_original_filename]
+  targets: [" demand"]
+  note: "GB grid (gridwatch) 5-minute demand and generation mix (source docs); column names start with a space"
+
+nju_zhangsq_rmisc_mzvav:
+  freq: min
+  id_cols: [_original_filename]
+  targets: ["AHU: Supply Air Temperature"]
+  note: "LBNL multi-zone VAV AHU, 1-minute (source docs); the other AHU / zone signals are past covariates"
+
+nju_zhangsq_rmisc_shellhackathon:
+  freq: min
+  id_cols: [_original_filename]
+  targets: ["Global CMP22 (vent/cor) [W/m^2]"]
+  note: "Shell.ai solar irradiance, 1-minute (527040 rows = 366 days x 1440; source docs)"
+
+nju_zhangsq_rmisc_hungarianchickenpoxcases:
+  freq: W-MON
+  layout: wide
+  note: "weekly chickenpox cases per Hungarian county 2005-2014 (522 weeks; source docs); one series per county"
+
+nju_zhangsq_rmisc_frothflotation:
+  freq: h
+  id_cols: [_original_filename]
+  targets: ["% Silica Concentrate"]
+  note: "mining flotation plant, hourly (source docs); process signals are past covariates"
+
+nju_zhangsq_rmisc_metropt3:
+  freq: 10s
+  id_cols: [_original_filename]
+  targets: [Oil_temperature]
+  note: "MetroPT-3 compressor, 10 s (source docs); file is cut at Excel's 1,048,575 rows upstream"
+
+nju_zhangsq_rmisc_motortemperature:
+  freq: 500ms
+  id_cols: [_original_filename]
+  targets: [pm, stator_yoke, stator_tooth, stator_winding]
+  note: "Paderborn PMSM temperatures, 2 Hz (source docs); one file per measurement session"
+
+nju_zhangsq_rmisc_pump:
+  freq: min
+  id_cols: [_original_filename]
+  note: "pump sensor data, 1-minute (source docs)"
+
+nju_zhangsq_rmisc_servermachinedataset:
+  freq: min
+  id_cols: [_original_filename]
+  note: "SMD (OmniAnomaly), 1-minute, one file per machine (source docs)"
+
+nju_zhangsq_rmisc_dominick:
+  freq: W
+  layout: wide
+  note: "Dominick's weekly prices (393 weeks), one column per item (source docs)"
+
+nju_zhangsq_rmisc_weeklyfuelpricesitaly:
+  freq: W-MON
+  id_cols: [_original_filename]
+  targets: [PRICE]
+  covariates: [VAT, EXCISE, NET]
+  note: "Italian weekly fuel prices, one file per product (source docs)"
+
+nju_zhangsq_rmisc_weeklyroadfuelprices:
+  freq: W-MON
+  layout: wide
+  note: "weekly road fuel prices (petrol, diesel; source docs)"
+
+nju_zhangsq_rmisc_keplerlightcurves:
+  freq: 30min
+  id_cols: [_original_filename]
+  note: "Kepler long cadence (29.4 min, rounded to 30 min; source docs)"
+
+nju_zhangsq_rmisc_usairpollution:
+  skip: "several rows per site-day (one per instrument pairing, rows 0-3 are the same day) and the date column was removed: row order is not a daily grid"
+
+nju_zhangsq_rmisc_ukeconomy:
+  skip: "117 unrelated tables merged into one schema (columns 96-100% blank, numeric column names); no time and no common frequency"
+
+nju_zhangsq_rmisc_opsd_pv_wind:
+  skip: "OPSD files of mixed resolution (15 / 30 / 60 min) merged without time; columns ~100% blank; OPSD load is also in fev"
+
+nju_zhangsq_rmisc_uk_dale:
+  skip: "UK-DALE meters at ~6 s with dropouts; without timestamps the row order is not a regular grid"
+
+nju_zhangsq_rmisc_boschcnc:
+  skip: "CNC vibration at 2 kHz (bursts per machining run): not a forecasting series"
+
+nju_zhangsq_rmisc_gaspipeline:
+  skip: "Modbus command / response log (cmd_address, rps_function), not a regular series"
+
+nju_zhangsq_rmisc_gassensordynamic:
+  skip: "gas sensor array under set-point steps; sample rate not stated in the file, and the setpoints drive the signal (lab experiment)"
+
+nju_zhangsq_rmisc_oilwell:
+  skip: "3W oil wells: same source as yahya2491_3w_pipeline, and file names are coded so simulated / drawn instances cannot be dropped"
+
+nju_zhangsq_rmisc_pemscalifornia:
+  skip: "PEMS-SF flattened: one row per day, 12672 columns = 88 sensors x 144 ten-minute steps (f1..f12672); traffic also overlaps fev / GIFT"
+
+nju_zhangsq_rmisc_cryptocurrency:
+  skip: "file names are coded numbers, so the BTC / ETH / LTC / BCH drop rule (TIME overlap) cannot be applied; frequency unknown"
+  note: "draft: drop BTC, ETH, LTC, BCH (TIME)"
+
+nju_zhangsq_rmisc_booksperperson:
+  skip: "index values only (Index 2015 = 100), frequency not stated anywhere in the file"
+
+nju_zhangsq_rmisc_satellite:
+  skip: "anonymised normalised telemetry f1..f55 (most columns 70-96% blank), frequency unknown"
+
+nju_zhangsq_rmisc_miniapp:
+  skip: "anonymised f1..f30, frequency unknown"
+
+nju_zhangsq_rmisc_nab:
+  skip: "NAB anomaly benchmark: files of different cadences merged without timestamps (frequency unknown per file)"
+
+# --- other repos
+thulab_xauusd_default:
+  skip: "Apache IoTDB TsFile format (xauusd.tsfile): no reader without a new dependency"
+
+andrewlee1807_gyeonggi:
+  note: "csv headers had duplicate names (ArrowInvalid); the reader now renames them (name.1, name.2); no other rule yet"
+
+bsebench_org_warwick_second_life_dm_2025_raw_raw_mirror:
+  skip: "battery cycler exports: every csv starts with a key-value header block of varying length (Measurement ID, Battery Name, ...); needs a dedicated reader"
+
+yzzpz_charged_data_10_csv_per_city:
+  files: "^[A-Z]+/volume\\.csv$"
+  time_col: "Unnamed: 0"
+  layout: wide
+  note: "EV charging volume, hourly, one column per station; the *_remove_zero copies, duration / other files and .rar parts are not used; time column has an empty header"
+
+glucofmbench_glucofm_bench:
+  files: "^data/train-"
+  id_cols: [dataset, subject_id]
+  note: "nested lists, timestamps as epoch seconds (the plan TypeError); train split only (test continues the same subjects)"
+
+rricc22_endomondo_hr_prediction_v2:
+  files: "^dataset\\.parquet$"
+  id_cols: [workout_id]
+  targets: [heart_rate]
+  note: "nested lists, timestamps as epoch seconds (the plan TypeError); dataset.parquet only (train / validation / test are splits of it)"
+
+lvinaud_arboviral_alerta_dados:
+  skip: "ML feature table (lags / rolling means of dengue / zika cases, no current-value target) and model files (.joblib)"
+
+uvathe_wellborn_pregnancy_wearable:
+  skip: ".mtn device files, format not documented; no reader"
+
+cashlessconsumer_chennai_rain_gauges:
+  table: "data/gcc_rain_gauge_panel\\.parquet$"
+  time_col: obs_date
+  id_cols: [argid]
+  targets: [rainfall]
+  note: "panel version of the gauge data (the csv is the same table; the json is the raw scrape)"
+
+chrimerss_rsi_benchmark_hydro:
+  table_cols: [datetime, discharge_m3s]
+  time_col: datetime
+  targets: [discharge_m3s]
+  note: "hourly discharge, one csv per gauge inside data.tar.gz (only 10 gauges)"
+
+emulated_inc_sci_arctic_sea_ice_forecast_later_years:
+  skip: "no files on disk after the download (0 files)"
+
+phanerozoic_noaa_ww3_multi1_points_wmo:
+  skip: "WAVEWATCH III point output in its own text format (multi_1.<buoy>.HIND_WMO.<yyyymm>) inside tar.gz; no reader"
+
+taziksh_argo_profiles:
+  skip: "Argo vertical profiles (values over pressure levels, not over time); a float's own series is ~10-day irregular cycles"
+
+emulated_inc_sci_streamflow_ungauged_new_country:
+  files: "(^|/)timeseries-camels(gb|aus|cl)?\\.tar$"
+  targets: [streamflow]
+  covariates: [total_precipitation_sum, potential_evaporation_sum, temperature_2m_mean, temperature_2m_min,
+               temperature_2m_max, dewpoint_temperature_2m_mean, surface_net_solar_radiation_mean,
+               surface_net_thermal_radiation_mean, surface_pressure_mean, snow_depth_water_equivalent_mean,
+               u_component_of_wind_10m_mean, v_component_of_wind_10m_mean, volumetric_soil_water_layer_1_mean]
+  drop_items: "(?i)saugeen"
+  note: "owner 2026-11-13: Caravan CAMELS (US, GB, AUS, CL) netCDF, one series per catchment, streamflow target, ERA5-Land forcings past covariates; HYSETS / CAMELS-BR tars not opened"
+
+amgharr_femto_st_dataset:
+  skip: "FEMTO-ST bearing accelerometer at 25.6 kHz (bursts): not a forecasting series"
+
+samlzy_mcc5_thu_motor:
+  skip: "motor vibration at kHz rates (headerless csv bursts per test condition): not a forecasting series"
+
+xijiazhao_welding2_trial_1_trial_2:
+  skip: "no files on disk after the download (0 files)"
+
+jhumbl_orr_station_usage:
+  files: "\\.parquet$"
+  calendar: {fiscal_year: financial_year}
+  id_cols: [station_name]
+  targets: [entries_exits]
+  covariates: [interchanges]
+  note: "ORR station entries + exits per financial year (1997-98 -> 1997-01-01, yearly)"
+
+vinicius_souza_antaq:
+  skip: "port-call and cargo records (one row per cargo item / berthing) in yearly partitions; a monthly aggregate needs a hand-written rule"
+
+torchspatiotemporal_processeddatasets:
+  skip: "the series are .h5 / .npz inside the zips (not read in v1); only graph distance csvs are readable"
+  note: "draft: drop Elergone (UCI electricity = GIFT) and PvUS (simulated)"
+
+alanwgt_fipex_veiculos_brasil:
+  files: "^fipex-prices-latest\\.parquet$"
+  calendar: {year: ano_referencia, month: mes_referencia}
+  id_cols: [codigo_fipe, ano_modelo, sigla_combustivel]
+  targets: [valor_centavos]
+  covariates: []
+  note: "FIPE monthly car prices per model / model year / fuel; the csv and *-merged copies are the same table; value 0 (R$ 0,00) kept as is"
+
+dingdong_inc_freshretailnet_50k_default:
+  layout: long
+  time_col: dt
+  id_cols: [store_id, product_id]
+  targets: [sale_amount]
+  covariates: [discount, holiday_flag, activity_flag, stock_hour6_22_cnt, precpt, avg_temperature, avg_humidity, avg_wind_level]
+  known: [discount, holiday_flag, activity_flag]
+  note: "daily rows per store x product (dt); hourly lists not used; train + eval are consecutive days of the same series"
+
+dingdong_inc_freshretailnet_lt_unknown:
+  layout: long
+  time_col: dt
+  id_cols: [store_id, product_id]
+  targets: [sale_amount]
+  covariates: [discount, holiday_flag, activity_flag, stock_hour6_22_cnt, precpt, avg_temperature, avg_humidity, avg_wind_level]
+  known: [discount, holiday_flag, activity_flag]
+  note: "daily rows per store x product (dt); hourly lists not used; train + eval are consecutive days of the same series"
+
+gallicagram_atlas_motifs:
+  skip: "word-neighbour records stored as JSON strings; the dated tables are per-word motif summaries, not series"
+
+nason_open_policing_database:
+  skip: "no files on disk after the download (0 files)"
+
+zaai_ai_hierarchical_time_series_datasets:
+  skip: "no files on disk after the download (0 files)"
+  note: "draft: drop Tourism in Australia and M5 (fev)"
+
+autonlab_timeseries_pile_anomaly_detection_tsb_uad_public:
+  skip: "TSB-UAD anomaly data (.out = value,label, no time); contains Yahoo (gated, excluded) and NAB"
+
+multimodaluniverse_tess:
+  skip: "light curves as a struct (time in BTJD days, flux, flux_err) with orbit gaps; needs a struct reader (v2)"
+
+edilia12380_era5_daily_weather_western_europe:
+  skip: "the only table holds a PNG image (map), no data"
+
+previdengue_predict_climate_data:
+  calendar: {yearweek: ano_semana, week_rule: mmwr}
+  id_cols: [codigo_ibge]
+  targets: [T2M]
+  note: "weekly NASA POWER climate per municipality; ano_semana = epidemiological week (Brazil SE = MMWR rule, week ending Saturday)"
+
+amirshahbaz_cloudperftrace:
+  skip: "each list is one sample's feature vector (epoch, metrics, ...), not a series over time"
+
+emulated_inc_wikipedia_clickstream_enwiki:
+  skip: "6 monthly snapshots (headerless referrer pairs): series of 6 points are below the minimum length"
+
+jeremycochoy_wikimedia_pageview_timeseries:
+  skip: "pre-cut 1025-step windows of STL residuals, z-normalised, no time or frequency (derived data)"
+
+leadlagforecasting_llf_github_default:
+  skip: "cumulative counts per repo from created_date, but the step (day / week) is not stated in the files; confirm the frequency to build (start_col: created_date)"
+
+netop_gotsf_ds_default:
+  files: "^data/train/.*\\.csv$"
+  layout: wide
+  freq: h
+  note: "840 rows = 5 weeks x 24 h (file names 0w-5w); one column per cell; first column is a row index with an empty header"
+
+# --- previously synthetic time, now real calendar (owner 2026-11-13)
+hhs_official_nndss_weekly_data:
+  calendar: {year: "Current MMWR Year", week: "MMWR WEEK", week_rule: mmwr}
+  id_cols: ["Reporting Area", Label]
+  targets: ["Current week"]
+  covariates: []
+  note: "MMWR year + week -> week ending Saturday"
+
+kpubdata_seoul_bike_rent_month:
+  calendar: {yyyymm: rent_month}
+  id_cols: [station_no, rent_type, gender_code, age_group]
+  targets: [use_count]
+  covariates: []
+  note: "rent_month yyyymm -> month start"
