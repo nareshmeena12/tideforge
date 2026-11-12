@@ -121,7 +121,7 @@ kashif_app_flow_default:
   note: "owner 2026-11-12: long hourly; rows exist only when value > 0, so missing hours are 0"
 
 ai_iot_energybench_neea:
-  skip: "only Dataset_V0.0/metadata/missing/NEEA.csv is on disk: the catalog file list for this config has no load profiles (needs a file-list fix + re-download; real data is under Dataset_V0.0/Energy-Load-Profiles/)"
+  skip: "not published: ai-iot/EnergyBench on the Hub (checked 2026-11-13, 1947 files) has only Dataset_V0.0/metadata/missing/NEEA.csv for NEEA; no Energy-Load-Profiles/{15min,30min,Hourly} files exist for it, so no file-list fix or re-download can get them"
   note: "owner 2026-11-12: real data under Dataset_V0.0/Energy-Load-Profiles/; 15min is the finest (B builds hourly)"
 
 # ===== Phase 2 (2026-11-13): the 71 datasets canon --plan could not build, from canon_inspect.txt ======================
@@ -129,10 +129,10 @@ ai_iot_energybench_neea:
 # dataset's documentation. Index-only time is synthetic (2000-01-01 + row order). Owner: confirm or turn into skip.
 
 ai_iot_energybench_save:
-  skip: "only Dataset_V0.0/metadata/missing/SAVE.csv is on disk (missing-value summary per building); load profiles not downloaded (file-list fix + re-download)"
+  skip: "not published: ai-iot/EnergyBench on the Hub (checked 2026-11-13, 1947 files) has only Dataset_V0.0/metadata/missing/SAVE.csv for SAVE; no Energy-Load-Profiles/{15min,30min,Hourly} files exist for it, so no file-list fix or re-download can get them"
 
 ai_iot_energybench_ukst:
-  skip: "only Dataset_V0.0/metadata/missing/UKST.csv is on disk (missing-value summary per building); load profiles not downloaded (file-list fix + re-download)"
+  skip: "not published: ai-iot/EnergyBench on the Hub (checked 2026-11-13, 1947 files) has only Dataset_V0.0/metadata/missing/UKST.csv for UKST; no Energy-Load-Profiles/{15min,30min,Hourly} files exist for it, so no file-list fix or re-download can get them"
 
 # --- RMISC (nju-zhangsq/RMISC): time columns removed upstream; _original_filename (coded) = one source file = one series
 nju_zhangsq_rmisc_amarketchina:
@@ -195,7 +195,7 @@ nju_zhangsq_rmisc_metropt3:
   freq: 10s
   id_cols: [_original_filename]
   targets: [Oil_temperature]
-  note: "MetroPT-3 compressor, 10 s (source docs); file is cut at Excel's 1,048,575 rows upstream"
+  note: "MetroPT-3 compressor, 10 s (owner OK 2026-11-13; 1 s in some versions, sub-hourly either way); file is cut at Excel's 1,048,575 rows upstream"
 
 nju_zhangsq_rmisc_motortemperature:
   freq: 500ms
@@ -428,7 +428,12 @@ jeremycochoy_wikimedia_pageview_timeseries:
   skip: "pre-cut 1025-step windows of STL residuals, z-normalised, no time or frequency (derived data)"
 
 leadlagforecasting_llf_github_default:
-  skip: "cumulative counts per repo from created_date, but the step (day / week) is not stated in the files; confirm the frequency to build (start_col: created_date)"
+  files: "^data/train-"
+  start_col: created_date
+  freq: D
+  targets: [cumulative_stars]
+  covariates: [cumulative_pushes, cumulative_forks]
+  note: "owner 2026-11-13: daily cumulative counts from created_date (Milestone B builds the weekly variant); unlabeled_test files not used"
 
 netop_gotsf_ds_default:
   files: "^data/train/.*\\.csv$"
