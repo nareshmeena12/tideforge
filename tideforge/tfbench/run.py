@@ -93,10 +93,19 @@ def step_select(a, paths, s):
              df.loc[df["keep"], "scope_bytes"].sum() / 1e9, paths.selection)
 
 
+def repo_freq_seconds(paths) -> dict:
+    """Finest profile frequency (seconds) per selected repo, for the partition cut."""
+    sel = pd.read_csv(paths.selection)
+    sel = sel[sel["keep"].astype(str).str.lower() == "true"]
+    pr = read_profile(catalog_only=True)[["catalog_row", "freq_seconds"]]
+    m = sel.merge(pr, on="catalog_row", how="left")
+    return m.groupby("repo_id")["freq_seconds"].min().dropna().to_dict()
+
+
 def step_download(a, paths, s):
     from tideforge.tfbench import download
     files = pd.read_csv(C.files_path(), low_memory=False)
-    res = download.run(pd.read_csv(paths.selection), files, paths, s, a.only, a.jobs)
+    res = download.run(pd.read_csv(paths.selection), files, paths, s, a.only, a.jobs, repo_freq_seconds(paths))
     log.info("repos: %s", res["status"].value_counts().to_dict() if not res.empty else {})
 
 

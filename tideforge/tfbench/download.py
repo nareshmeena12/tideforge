@@ -34,12 +34,15 @@ log = logging.getLogger("tfbench.download")
 SKIP_EXT = {"npy", "npz", "h5", "hdf5", "hdf", "nc", "nc4", "netcdf", "pkl", "pickle", "pt", "pth", "ckpt", "bin",
             "safetensors", "mat", "mp4", "avi", "mov", "wav", "mp3", "png", "jpg", "jpeg", "gif", "tif", "tiff", "pdf",
             "docx", "xlsx", "xls", "xml", "html", "py", "ipynb", "sh", "lock", "crc", "rds", "rdata", "sav", "dta",
-            "sqlite", "db", "duckdb", "grib", "grb", "grib2", "7z", "rar", "bz2", "xz", "zst"}
+            "sqlite", "db", "duckdb", "grib", "grb", "grib2", "7z", "rar", "bz2", "xz", "zst", "fits", "fit", "fits.gz",
+            "fit.gz"}
+# readable formats whose content is not a time series (owner 2026-11-12: AstroM3 spectra; image / embedding tables)
+NON_TS = re.compile(r"(^|/)spectra/|(^|/|_)(sky_)?img(s)?(/|_|\.)|(^|/)images?/|embedding", re.I)
 
 
 def ext(path: str) -> str:
     name = path.rsplit("/", 1)[-1].lower()
-    for multi in ("tar.gz", "csv.gz", "tsv.gz", "json.gz", "jsonl.gz", "txt.gz", "parquet.gz"):
+    for multi in ("tar.gz", "csv.gz", "tsv.gz", "json.gz", "jsonl.gz", "txt.gz", "parquet.gz", "fits.gz", "fit.gz"):
         if name.endswith("." + multi):
             return multi
     return name.rsplit(".", 1)[-1] if "." in name else ""
@@ -88,7 +91,118 @@ def file_caps(p: pd.DataFrame, s: Settings) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["repo_id", "files_before", "files_after", "series_keys", "keys_kept", "reason"])
 
 
-def plan(selection: pd.DataFrame, files: pd.DataFrame, s: Settings | None = None) -> pd.DataFrame:
+_PART_DATE = re.compile(
+    r"(?P<ymdt>(?<!\d)(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?=T|\D|$))"
+    r"|(?P<ymd>(?<!\d)(?:19|20)\d{2}[-_.](?:0[1-9]|1[0-2])[-_.](?:0[1-9]|[12]\d|3[01])(?!\d))"
+    r"|(?P<dmy>(?<!\d)(?:0[1-9]|[12]\d|3[01])[-_.](?:0[1-9]|1[0-2])[-_.](?:19|20)\d{2}(?!\d))"
+    r"|(?P<hive>year=(?:19|20)\d{2}(?:/month=\d{1,2}(?:/day=\d{1,2})?)?)"
+    r"|(?P<ym>(?<!\d)(?:19|20)\d{2}[-_./](?:0[1-9]|1[0-2])(?!\d))"
+    r"|(?P<y>(?<![\d=])(?:19|20)\d{2}(?![\d]))", re.I)
+
+
+def partition_date(path: str) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """(start, end) of the time partition a file covers, from the last date in its path (the one nearest the file name):
+    a day, a month (2022/04, 2020-09, year=/month=) or a year (2024.csv)."""
+    last = None
+    for m in _PART_DATE.finditer(path):
+        last = m
+    if last is None:
+        return None
+    k, v = last.lastgroup, last.group(0)
+    try:
+        if k == "ymdt":
+            a = pd.Timestamp(v[:8])
+            return a, a + pd.Timedelta(days=1)
+        if k == "ymd":
+            a = pd.Timestamp(re.sub(r"[_.]", "-", v))
+            return a, a + pd.Timedelta(days=1)
+        if k == "dmy":
+            d, mo, y = re.split(r"[-_.]", v)
+            a = pd.Timestamp(int(y), int(mo), int(d))
+            return a, a + pd.Timedelta(days=1)
+        if k == "hive":
+            nums = [int(x) for x in re.findall(r"=(\d+)", v)]
+            a = pd.Timestamp(nums[0], nums[1] if len(nums) > 1 else 1, nums[2] if len(nums) > 2 else 1)
+            step = [pd.DateOffset(years=1), pd.DateOffset(months=1), pd.Timedelta(days=1)][len(nums) - 1]
+            return a, a + step
+        if k == "ym":
+            y, mo = re.split(r"[-_./]", v)
+            a = pd.Timestamp(int(y), int(mo), 1)
+            return a, a + pd.DateOffset(months=1)
+        a = pd.Timestamp(int(v), 1, 1)
+        return a, a + pd.DateOffset(years=1)
+    except (ValueError, OverflowError):
+        return None
+
+
+def path_freq(paths: pd.Series) -> float | None:
+    """Finest frequency named by a folder or file-name word in the paths ("hourly", "10min", "1d"), or None."""
+    from tideforge.devdata.hf_derive import freq_from_name
+    found = set()
+    for pth in paths.sample(min(len(paths), 500), random_state=0):
+        for seg in re.split(r"[/]", pth)[:-1] + [re.sub(r"\.[a-z0-9.]+$", "", pth.rsplit("/", 1)[-1])]:
+            for tok in [seg] + re.split(r"[_\-\s]", seg):
+                v = freq_from_name(tok) if tok else None
+                if v:
+                    found.add(float(v))
+    return min(found) if found else None
+
+
+def partition_cut(p: pd.DataFrame, s: Settings, freq_seconds: dict) -> pd.DataFrame:
+    """Time-partitioned repos (few series keys, many files per key) above max_partition_files files: keep only the newest
+    partitions that cover what canon keeps, max_points steps per series x 1.2 at the data frequency. Frequency: the
+    profile's (finest over the repo's catalog rows); where the profile has none, the median spacing between file dates,
+    which is never finer than the data, so the kept span is never too short. Files without a date are kept."""
+    cols = ["repo_id", "files_before", "files_after", "series_keys", "keys_kept", "reason"]
+    lim = int(s.max_partition_files or 0)
+    rows = []
+    if lim <= 0:
+        return pd.DataFrame(rows, columns=cols)
+    for repo, g in p[p["fetch"]].groupby("repo_id"):
+        if len(g) <= lim:
+            continue
+        nkeys = g["path"].map(series_key).nunique()
+        if nkeys * 10 > len(g):              # not time partitions (one series per file): the series cap handles these
+            continue
+        lo, hi = pd.Timestamp("1900-01-01"), pd.Timestamp.now() + pd.DateOffset(years=1)
+        se = g["path"].map(partition_date).map(lambda x: x if x is not None and lo <= x[0] <= hi else None)
+        dated = se.dropna()
+        if len(dated) < 0.9 * len(g):
+            rows.append(dict(repo_id=repo, files_before=len(g), files_after=len(g), series_keys=nkeys, keys_kept=nkeys,
+                             reason=f"time partitions but only {len(dated)} of {len(g)} file names carry a date: not cut"))
+            continue
+        starts = pd.Series(sorted({a for a, _ in dated}))
+        fs = freq_seconds.get(repo)
+        how = "profile frequency"
+        if not fs or fs != fs:
+            fs = path_freq(g["path"])
+            how = "frequency word in the file paths"
+        if not fs or fs != fs:
+            d = starts.diff().dropna().dt.total_seconds()
+            fs = float(d[d > 0].median()) if (d > 0).any() else None
+            how = "median spacing of file dates (profile has no frequency)"
+        if not fs:
+            continue
+        newest = max(b for _, b in dated)
+        span = s.partition_margin * s.max_points * fs
+        cutoff = newest - pd.Timedelta(seconds=span) if span < 200 * 365.25 * 86400 else pd.Timestamp("1800-01-01")
+        keep = se.map(lambda x: x is None or x[1] > cutoff)
+        drop = g.index[~keep.to_numpy()]
+        if not len(drop):
+            rows.append(dict(repo_id=repo, files_before=len(g), files_after=len(g), series_keys=nkeys, keys_kept=nkeys,
+                             reason=f"time partitions; {s.max_points} x {s.partition_margin:g} steps of {fs:g} s ({how}) "
+                                    f"reach before the oldest file: nothing cut"))
+            continue
+        p.loc[drop, "fetch"] = False
+        p.loc[drop, "why"] = f"partition cut: older than {cutoff.date()}"
+        rows.append(dict(repo_id=repo, files_before=len(g), files_after=int(len(g) - len(drop)), series_keys=nkeys,
+                         keys_kept=nkeys, reason=f"time partitions; kept files after {cutoff.date()} = {s.max_points} x "
+                         f"{s.partition_margin:g} steps of {fs:g} s ({how}) before the newest ({newest.date()})"))
+    return pd.DataFrame(rows, columns=cols)
+
+
+def plan(selection: pd.DataFrame, files: pd.DataFrame, s: Settings | None = None,
+         freq_seconds: dict | None = None) -> pd.DataFrame:
     """One row per unique file: repo, revision, path, bytes, dataset_ids, fetch (bool), why, sampled. With s, the per-repo
     file cap is applied (p.attrs["caps"] holds the capped repos)."""
     sel = selection[selection["keep"].astype(str).str.lower() == "true"]
@@ -101,9 +215,14 @@ def plan(selection: pd.DataFrame, files: pd.DataFrame, s: Settings | None = None
     g["ext"] = g["path"].map(ext)
     g["fetch"] = ~g["ext"].isin(SKIP_EXT)
     g["why"] = g.apply(lambda r: "" if r["fetch"] else f"format {r['ext']} not read in v1", axis=1)
+    nts = g["fetch"] & g["path"].map(lambda x: bool(NON_TS.search(x)))
+    g.loc[nts, "fetch"] = False
+    g.loc[nts, "why"] = "not a time series (spectra / images / embeddings by name)"
     g["sampled"] = False
     if s is not None:
-        g.attrs["caps"] = file_caps(g, s)
+        caps = file_caps(g, s)
+        parts = partition_cut(g, s, freq_seconds or {})
+        g.attrs["caps"] = pd.concat([caps, parts], ignore_index=True) if len(parts) else caps
     return g
 
 
@@ -260,8 +379,8 @@ def _hf_fetch(repo: str, path: str, revision: str, local_dir: Path) -> str:
 
 
 def run(selection: pd.DataFrame, files: pd.DataFrame, paths: Paths, s: Settings, only: list[str] | None = None,
-        jobs: int | None = None) -> pd.DataFrame:
-    p = plan(selection, files, s)
+        jobs: int | None = None, freq_seconds: dict | None = None) -> pd.DataFrame:
+    p = plan(selection, files, s, freq_seconds)
     paths.data.mkdir(parents=True, exist_ok=True)
     p.to_csv(paths.data / "download_plan.csv", index=False)
     caps = p.attrs.get("caps")

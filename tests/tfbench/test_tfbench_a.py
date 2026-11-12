@@ -562,3 +562,39 @@ def test_http_fetch_no_token_to_redirect_host(tmp_path, monkeypatch):
     p = DL.http_fetch("o/r", "dir/f.csv", "main", tmp_path)
     assert Path(p).read_bytes() == b"hello" and not list(tmp_path.rglob("*.part"))
     assert seen[0][1] == "Bearer hf_secret" and seen[1] == ("https://cas-bridge.xethub.hf.co/x?sig=1", None)
+
+
+def test_partition_date():
+    pd_ = DL.partition_date
+    assert pd_("2022/04/35045.csv.gz") == (pd.Timestamp("2022-04-01"), pd.Timestamp("2022-05-01"))
+    assert pd_("raw/2026-10-31/pref=42/hourly/a0355/2024.csv") == (pd.Timestamp("2024-01-01"), pd.Timestamp("2025-01-01"))
+    assert pd_("s/year=2026/month=09/day=18/part-20260918T094513Z-ab.parquet")[0] == pd.Timestamp("2026-09-18")
+    assert pd_("raw/x/31-03-2024.zip")[0] == pd.Timestamp("2024-03-31")
+    assert pd_("meteocat/DP/2020-09.csv.gz")[0] == pd.Timestamp("2020-09-01")
+    assert pd_("prices/1d/BP.csv") is None
+
+
+def test_partition_cut_keeps_newest_span():
+    s = Settings(max_partition_files=10, max_points=100, partition_margin=1.2)
+    files = [f"st{k}/hourly/{y}.csv" for k in range(3) for y in range(1990, 2025)]       # 3 stations x 35 yearly files
+    p = _plan_frame({"o/rain": files, "o/tick": [f"T{i}.csv" for i in range(30)]})
+    cut = DL.partition_cut(p, s, {})
+    r = p[p["repo_id"] == "o/rain"]
+    kept = r.loc[r["fetch"], "path"]
+    # 100 x 1.2 hours = 5 days before the newest partition end -> only the 2024 files
+    assert sorted(kept) == ["st0/hourly/2024.csv", "st1/hourly/2024.csv", "st2/hourly/2024.csv"]
+    assert list(cut["repo_id"]) == ["o/rain"] and "frequency word" in cut["reason"].iloc[0]
+    assert p.loc[p["repo_id"] == "o/tick", "fetch"].all()                                 # one series per file: untouched
+    p2 = _plan_frame({"o/rain": files})
+    DL.partition_cut(p2, s, {"o/rain": 365.25 * 86400})                                   # profile: yearly data
+    assert p2["fetch"].all()                                                              # 120 years needed: nothing cut
+    assert DL.partition_cut(_plan_frame({"o/rain": files}), Settings(max_partition_files=0), {}).empty
+
+
+def test_non_time_series_files_skipped():
+    sel = pd.DataFrame({"catalog_row": [1], "dataset_id": ["d"], "keep": [True]})
+    files = pd.DataFrame({"catalog_row": 1, "repo_id": "o/a", "revision": "main", "bytes": 5,
+                          "path": ["spectra/ROT/spec-1.fits.gz", "photometry.zip", "ground_no_sky_img/t.parquet",
+                                   "images/x.parquet", "data/load.parquet"]})
+    p = DL.plan(sel, files).set_index("path")
+    assert list(p.index[p["fetch"]]) == ["data/load.parquet", "photometry.zip"]

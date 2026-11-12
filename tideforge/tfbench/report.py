@@ -40,7 +40,7 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
     caps = Path(canon).parent / "file_caps.csv"
     if caps.exists():
         c = pd.read_csv(caps)
-        L += ["### Repos with a file cap (series sampled; time partitions are never capped)",
+        L += ["### Repos with a file cap (series sampled) or a partition cut (newest time partitions only)",
               _md(c[["repo_id", "files_before", "files_after", "series_keys", "reason"]])]
     ok = st[st["status"] == "ok"] if not st.empty else st
     bad = st[st["status"] != "ok"] if not st.empty else st
