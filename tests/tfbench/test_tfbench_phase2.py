@@ -254,3 +254,62 @@ def test_report_lists_404_files(tmp_path):
     (md / "o_r.jsonl").write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
     g = removed_files(md)
     assert list(g["path"]) == ["a.csv"]
+
+
+# ---- cumulative targets (owner 2026-11-13) --------------------------------------------------------------------------------
+def _cum_long(tmp_path, name, mono=True, n=200):
+    f = tmp_path / "c.csv"
+    rng = np.random.default_rng(0)
+    rows = []
+    for k in ("a", "b"):
+        inc = rng.integers(0, 5, n).astype(float)
+        v = np.cumsum(inc) if mono else walk(n, 3)
+        rows.append(pd.DataFrame({"date": pd.date_range("2020-01-01", periods=n, freq="D").astype(str), "id": k,
+                                  name: v, "cumulative_x": np.cumsum(rng.integers(0, 3, n)).astype(float)}))
+    pd.concat(rows).to_csv(f, index=False)
+    return f, rows
+
+
+def test_named_cumulative_target_differenced(tmp_path):
+    f, rows = _cum_long(tmp_path, "cumulative_cases")
+    m = build(tmp_path, [(f, "c.csv")], {"time_col": "date", "id_cols": ["id"], "targets": ["cumulative_cases"],
+                                         "covariates": ["cumulative_x"]})
+    x = data(tmp_path)
+    assert m["targets"] == ["cumulative_cases_diff"] and "cumulative_x_diff" in m["covariates"]
+    a = x[x["item_id"] == "a"]
+    assert len(a) == 199 and a["timestamp"].min() == pd.Timestamp("2020-01-02")
+    np.testing.assert_allclose(a["cumulative_cases_diff"].to_numpy(), np.diff(rows[0]["cumulative_cases"].to_numpy()))
+    assert m["cumulative"]["differenced"] == ["cumulative_cases", "cumulative_x"]
+
+
+def test_monotone_unnamed_listed_not_differenced_and_total_rule(tmp_path):
+    f, _ = _cum_long(tmp_path, "count")
+    m = build(tmp_path, [(f, "c.csv")], {"time_col": "date", "id_cols": ["id"], "targets": ["count"], "covariates": []})
+    assert m["targets"] == ["count"] and m["cumulative"]["review"] == ["count"]
+    p = plan_dataset(row(), files_of([(f, "c.csv")]), {"time_col": "date", "id_cols": ["id"], "targets": ["count"]},
+                     S, tmp_path / "wp")
+    assert p["cumulative_review"] == "count" and p["cumulative_diff"] == ""
+    (tmp_path / "t2").mkdir()
+    g, _ = _cum_long(tmp_path / "t2", "total_load", mono=False)       # total but not monotone: kept, listed for review
+    m2 = build_dataset(row(), files_of([(g, "c.csv")]), {"time_col": "date", "id_cols": ["id"], "targets": ["total_load"],
+                                                          "covariates": []}, S, tmp_path / "o2" / "ds", tmp_path / "w2")
+    assert m2["targets"] == ["total_load"] and m2["cumulative"]["review"] == ["total_load"]
+    m3 = build_dataset(row(), files_of([(f, "c.csv")]), {"time_col": "date", "id_cols": ["id"], "targets": ["count"],
+                                                          "covariates": [], "diff": ["count"]}, S, tmp_path / "o3" / "ds",
+                       tmp_path / "w3")
+    assert m3["targets"] == ["count_diff"]
+
+
+def test_nested_cumulative_lists_differenced_by_override(tmp_path):
+    f = tmp_path / "llf.parquet"
+    rng = np.random.default_rng(1)
+    pq.write_table(pa.Table.from_pylist([{"id": f"r{k}", "created_date": pd.Timestamp("2016-04-17"),
+                                          "cumulative_stars": np.cumsum(rng.integers(0, 4, 150)).tolist(),
+                                          "cumulative_forks": np.cumsum(rng.integers(0, 2, 150)).tolist()}
+                                         for k in range(3)]), f)
+    ov = {"start_col": "created_date", "freq": "D", "id_cols": ["id"], "targets": ["cumulative_stars"],
+          "covariates": ["cumulative_forks"], "diff": ["cumulative_stars", "cumulative_forks"]}
+    m = build(tmp_path, [(f, "data/train-0.parquet")], ov)
+    x = data(tmp_path)
+    assert m["targets"] == ["target"] and "cumulative_forks_diff" in x.columns
+    assert x["timestamp"].min() == pd.Timestamp("2016-04-18") and (x["target"] >= 0).all()

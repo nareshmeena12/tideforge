@@ -185,6 +185,13 @@ def step_canon_plan(a, paths, s):
     if "synthetic_time" in df:
         syn = df[df["synthetic_time"].fillna(False).astype(bool)]
         log.info("canon plan: %d datasets need synthetic time: %s", len(syn), ", ".join(syn["dataset_id"]))
+    for col, title in (("cumulative_diff", "differenced automatically (cumulative)"),
+                       ("cumulative_review", "FOR REVIEW: cumulative-looking targets (set diff: [...] or diff: false)")):
+        if col in df:
+            hit = df[df[col].fillna("").astype(str) != ""]
+            log.info("canon plan: %d datasets %s", len(hit), title)
+            for r in hit.itertuples():
+                log.info("  %s: %s", r.dataset_id, getattr(r, col))
     log.info("canon plan -> %s", paths.data / "canon_plan.csv")
 
 

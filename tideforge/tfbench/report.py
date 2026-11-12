@@ -117,6 +117,10 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
     dr = [(d, t["step"].split(" ")[0], t.get("count")) for d, m in metas.items() for t in m.get("transformations", [])
           if t["step"].startswith(("drop_items", "ref_ids"))]
     L.append(_md(pd.DataFrame(dr, columns=["dataset", "rule", "series dropped"])))
+    L.append("### Cumulative targets (differenced; or for review: set diff: [...] or diff: false in overrides.yaml)")
+    cu = [(d, ", ".join(m["cumulative"].get("differenced", [])), ", ".join(m["cumulative"].get("review", [])))
+          for d, m in metas.items() if m.get("cumulative") and (m["cumulative"].get("differenced") or m["cumulative"].get("review"))]
+    L.append(_md(pd.DataFrame(cu, columns=["dataset", "differenced", "review"])))
     L.append("### Synthetic time (calendar position not real)")
     sy = [(d, m["frequency"], next((t["step"] for t in m.get("transformations", []) if "time" in t["step"]), ""))
           for d, m in metas.items() if m.get("synthetic_time")]

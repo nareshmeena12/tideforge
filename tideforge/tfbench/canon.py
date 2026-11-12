@@ -14,7 +14,7 @@ not needed are never extracted), layout, table (regex on part names), table_cols
 drop_parts, drop_items (regex on item_id), time_col, calendar ({year, month | week | quarter, day, hour} / {yyyymm} /
 {yearweek} / {fiscal_year} column names, week_rule mmwr | iso; see layouts.py), id_cols, targets, covariates, known,
 static, strata, freq, start_col, event_step, event_sum, agg {col: sum|mean}, fill_zero (missing grid steps = 0),
-synthetic_time, note. Tables without a time column: see layouts.py.
+diff ([source columns] to difference, or false; default: the cumulative rule, see cumulative_rule), synthetic_time, note. Tables without a time column: see layouts.py.
 """
 from __future__ import annotations
 
@@ -430,6 +430,58 @@ def _gluonts_alias(f: str) -> str:
     return f"{n}{u}{tail}"
 
 
+# ---- cumulative targets (owner 2026-11-13) --------------------------------------------------------------------------------
+CUM_NAME = re.compile(r"cumulative|(^|[^a-z])cum_|total", re.I)
+CUM_STRICT = re.compile(r"cumulative|(^|[^a-z])cum_", re.I)
+LONG_SERIES = 100        # steps; shorter series do not count for the non-decreasing check
+NONDEC_SHARE = 0.98
+
+
+def nondecreasing(v) -> bool | None:
+    """>= 98% of the steps non-decreasing and the series ends above its start; None when shorter than LONG_SERIES."""
+    v = np.asarray(v, dtype=np.float64)
+    v = v[np.isfinite(v)]
+    if len(v) < LONG_SERIES:
+        return None
+    return bool((np.diff(v) >= 0).mean() >= NONDEC_SHARE and v[-1] > v[0])
+
+
+def monotone_cols(series: dict[str, list]) -> list[str]:
+    """Columns whose long series are mostly (>= half of them) non-decreasing."""
+    out = []
+    for c, arrs in series.items():
+        f = [x for x in (nondecreasing(a) for a in arrs) if x is not None]
+        if f and sum(f) >= 0.5 * len(f):
+            out.append(c)
+    return out
+
+
+def cumulative_rule(ov: dict, names: dict, covs: list[str], mono: list[str]) -> dict:
+    """names: data column -> source name for the targets. -> {diff: data columns to difference, named, review}.
+    Auto: targets named cumulative / cum_, or named total AND non-decreasing; with them, covariates named cumulative /
+    cum_. review: non-decreasing targets without such a name, and total-named ones that are not non-decreasing.
+    overrides.yaml diff: [source column names] replaces the rule, diff: false turns it off."""
+    named = [c for c, s in names.items() if CUM_NAME.search(s)]
+    auto = [c for c in named if CUM_STRICT.search(names[c]) or c in mono]
+    review = [c for c in names if (c in mono and c not in auto) or (c in named and c not in auto)]
+    if "diff" in ov:
+        want = set(ov["diff"] or [])
+        cols = [c for c, s in names.items() if s in want] + [c for c in covs if c in want]
+    else:
+        cols = auto + ([c for c in covs if CUM_STRICT.search(c)] if auto else [])
+    return {"diff": list(dict.fromkeys(cols)), "named": [names[c] for c in named],
+            "review": [names[c] for c in review if c not in cols]}
+
+
+def series_by_col(df: pd.DataFrame, cols: list[str], n: int = 200) -> dict[str, list]:
+    out = {c: [] for c in cols}
+    for _, g in list(df.groupby("item_id", sort=False))[:n]:
+        g = g.sort_values("timestamp")
+        for c in cols:
+            out[c].append(pd.to_numeric(g[c], errors="coerce").to_numpy(dtype=np.float64))
+    return out
+
+
 # ---- filters ------------------------------------------------------------------------------------------------------------
 def series_filter(x: pd.DataFrame, targets: list[str], min_len: int, max_nan: float) -> str | None:
     v = x[targets].to_numpy(dtype=np.float64)
@@ -569,6 +621,15 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         else list(r["target_cols"]))
                     if layout == "nested":
                         covs = [c for c in df.columns if c not in ["item_id", "timestamp"] + targets + static]
+                    if events:
+                        cum = {"diff": [], "named": [], "review": []}
+                    else:
+                        src = {t: t for t in targets}
+                        if layout == "nested":
+                            tn = nested_target(parts[0].schema, r, nested_time(parts[0].schema, ov)[1])
+                            src = {t: (tn if t == "target" else f"{tn}[{t}]") for t in targets}
+                        mono = monotone_cols(series_by_col(df, targets))
+                        cum = cumulative_rule(ov, src, [c for c in covs if c in df.columns], mono)
                 if not freq:
                     freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id")["timestamp"])
                     if not freq:
@@ -583,6 +644,9 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                                        keep_last=s.max_points)
                     for k, v in st.items():
                         reg_stats[k] += v
+                    if cum["diff"]:          # per-step increments of running totals; the first step has none
+                        dc = [c for c in cum["diff"] if c in x.columns]
+                        x = x.assign(**{c: x[c].diff() for c in dc}).iloc[1:]
                     why = series_filter(x, targets, min_len, s.max_nan_share)
                     if why is None:
                         h = series_hash(x, targets)
@@ -610,8 +674,18 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
         T.append({"step": "fill_zero (overrides.yaml)", "rule": "missing grid steps = 0: the source has rows only for "
                   "non-zero values"})
     covs = [c for c in covs if c in kept[0].columns]
-    roles = cov_roles(covs, list(ov.get("known") or []))
     data = pd.concat(kept, ignore_index=True)
+    ren = {c: f"{c}_diff" for c in cum["diff"] if c in data.columns and c != "target" and not c.startswith("target_")}
+    if cum["diff"]:
+        data = data.rename(columns=ren)
+        targets = [ren.get(c, c) for c in targets]
+        covs = [ren.get(c, c) for c in covs]
+        T.append({"step": "differenced (cumulative)", "columns": cum["diff"], "renamed": ren,
+                  "rule": "overrides.yaml diff" if "diff" in ov else "name cumulative / cum_ (or total and >= 98% of "
+                  "steps non-decreasing)", "note": "per-step increments x[t] - x[t-1] after regularising; first step "
+                  "of each series dropped"})
+    meta["cumulative"] = {"differenced": cum["diff"], "named": cum["named"], "review": cum["review"]}
+    roles = cov_roles(covs, list(ov.get("known") or []))
     data = data[["item_id", "timestamp"] + targets + covs + [c for c in static if c in data.columns]]
     for c in targets + covs:
         data[c] = pd.to_numeric(data[c], errors="coerce").astype("float64")
@@ -674,6 +748,37 @@ def ref_ids(refs_dir: Path | None, rule: dict, workdir: Path) -> set[str]:
     return out
 
 
+def plan_cumulative(parts: list[Part], r: dict, layout: str, ov: dict) -> dict:
+    """canon --plan: the cumulative check on the first chunk of the main table (first 200 series)."""
+    if layout == "events":
+        return {}
+    p = parts[0]
+    if layout == "nested":
+        _, tlist = nested_time(p.schema, ov)
+        tn = nested_target(p.schema, r, tlist)
+        t = next(iter(p.batches([tn])), None)
+        arrs = [] if t is None else [np.asarray(v, dtype=np.float64).reshape(-1) for v in t.column(0).to_pylist()[:200]
+                                     if v is not None and np.asarray(v).ndim == 1]
+        names, series = {tn: tn}, {tn: arrs}
+    else:
+        tg = r["target_cols"][:50]
+        cols = list(dict.fromkeys([r["time_col"]] + (r["id_cols"] if layout == "long" else []) + tg))
+        t = next(iter(p.batches([c for c in cols if c in p.schema.names])), None)
+        if t is None:
+            return {}
+        d = t.to_pandas()
+        d["timestamp"] = _timestamps(d, r["time_col"])
+        if layout == "long":
+            d["item_id"] = _item_ids(d, r["id_cols"]) if r["id_cols"] else "all"
+            series, names = series_by_col(d, tg), {c: c for c in tg}
+        else:                                   # wide: every target column is a series; one verdict for the dataset
+            d = d.sort_values("timestamp")
+            series = {"target": [pd.to_numeric(d[c], errors="coerce").to_numpy(dtype=np.float64) for c in tg]}
+            names = {"target": "target"}
+    cum = cumulative_rule(ov, names, [], monotone_cols(series))
+    return {"cumulative_diff": ";".join(names.get(c, c) for c in cum["diff"]), "cumulative_review": ";".join(cum["review"])}
+
+
 def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Settings, workdir: Path) -> dict:
     """canon --plan: what build_dataset would use, without building. Reads schemas, the id / list-length / start columns
     only. -> {status, reason, layout, rule, time_col, id_cols, targets, covariates, parts, unreadable, nested rows,
@@ -711,6 +816,12 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
             raise Fail(f"layout unknown ({rule})")
         if layout != "nested" and not r["time_col"]:
             raise Fail("no time column (set time_col in overrides.yaml)")
+        try:
+            out.update(plan_cumulative(parts, r, layout, ov))
+        except Fail:
+            raise
+        except Exception as e:                  # the check never stops the plan
+            out["cumulative_review"] = f"check failed: {type(e).__name__}: {str(e)[:100]}"
         if layout == "nested":
             names = parts[0].schema.names
             start, tlist = nested_time(parts[0].schema, ov)

@@ -433,7 +433,8 @@ leadlagforecasting_llf_github_default:
   freq: D
   targets: [cumulative_stars]
   covariates: [cumulative_pushes, cumulative_forks]
-  note: "owner 2026-11-13: daily cumulative counts from created_date (Milestone B builds the weekly variant); unlabeled_test files not used"
+  diff: [cumulative_stars, cumulative_pushes, cumulative_forks]
+  note: "owner 2026-11-13: daily from created_date (Milestone B builds the weekly variant); target = new stars per day (diff of cumulative_stars, first day dropped), covariates = daily pushes / forks (diffs); unlabeled_test files not used"
 
 netop_gotsf_ds_default:
   files: "^data/train/.*\\.csv$"
