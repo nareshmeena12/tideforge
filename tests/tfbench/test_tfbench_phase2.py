@@ -355,3 +355,35 @@ def test_events_per_month(tmp_path):
                       Settings(min_context=20), tmp_path / "o" / "ds", tmp_path / "w")
     x = pd.read_parquet(tmp_path / "o" / "ds" / "data.parquet")
     assert m["frequency"] == "MS" and x.groupby("item_id")["count"].sum().sum() == 600
+
+
+# ---- gladcolor: hourly columns per month file, county = file name (owner 2026-11-13) -------------------------------------
+def test_gladcolor_hour_columns_melted_and_summed_per_county(tmp_path):
+    import gzip
+    pairs, truth = [], {}
+    rng = np.random.default_rng(0)
+    for month in ("01", "02"):
+        hours = pd.date_range(f"2022-{month}-01", periods=(31 if month == "01" else 28) * 24, freq="h")
+        for fips in ("01001", "01003"):
+            v = rng.uniform(0, 100, (3, len(hours)))           # 3 CBGs
+            d = pd.DataFrame(v, columns=hours.strftime("%Y-%m-%d %H:%M:%S"))
+            d.insert(0, "CBG", [int(fips) * 10 ** 7 + k for k in range(3)])
+            rel = f"2022/{month}/{fips}.csv.gz"
+            f = tmp_path / "raw" / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            with gzip.open(f, "wt", encoding="utf-8") as fh:
+                d.to_csv(fh, index=False)
+            pairs.append((f, rel))
+            truth.setdefault(fips, []).append(pd.Series(v.sum(axis=0), index=hours))
+    ov = {"id_from_path": r"(?:^|/)(\d{5})\.csv(\.gz)?$", "sum_rows": True}
+    p = plan_dataset(row(), files_of(pairs), ov, S, tmp_path / "wp")
+    assert p["status"] == "ok", p["reason"]
+    assert not p.get("synthetic_time") and p["parts"] == 4
+    m = build(tmp_path, pairs, ov)
+    assert m["synthetic_time"] is False and m["frequency"] == "h" and m["n_series"] == 2
+    x = data(tmp_path)
+    a = x[x["item_id"] == "01001"].set_index("timestamp")["value"]
+    exp = pd.concat(truth["01001"])
+    assert len(a) == len(exp) == 59 * 24
+    np.testing.assert_allclose(a.to_numpy(), exp.to_numpy())
+    assert a.index.min() == pd.Timestamp("2022-01-01") and a.index.max() == pd.Timestamp("2022-02-28 23:00")

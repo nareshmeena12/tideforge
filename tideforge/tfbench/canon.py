@@ -233,9 +233,10 @@ def main_table(parts: list[Part], sizes: dict, ov: dict) -> tuple[list[Part], li
         parts = [p for p in parts if not re.search(ov["drop_parts"], p.name)]
     if ov.get("table_cols"):
         parts = [p for p in parts if set(ov["table_cols"]) <= set(p.schema.names)]
+    from tideforge.tfbench.layouts import name_date
     groups = defaultdict(list)
-    for p in parts:
-        groups[tuple(sorted(p.schema.names))].append(p)
+    for p in parts:      # date-named columns count as one: monthly files with different day / hour columns are one table
+        groups[tuple(sorted({("<date>" if name_date(n) is not None else n) for n in p.schema.names}))].append(p)
     if not groups:
         return [], []
     weight = {k: sum(sizes.get(p.name.split("!")[0], 1) for p in g) for k, g in groups.items()}
@@ -256,6 +257,12 @@ def enumerate_items(layout: str, parts: list[Part], r: dict, ov: dict) -> pd.Dat
     strata = ov.get("strata") or (r["id_cols"][0] if len(r["id_cols"]) >= 2 else None)
     rows = []
     multi = len(parts) > 1
+    if layout == "long" and parts and all(p.item is not None for p in parts):
+        # one series per part, id known from the path: no read needed (gladcolor: ~37k files)
+        seen = {}
+        for p in parts:
+            seen.setdefault(p.item, None)
+        return pd.DataFrame([(i, -1, i, None) for i in seen], columns=["item_id", "part", "key", "stratum"])
     if layout in ("long", "events") and r["id_cols"]:
         cols = list(dict.fromkeys(r["id_cols"] + ([strata] if strata else [])))
         seen = {}
@@ -317,6 +324,8 @@ def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[s
     out = []
     for pi, p in enumerate(parts):
         if -1 not in by_part and pi not in by_part:
+            continue
+        if p.item is not None and p.item not in want:     # a part that holds one known series: open only if wanted
             continue
         for t in p.batches([c for c in need if c in p.schema.names]):
             d = t.to_pandas()

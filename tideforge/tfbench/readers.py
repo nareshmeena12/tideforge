@@ -50,6 +50,7 @@ class Part:
     schema: pa.Schema
     _batches: Callable[[list | None], Iterator[pa.Table]]
     stats: dict = field(default_factory=dict)      # csv: encoding, rows, skipped (rows counted on the last full read)
+    item: str | None = None                        # the one series id this part holds (layouts.melt with sum_rows)
 
     def batches(self, columns: list | None = None) -> Iterator[pa.Table]:
         # pandas metadata dropped: a parquet written from a DataFrame with a time index would otherwise turn that column

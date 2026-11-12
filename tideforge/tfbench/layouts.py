@@ -21,6 +21,7 @@ adapt(parts, ov, row) -> (parts, ov, notes): ov gains time_col / targets / id_co
 """
 from __future__ import annotations
 
+import functools
 import re
 
 import numpy as np
@@ -96,8 +97,12 @@ def string_time(p: Part) -> str | None:
 
 
 # ---- (b) dates as column names ------------------------------------------------------------------------------------------
+@functools.lru_cache(maxsize=1 << 16)
 def name_date(n: str) -> pd.Timestamp | None:
     s = str(n).strip()
+    if re.fullmatch(r"(1[6-9]|20)\d{2}[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])[ T]\d{1,2}:\d{2}(:\d{2})?", s):
+        x = pd.to_datetime(s.replace("/", "-").replace(".", "-", 2), errors="coerce")   # hourly columns (gladcolor)
+        return None if pd.isna(x) else x
     m = re.fullmatch(r"(?:\w*?[_ ])?((?:1[6-9]|20)\d{2})", s)
     if m:
         return pd.Timestamp(int(m.group(1)), 1, 1)
@@ -112,29 +117,50 @@ def date_columns(schema: pa.Schema) -> dict:
     return {n: t for n in schema.names if (t := name_date(n)) is not None}
 
 
-def melt(parts: list[Part], dates: dict, ids: list[str]) -> list[Part]:
-    order = sorted(dates, key=lambda c: dates[c])
-    times = [dates[c] for c in order]
-    schema = pa.schema([(c, pa.string()) for c in ids] + [(TIME, pa.timestamp("ns")), ("value", pa.float64())])
+ITEM = "_item"
+
+
+def path_item(name: str, pattern: str) -> str:
+    m = re.search(pattern, name.replace("!", "/"))
+    return (m.group(1) if m.lastindex else m.group(0)) if m else name          # the first group is the id
+
+
+def melt(parts: list[Part], ids: list[str], item_re: str | None = None, sum_rows: bool = False) -> list[Part]:
+    """Dates as column names -> long rows. Each file uses its own date columns (months differ). item_re: the series id
+    comes from the file path (regex, first group); sum_rows: rows of a file are summed per date column (e.g. block groups
+    -> county), so each file gives one row per time step. Streams batch by batch."""
+    idc = ([ITEM] if item_re and sum_rows else ([ITEM] if item_re else []) + (ids or ([] if item_re else ["_row"])))
+    sch = pa.schema([(c, pa.string()) for c in idc] + [(TIME, pa.timestamp("ns")), ("value", pa.float64())])
     out = []
     for p in parts:
-        def gen(cols, p=p):
+        dts = date_columns(p.schema)
+        order = sorted(dts, key=lambda c: dts[c])
+        times = np.asarray([dts[c] for c in order], dtype="datetime64[ns]")
+        item = path_item(p.name, item_re) if item_re else None
+
+        def gen(cols, p=p, order=order, times=times, item=item):
             k = 0
             for t in p.batches([c for c in ids + order if c in p.schema.names]):
                 d = t.to_pandas()
-                key = d[ids].astype("string").fillna("<NA>") if ids else pd.DataFrame(
-                    {"_row": [f"row{k + j}" for j in range(len(d))]})
-                k += len(d)
                 vals = d[order].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
                 n, m = vals.shape
-                o = {c: np.repeat(key[c].to_numpy(), m) for c in (ids or ["_row"])}
-                o[TIME] = np.tile(np.asarray(times, dtype="datetime64[ns]"), n)
-                o["value"] = vals.reshape(-1)
-                tb = pa.table({c: pa.array(o[c], type=pa.string()) for c in (ids or ["_row"])} |
+                if sum_rows:
+                    s = np.nansum(vals, axis=0)
+                    s[np.isnan(vals).all(axis=0)] = np.nan
+                    o = {ITEM: np.repeat(item if item is not None else p.name, m), TIME: times, "value": s}
+                else:
+                    key = d[ids].astype("string").fillna("<NA>") if ids else pd.DataFrame(
+                        {"_row": [f"row{k + j}" for j in range(n)]})
+                    o = {c: np.repeat(key[c].to_numpy(), m) for c in key.columns if c in idc}
+                    if item_re:
+                        o[ITEM] = np.repeat(item, n * m)
+                    o[TIME] = np.tile(times, n)
+                    o["value"] = vals.reshape(-1)
+                k += n
+                tb = pa.table({c: pa.array(o[c], type=pa.string()) for c in idc} |
                               {TIME: pa.array(o[TIME], type=pa.timestamp("ns")), "value": pa.array(o["value"])})
                 yield tb if cols is None else tb.select([c for c in cols if c in tb.column_names])
-        sch = schema if ids else pa.schema([("_row", pa.string()), (TIME, pa.timestamp("ns")), ("value", pa.float64())])
-        out.append(Part(p.name, sch, gen))
+        out.append(Part(p.name, sch, gen, item=item if sum_rows else None))
     return out
 
 
@@ -434,6 +460,22 @@ def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part]
         r, layout = {"time_col": None, "id_cols": [], "target_cols": []}, "unknown"
     if layout == "nested":
         return parts, ov, notes
+    dates = date_columns(parts[0].schema)
+    if len(dates) >= 3 and not _is_time_typed(parts[0].schema, r["time_col"]):
+        # (b) first: dates / datetimes as column names are the time axis, ahead of any path or synthetic fallback
+        ids = list(ov.get("id_cols") or [f.name for f in parts[0].schema if f.name not in dates and (
+            pa.types.is_string(f.type) or pa.types.is_large_string(f.type)) and not UNNAMED.match(f.name)][:4])
+        item_re, sum_rows = ov.get("id_from_path"), bool(ov.get("sum_rows"))
+        m = melt(parts, [] if sum_rows else ids, item_re, sum_rows)
+        idc = [c for c in m[0].schema.names if c not in (TIME, "value")]
+        notes.append({"step": "melt: dates as column names", "date_columns_first_file": len(dates), "id_cols": idc,
+                      "first": str(min(dates.values())), "last_first_file": str(max(dates.values())),
+                      "id_from_path": item_re, "sum_rows": sum_rows,
+                      "rule": "every file uses its own date columns; " + ("rows of a file summed per time step"
+                                                                          if sum_rows else "one series per row")})
+        return m, {**ov, "time_col": TIME, "targets": ["value"], "covariates": [], "static": [], "id_cols": idc,
+                   "layout": "long", "synthetic_time": False,
+                   "agg": {**(ov.get("agg") or {}), **({"value": "sum"} if sum_rows else {})}}, notes
     if not _is_time_typed(parts[0].schema, r["time_col"]) and (cal := find_calendar(parts[0])):
         if not r["time_col"] or r["time_col"] in cal.values():   # never replaces a real (e.g. epoch) time column
             return _with_calendar(parts, ov, cal, roles_for, notes, "column names and values")
@@ -459,14 +501,6 @@ def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part]
     if st:
         notes.append({"step": "time column from values", "column": st, "rule": ">= 90% of the first rows read as dates"})
         return parts, {**ov, "time_col": st}, notes
-    dates = date_columns(parts[0].schema)
-    if len(dates) >= 3:
-        ids = [f.name for f in parts[0].schema if f.name not in dates and (pa.types.is_string(f.type) or
-               pa.types.is_large_string(f.type)) and not UNNAMED.match(f.name)][:4]
-        notes.append({"step": "melt: dates as column names", "date_columns": len(dates), "id_cols": ids,
-                      "first": str(min(dates.values()).date()), "last": str(max(dates.values()).date())})
-        return melt(parts, dates, ids), {**ov, "time_col": TIME, "targets": ["value"], "covariates": [], "static": [],
-                                         "id_cols": ids or ["_row"], "layout": "long"}, notes
     pt = path_time(parts)
     if pt:
         notes.append({"step": "time from the file path", "parts": len(pt), "dropped_undated": len(parts) - len(pt)})

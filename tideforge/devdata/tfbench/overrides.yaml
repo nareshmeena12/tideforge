@@ -514,3 +514,8 @@ national_digital_nt_crocodile_captures:
   id_cols: [region]
   event_step: MS
   note: "captures per month per region (event count, empty months 0); rows were sorted by total_length_cm (owner 2026-11-13)"
+
+gladcolor_hourly_population_us:
+  id_from_path: "(?:^|/)(\d{5})\.csv(\.gz)?$"
+  sum_rows: true
+  note: "owner 2026-11-13: files year/month/<county FIPS>.csv.gz, rows = CBGs, columns = hours ('2022-01-01 00:00:00'); CBGs summed per county per hour, months concatenated: one hourly series per county (~3,142), real time"
