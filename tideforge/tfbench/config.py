@@ -38,6 +38,19 @@ class Settings:
     audit_series_share: float = 0.10                   # drop a series above this share of matched windows
     audit_dataset_share: float = 0.01                  # flag a dataset above this share (after the series drops)
     refs: tuple = ("autogluon/fev_datasets", "Salesforce/GiftEval", "Real-TSF/TIME")
+    # Milestone B (owner OK 2026-11-12)
+    max_windows: int = 20                              # per task
+    window_share: float = 0.10                         # windows cover at most this share of a p25-length series
+    window_len_quantile: float = 0.25                  # n_windows from this quantile of series lengths
+    horizon_min_share: float = 1.0                     # medium / long only if this share of series fits them (1.0: no series loses its short windows)
+    agg_coverage: float = 0.80                         # an aggregated bucket needs this share of its points, else NaN
+    max_channels: int = 32                             # joint multivariate tasks
+    flag_max_distinct: int = 12                        # integer covariates with <= this many values: categorical / flag
+    quantile_levels: tuple = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+    fast_n: dict = field(default_factory=lambda: {"tuning": 150, "locked": 50})
+    crossdup_share: float = 0.10                       # cross-dataset copies: the audit's series rule
+    version: str = "v1.0.0"
+    max_gb: float = 100.0
 
 
 MIN_CONTEXT = {"subhourly": 256, "hourly": 256, "subdaily": 256, "daily": 128, "weekly": 52, "monthly": 36,

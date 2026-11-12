@@ -1,0 +1,7 @@
+# tfbench horizons (owner 2026-11-12; GIFT-Eval-like). short per frequency band; medium = medium_x * short and
+# long = long_x * short, only for sub-daily bands, and only when horizon_min_share of the series are long enough.
+# A task needs context >= max(2 x H, min_context[band]) before its first window (min_context in tfbench/config.py).
+short: {subhourly: 48, hourly: 48, subdaily: 48, daily: 30, weekly: 8, monthly: 12, quarterly: 8, yearly: 6}
+medium_x: 10
+long_x: 15
+multi_horizon_bands: [subhourly, hourly, subdaily]

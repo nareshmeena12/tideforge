@@ -35,7 +35,7 @@ devdata = ["openpyxl==3.1.5", "pdfplumber==0.11.10"]
 # Hugging Face catalog profiler, metadata only (owner OK 2026-11-12; never core): tideforge.devdata.hf_profile
 hf-profile = ["requests"]
 # tfbench build on JarvisLabs (owner OK 2026-11-12; never core): hf_transfer = parallel chunked downloads
-tfbench = ["huggingface_hub", "hf_transfer"]
+tfbench = ["huggingface_hub>=0.25", "hf_transfer"]
 
 [tool.setuptools.packages.find]
 include = ["tideforge*"]

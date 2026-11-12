@@ -50,3 +50,4 @@ tideforge/devdata/tfbench/logs/
 tideforge/devdata/hf_profile_files.csv
 Claude outputs/
 .venv/
+tideforge/devdata/tfbench/BUILD_REPORT_smoke.md
