@@ -6,7 +6,10 @@ open_parts(path, workdir) -> [Part]. A Part is one table: a file, or one member 
   Part.batches(columns=None) -> iterator of pa.Table chunks
 Formats: parquet, arrow (ipc stream or file), csv / tsv / txt (also .gz; always streamed with pyarrow.csv.open_csv, integer
 columns read as float64 so a later chunk cannot overflow them), json / jsonl (also .gz), zip / tar.gz / tgz archives of
-those (extracted under workdir). Anything else raises Unreadable(reason); h5, npy and netcdf stay unreadable in v1.
+those (extracted under workdir), netCDF (.nc / .nc4, via xarray + netCDF4, owner 2026-11-13: the 1-D numeric variables
+along the datetime dimension, read lazily per file). CSV headers that are empty or repeated get unique names (pandas
+style: "Unnamed: <i>", "<name>.<k>"). Zarr stores (.zarr.zip, MeteoSwiss NWP grids) are excluded. Anything else raises
+Unreadable(reason); h5 and npy stay unreadable in v1.
 """
 from __future__ import annotations
 
@@ -161,10 +164,35 @@ def _sniff_delim(path: Path, gz: bool, enc: str = "utf-8") -> str:
     return d if counts[d] else ","
 
 
+def unique_names(names: list[str]) -> list[str] | None:
+    """Header names made unique and non-empty, or None when they already are."""
+    out, seen = [], set(n for n in names if n)
+    for i, n in enumerate(names):
+        if not str(n).strip():
+            n = f"Unnamed: {i}"
+        elif n in out:
+            k = 1
+            while f"{n}.{k}" in seen or f"{n}.{k}" in out:
+                k += 1
+            n = f"{n}.{k}"
+        out.append(n)
+    return None if out == list(names) else out
+
+
+def _header(path: Path, gz: bool, enc: str, delim: str) -> list[str]:
+    import csv
+    op = gzip.open if gz else open
+    with op(path, "rt", encoding=enc, errors="replace", newline="") as fh:
+        return next(csv.reader(fh, delimiter=delim), [])
+
+
 def _csv(path: Path, name: str, e: str) -> Part:
     gz = e.endswith(".gz")
     stats = {"encoding": detect_encoding(path, gz), "rows": 0, "skipped": 0}
     delim = "\t" if e.startswith("tsv") else _sniff_delim(path, gz, stats["encoding"])
+    fixed = unique_names(_header(path, gz, stats["encoding"], delim))
+    if fixed:
+        stats["renamed_header"] = True
     count = {"skipped": 0}
 
     def skip(row):        # the input is transcoded to utf-8 first, so row.text never fails to decode
@@ -174,7 +202,8 @@ def _csv(path: Path, name: str, e: str) -> Part:
 
     def stream(conv):
         src = pa.input_stream(str(path), compression="gzip" if gz else None)
-        read = pcsv.ReadOptions(block_size=CSV_BLOCK, encoding=stats["encoding"])
+        read = pcsv.ReadOptions(block_size=CSV_BLOCK, encoding=stats["encoding"],
+                                **({"column_names": fixed, "skip_rows": 1} if fixed else {}))
         return pcsv.open_csv(src, read_options=read, parse_options=parse, convert_options=conv)
 
     try:
@@ -249,6 +278,47 @@ def _json(path: Path, name: str, e: str) -> Part:
     return Part(name, t.schema, gen)
 
 
+# ---- netCDF -------------------------------------------------------------------------------------------------------------
+NETCDF = {"nc", "nc4"}
+
+
+def _netcdf(path: Path, name: str) -> Part:
+    """One table per file: the datetime dimension as a column, plus every numeric variable that has only that dimension
+    (as float64). Opened again on each read, so many files never sit in memory together."""
+    try:
+        import numpy as np
+        import xarray as xr
+    except ImportError:
+        raise Unreadable("netcdf: xarray / netCDF4 not installed (pip install -e .[tfbench])")
+
+    def scan():
+        ds = xr.open_dataset(path)
+        tdim = next((d for d in ds.dims if d in ds.coords and np.issubdtype(ds[d].dtype, np.datetime64)), None)
+        names = [v for v, da in ds.data_vars.items() if tdim and da.dims == (tdim,) and np.issubdtype(da.dtype, np.number)]
+        return ds, tdim, names
+    try:
+        ds, tdim, names = scan()
+        ds.close()
+    except Exception as ex:
+        raise Unreadable(f"netcdf: {type(ex).__name__}: {str(ex)[:200]}")
+    if not tdim:
+        raise Unreadable("netcdf: no datetime dimension")
+    if not names:
+        raise Unreadable("netcdf: no 1-D numeric variable along the time dimension")
+    schema = pa.schema([(tdim, pa.timestamp("ns"))] + [(n, pa.float64()) for n in names])
+
+    def gen(cols):
+        ds, _, _ = scan()
+        with ds:
+            want = [c for c in (cols or schema.names) if c in names]
+            cols_out = {tdim: pa.array(ds[tdim].values.astype("datetime64[ns]"), type=pa.timestamp("ns"))}
+            for c in want:
+                cols_out[c] = pa.array(np.asarray(ds[c].values, dtype=np.float64))
+        t = pa.table(cols_out)
+        yield t.select(cols) if cols else t.select(schema.names)
+    return Part(name, schema, gen)
+
+
 # ---- archives ----------------------------------------------------------------------------------------------------------
 def _extract(path: Path, workdir: Path, e: str) -> Path:
     out = workdir / hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:16]
@@ -286,6 +356,10 @@ def open_parts(path: Path, workdir: Path, name: str | None = None) -> list[Part]
     path = Path(path)
     name = name or path.name
     e = ext(path.name)
+    if path.name.lower().endswith(".zarr.zip"):
+        raise Unreadable("zarr store (NWP grid): excluded (owner 2026-11-13)")
+    if e in NETCDF:
+        return [_netcdf(path, name)]
     if e == "parquet":
         return [_parquet(path, name)]
     if e in ("arrow", "feather", "ipc"):

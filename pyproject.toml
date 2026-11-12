@@ -35,7 +35,7 @@ devdata = ["openpyxl==3.1.5", "pdfplumber==0.11.10"]
 # Hugging Face catalog profiler, metadata only (owner OK 2026-11-12; never core): tideforge.devdata.hf_profile
 hf-profile = ["requests"]
 # tfbench build on JarvisLabs (owner OK 2026-11-12; never core): hf_xet transfers
-tfbench = ["huggingface_hub[hf_xet]>=0.32", "fev"]  # fev: smoke loads packaged tasks
+tfbench = ["huggingface_hub[hf_xet]>=0.32", "fev", "xarray", "netCDF4"]  # fev: smoke loads packaged tasks; xarray + netCDF4: .nc in archives (owner OK 2026-11-13)
 
 [tool.setuptools.packages.find]
 include = ["tideforge*"]

@@ -218,6 +218,9 @@ def plan(selection: pd.DataFrame, files: pd.DataFrame, s: Settings | None = None
     nts = g["fetch"] & g["path"].map(lambda x: bool(NON_TS.search(x)))
     g.loc[nts, "fetch"] = False
     g.loc[nts, "why"] = "not a time series (spectra / images / embeddings by name)"
+    zarr = g["fetch"] & g["path"].str.lower().str.endswith(".zarr.zip")
+    g.loc[zarr, "fetch"] = False
+    g.loc[zarr, "why"] = "zarr store (NWP grid): excluded (owner 2026-11-13)"
     g["sampled"] = False
     if s is not None:
         caps = file_caps(g, s)
