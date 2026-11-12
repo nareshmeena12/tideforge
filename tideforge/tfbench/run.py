@@ -206,8 +206,10 @@ def _inspect_one(row, files, ov, s, data_root, reason) -> str:
         for c in [root / "README.md"] + [Path(f[0]) for f in cards]:
             if c.exists():
                 txt = re.sub(r"\s+", " ", c.read_text(encoding="utf-8", errors="replace"))
-                L.append(f"card ({c.name}): {txt[:1500]}")
+                L.append(f"card ({c.name}): {txt[:1200]}")
                 break
+        if ov.get("files"):
+            big = [f for f in big if re.search(ov["files"], f[1])] or big
         data_files = [f for f in big if not is_meta(f[1])] or big
         parts, bad = open_all([(Path(f[0]), f[1]) for f in data_files[:20]], work, did)
         if bad:
@@ -215,22 +217,25 @@ def _inspect_one(row, files, ov, s, data_root, reason) -> str:
         if parts:
             ps, other = main_table(parts, {f[1]: f[2] for f in files}, ov)
             p = (ps or parts)[0]
-            t = p.read()
-            d = t.slice(0, 200_000).to_pandas()
-            L.append(f"first readable table: {p.name}  rows {t.num_rows}  cols {t.num_columns}"
+            names = p.schema.names
+            t = next(iter(p.batches(names[:30])), None)          # first chunk of the first 30 columns, never the file
+            d = t.slice(0, 100_000).to_pandas() if t is not None else pd.DataFrame(columns=names[:30])
+            L.append(f"first readable table: {p.name}  cols {len(names)}  rows in first chunk {len(d)}"
                      + (f"  encoding {p.stats.get('encoding')}" if p.stats.get("encoding") else ""))
-            L.append("columns (dtype, blank share): " + "; ".join(
-                f"{c} ({t.schema.field(c).type}, {d[c].isna().mean():.0%})" for c in t.column_names[:25])
-                + (f"; ... +{t.num_columns - 25}" if t.num_columns > 25 else ""))
-            with pd.option_context("display.width", 160, "display.max_columns", 12, "display.max_colwidth", 30):
-                L += ["  " + x for x in d.head(5).to_string().splitlines()[:6]]
+            L.append("columns (dtype, blank share in first chunk): " + "; ".join(
+                f"{c} ({p.schema.field(c).type}, {d[c].isna().mean():.0%})" for c in names[:30])
+                + (f"; ... +{len(names) - 30}" if len(names) > 30 else ""))
+            h = d.head(5).astype(str).apply(lambda col: col.str.slice(0, 40))
+            with pd.option_context("display.width", 400, "display.max_columns", 30, "display.max_colwidth", 40):
+                L += ["  " + x for x in h.to_string().splitlines()[:6]]
             if other:
                 L.append(f"other tables: {'; '.join(other[:3])}")
     except Exception as e:
         L.append(f"inspect error: {type(e).__name__}: {str(e)[:300]}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    return "\n".join(L[:60]) + "\n"
+    out = "\n".join(x[:600] for x in L[:60]) + "\n"
+    return out if len(out) <= 4096 else out[:4060] + "\n... (cut at 4 KB)\n"
 
 
 def step_canon_inspect(a, paths, s):

@@ -2,6 +2,11 @@
 parts with a `_time` column (or a long table), so the long / wide loaders in canon run unchanged.
 
 Tried in order, after the main table is chosen, only when the profiler's roles find no time column (or a numeric one):
+  calendar     overrides.yaml `calendar`, or found by name + values (owner 2026-11-13): year + month / week / quarter
+               (+ day, hour), a yyyymm integer, a year-week text (2014/01) or a financial year (1997-98). Weeks: MMWR
+               (CDC / Brazil epi weeks, labelled by the Saturday that ends them) or ISO (Monday). Never replaces a real
+               timestamp / text / epoch time column.
+  hour + path  a numeric 'time'-like column holding 0..23 with the date in the file path (gladcolor)
   string time  a text column whose values read as dates (e.g. "data_fato", "23/08/2020 03:00")
   (b) melt     >= 3 column names are years or dates (wide-by-time tables): one row per (row, date column), ids = text cols
   (a) path     the file path carries the date (partition folders / file names), plus an hour / minute column if any
@@ -134,13 +139,13 @@ def melt(parts: list[Part], dates: dict, ids: list[str]) -> list[Part]:
 
 
 # ---- (a) time from the path ---------------------------------------------------------------------------------------------
-def path_time(parts: list[Part]) -> list[Part] | None:
+def path_time(parts: list[Part], hour_col: str | None = None) -> list[Part] | None:
     from tideforge.tfbench.download import partition_date
     dates = [partition_date(p.name.replace("!", "/")) for p in parts]
     if sum(d is not None for d in dates) < 0.9 * len(parts):
         return None
     names = parts[0].schema.names
-    hc = next((c for c in names if HOUR.match(c)), None)
+    hc = hour_col or next((c for c in names if HOUR.match(c)), None)
     mc = next((c for c in names if MINUTE.match(c)), None)
     if len({d[0] for d in dates if d}) < 2 and not hc:
         return None
@@ -159,6 +164,125 @@ def path_time(parts: list[Part]) -> list[Part] | None:
             return {TIME: t.to_numpy(dtype="datetime64[ns]")}
         out.append(_derived(p, [(TIME, pa.timestamp("ns"))], need, fn))
     return out
+
+
+# ---- calendar columns (owner 2026-11-13: real time instead of synthetic) -------------------------------------------------
+YEAR_W = r"year|yr|ano|anno|año|jahr|annee|année"
+CAL_WORDS = {"year": YEAR_W, "month": r"month|mes|mois|monat|mese", "week": r"week|wk|semana|semaine|woche|settimana",
+             "quarter": r"quarter|qtr|trimestre|quartal", "day": r"day|dia|día|jour|tag|giorno", "hour": r"hour|hr|hora|heure"}
+CAL_RANGE = {"year": (1800, 2200), "month": (1, 12), "week": (1, 53), "quarter": (1, 4), "day": (1, 31), "hour": (0, 23)}
+YEARWEEK = re.compile(r"^\s*((?:18|19|20|21)\d{2})\s*[-/_]?\s*W?(\d{1,2})\s*$", re.I)
+FISCAL = re.compile(r"^\s*((?:18|19|20|21)\d{2})\s*[-/]\s*(\d{2})\s*$")
+
+
+def _word(kind: str, name: str) -> bool:
+    return bool(re.search(rf"(^|[^a-z])({CAL_WORDS[kind]})([^a-z]|$)", str(name), re.I))
+
+
+def _ints_in(v: pd.Series, lo: int, hi: int) -> bool:
+    x = pd.to_numeric(v, errors="coerce").dropna()
+    return len(x) >= 3 and bool(((x % 1 == 0) & (x >= lo) & (x <= hi)).all())
+
+
+def mmwr_week_end(year, week) -> pd.Series:
+    """Saturday that ends MMWR week `week` of `year` (CDC: Sunday-Saturday weeks; week 1 is the first week with at least
+    four days in the year). Brazil's epidemiological weeks (semana epidemiológica) follow the same rule."""
+    y = pd.to_numeric(pd.Series(year), errors="coerce")
+    w = pd.to_numeric(pd.Series(week), errors="coerce")
+    jan1 = pd.to_datetime(y.astype("Int64").astype("string") + "-01-01", errors="coerce")
+    dow = (jan1.dt.dayofweek + 1) % 7                                  # Sunday = 0
+    start = jan1 - pd.to_timedelta(dow, unit="D") + pd.to_timedelta(np.where(dow > 3, 7, 0), unit="D")
+    return start + pd.to_timedelta((w - 1) * 7 + 6, unit="D")
+
+
+def iso_week_start(year, week) -> pd.Series:
+    y = pd.to_numeric(pd.Series(year), errors="coerce").astype("Int64").astype("string")
+    w = pd.to_numeric(pd.Series(week), errors="coerce").astype("Int64").astype("string").str.zfill(2)
+    return pd.to_datetime(y + "-W" + w + "-1", format="%G-W%V-%u", errors="coerce")
+
+
+def find_calendar(p: Part) -> dict | None:
+    """Calendar columns that together give a time axis: {year + month / week / quarter (+ day, hour)}, a yyyymm integer, a
+    year-week string (2014/01, 2014-W01) or a financial year string (1997-98). None when absent or ambiguous."""
+    d = _first(p)
+    num = [f.name for f in p.schema if pa.types.is_integer(f.type) or pa.types.is_floating(f.type)]
+    txt = [f.name for f in p.schema if pa.types.is_string(f.type) or pa.types.is_large_string(f.type)]
+    found = {k: [c for c in num if _word(k, c) and _ints_in(d[c], *CAL_RANGE[k])] for k in CAL_WORDS}
+    if len(found["year"]) == 1:
+        for k in ("month", "week", "quarter"):
+            if len(found[k]) == 1:
+                cal = {"year": found["year"][0], k: found[k][0]}
+                if k == "month" and len(found["day"]) == 1:
+                    cal["day"] = found["day"][0]
+                    if len(found["hour"]) == 1:
+                        cal["hour"] = found["hour"][0]
+                return cal
+    ym = [c for c in num if (_word("month", c) or re.search(r"yyyymm|(^|_)ym($|_)|period", c, re.I))
+          and _ints_in(d[c], 180001, 210012) and _ints_in(pd.to_numeric(d[c], errors="coerce") % 100, 1, 12)]
+    if len(ym) == 1:
+        return {"yyyymm": ym[0]}
+    for c in txt:
+        v = d[c].dropna().astype(str).head(300)
+        if len(v) < 3:
+            continue
+        if _word("week", c) and v.str.match(YEARWEEK).all():
+            return {"yearweek": c}
+        m = v.str.extract(FISCAL)
+        if m.notna().all().all() and ((m[0].astype(int) + 1) % 100 == m[1].astype(int)).all():
+            return {"fiscal_year": c}
+    return None
+
+
+def week_rule(cal: dict) -> str:
+    if cal.get("week_rule"):
+        return cal["week_rule"]
+    names = " ".join(str(v) for k, v in cal.items() if k in ("week", "yearweek"))
+    return "mmwr" if re.search(r"mmwr|epi|semana", names, re.I) else "iso"
+
+
+def calendar_time(parts: list[Part], cal: dict) -> tuple[list[Part], str, list[str]]:
+    """-> (parts with _time, pandas alias, the calendar columns used). Rows whose calendar cells do not read -> NaT."""
+    used = [cal[k] for k in ("year", "month", "week", "quarter", "day", "hour", "yyyymm", "yearweek", "fiscal_year")
+            if cal.get(k)]
+    rule = week_rule(cal)
+    if cal.get("hour"):
+        alias = "h"
+    elif cal.get("day"):
+        alias = "D"
+    elif cal.get("month") or cal.get("yyyymm"):
+        alias = "MS"
+    elif cal.get("quarter"):
+        alias = "QS"
+    elif cal.get("week") or cal.get("yearweek"):
+        alias = "W-SAT" if rule == "mmwr" else "W-MON"
+    else:
+        alias = "YS"
+
+    def fn(df, state):
+        num = {c: pd.to_numeric(df[c], errors="coerce") for c in used if c not in (cal.get("yearweek"), cal.get("fiscal_year"))}
+        if cal.get("yyyymm"):
+            v = num[cal["yyyymm"]]
+            y, m = v // 100, v % 100
+            t = pd.to_datetime(dict(year=y, month=m.where((m >= 1) & (m <= 12)), day=1), errors="coerce")
+        elif cal.get("fiscal_year"):
+            ex = df[cal["fiscal_year"]].astype("string").str.extract(FISCAL)
+            t = pd.to_datetime(ex[0] + "-01-01", errors="coerce")
+        elif cal.get("yearweek"):
+            ex = df[cal["yearweek"]].astype("string").str.extract(YEARWEEK)
+            t = mmwr_week_end(ex[0], ex[1]) if rule == "mmwr" else iso_week_start(ex[0], ex[1])
+        else:
+            y = num[cal["year"]]
+            if cal.get("week"):
+                t = mmwr_week_end(y, num[cal["week"]]) if rule == "mmwr" else iso_week_start(y, num[cal["week"]])
+            elif cal.get("quarter"):
+                t = pd.to_datetime(dict(year=y, month=(num[cal["quarter"]] - 1) * 3 + 1, day=1), errors="coerce")
+            else:
+                t = pd.to_datetime(dict(year=y, month=num[cal["month"]] if cal.get("month") else 1,
+                                        day=num[cal["day"]] if cal.get("day") else 1), errors="coerce")
+                if cal.get("hour"):
+                    t = t + pd.to_timedelta(num[cal["hour"]], unit="h")
+        return {TIME: pd.Series(t).reset_index(drop=True).to_numpy(dtype="datetime64[ns]")}
+    return [_derived(p, [(TIME, pa.timestamp("ns"))], used, fn) for p in parts], alias, used
 
 
 # ---- (c) numeric time ---------------------------------------------------------------------------------------------------
@@ -246,12 +370,57 @@ def index_time(parts: list[Part], ids: list[str], alias: str) -> list[Part]:
 
 
 # ---- driver -------------------------------------------------------------------------------------------------------------
+def _is_time_typed(schema: pa.Schema, col: str | None) -> bool:
+    """A timestamp / date column, or text (parse_time reads it): a real time column the calendar rule must not replace."""
+    if not col or col not in schema.names:
+        return False
+    t = schema.field(col).type
+    return pa.types.is_timestamp(t) or pa.types.is_date(t) or pa.types.is_string(t) or pa.types.is_large_string(t)
+
+
+def _hour_path(parts, c, ov, notes):
+    """A numeric 'time' column holding 0..23 is an hour of day when the file path carries the date (gladcolor)."""
+    if not _ints_in(_first(parts[0], [c])[c], 0, 23):
+        return None
+    pt = path_time(parts, hour_col=c)
+    if not pt:
+        return None
+    notes.append({"step": "time from the file path", "parts": len(pt), "dropped_undated": len(parts) - len(pt),
+                  "hour_column": c})
+    return pt, {**ov, "time_col": TIME, "freq": ov.get("freq") or "h"}, notes
+
+
+def _with_calendar(parts, ov, cal, roles_for, notes, how):
+    parts2, alias, used = calendar_time(parts, cal)
+    ov2 = {**ov, "time_col": TIME}
+    r, _, _ = roles_for(parts2[0].schema, ov2)
+    tg = ov.get("targets") or [c for c in r["target_cols"] if c not in used]
+    if not tg:     # the profiler took the calendar column as the target: the other value columns are the targets
+        tg = [c for c in dict.fromkeys(r.get("value_cols", []) + r["covariate_cols"])
+              if c not in used and c not in r["id_cols"] and c != TIME and not UNNAMED.match(c)]
+    cov = ov["covariates"] if "covariates" in ov else [c for c in r["covariate_cols"] if c not in used and c not in tg]
+    notes.append({"step": "time from calendar columns", "columns": {k: v for k, v in cal.items()}, "freq": alias,
+                  "week_rule": week_rule(cal) if (cal.get("week") or cal.get("yearweek")) else None, "found_by": how,
+                  "rule": "MMWR: week ending Saturday; ISO: week starting Monday; months / quarters / years: first day; "
+                          "financial year 1997-98 -> 1997-01-01"})
+    return parts2, {**ov2, "targets": tg, "covariates": cov, "freq": ov.get("freq") or alias,
+                    "synthetic_time": False}, notes
 def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part], dict, list[dict]]:
     """roles_for: canon.roles_for (passed in to avoid an import cycle)."""
     from tideforge.tfbench.canon import Fail
     notes: list[dict] = []
+    if ov.get("calendar"):
+        cal = ov["calendar"] if isinstance(ov["calendar"], dict) else find_calendar(parts[0])
+        if not cal:
+            raise Fail("calendar: no year / month / week columns found (name them in overrides.yaml calendar:)")
+        miss = [v for k, v in cal.items() if k != "week_rule" and v not in parts[0].schema.names]
+        if miss:
+            raise Fail(f"calendar: columns not in the table: {miss}")
+        return _with_calendar(parts, ov, cal, roles_for, notes, "overrides.yaml")
     if ov.get("time_col") or ov.get("layout") == "nested":
         if ov.get("time_col") and (c := numeric_time_col(parts[0].schema, ov["time_col"])):
+            if hp := _hour_path(parts, c, ov, notes):
+                return hp
             res = numeric_time(parts, c)
             if res:
                 parts, info = res
@@ -265,6 +434,9 @@ def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part]
         r, layout = {"time_col": None, "id_cols": [], "target_cols": []}, "unknown"
     if layout == "nested":
         return parts, ov, notes
+    if not _is_time_typed(parts[0].schema, r["time_col"]) and (cal := find_calendar(parts[0])):
+        if not r["time_col"] or r["time_col"] in cal.values():   # never replaces a real (e.g. epoch) time column
+            return _with_calendar(parts, ov, cal, roles_for, notes, "column names and values")
     if r["time_col"] and str(r.get("time_rule", "")).startswith("calendar column name"):
         pt = path_time(parts)          # an hour / day column alone is not a time axis when the path carries the date
         if pt:
@@ -273,6 +445,8 @@ def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part]
             return pt, {**ov, "time_col": TIME}, notes
     if r["time_col"]:
         c = numeric_time_col(parts[0].schema, r["time_col"])
+        if c and (hp := _hour_path(parts, c, ov, notes)):
+            return hp
         if c:
             res = numeric_time(parts, c)
             if res:
@@ -310,8 +484,9 @@ def adapt(parts: list[Part], ov: dict, row: dict, roles_for) -> tuple[list[Part]
     alias, how = index_freq(ov, row)
     if not alias:
         raise Fail("no time axis (no time column and the frequency is unknown: set freq in overrides.yaml)")
-    ids = list(ov.get("id_cols") or r["id_cols"]) or [f.name for f in parts[0].schema if (
-        pa.types.is_string(f.type) or pa.types.is_large_string(f.type)) and not UNNAMED.match(f.name)][:3]
+    ids = [] if ov.get("layout") == "wide" else (list(ov.get("id_cols") or r["id_cols"]) or [
+        f.name for f in parts[0].schema if (pa.types.is_string(f.type) or pa.types.is_large_string(f.type))
+        and not UNNAMED.match(f.name)][:3])          # wide (overrides.yaml): every numeric column is a series
     notes.append({"step": "synthetic time from row order", "freq": alias, "freq_source": how, "id_cols": ids,
                   "rule": f"rows in file order per series, from {SYN_START.date()}"})
     extra = {"id_cols": ids, "targets": r["target_cols"], "layout": "long"} if ids else {}

@@ -26,6 +26,27 @@ def load_status(canon: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+NOT_FOUND = ("404", "entrynotfound", "remoteentrynotfound", "not found")
+
+
+def removed_files(manifest_dir: Path) -> pd.DataFrame:
+    """Manifest entries whose download ended in 404 / EntryNotFound: the file is no longer on the Hub."""
+    rows = []
+    for f in sorted(Path(manifest_dir).glob("*.jsonl")) if Path(manifest_dir).exists() else []:
+        last = {}
+        for line in f.read_text(encoding="utf-8").splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            last[e.get("path")] = e                      # the newest line per path wins (a retry may have fixed it)
+        for p, e in last.items():
+            st = str(e.get("status", "")).lower()
+            if st != "ok" and any(k in st for k in NOT_FOUND):
+                rows.append({"repo": e.get("repo"), "path": p, "status": str(e.get("status"))[:120]})
+    return pd.DataFrame(rows, columns=["repo", "path", "status"])
+
+
 def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | None) -> str:
     st = load_status(canon)
     metas = {}
@@ -42,6 +63,11 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
         c = pd.read_csv(caps)
         L += ["### Repos with a file cap (series sampled) or a partition cut (newest time partitions only)",
               _md(c[["repo_id", "files_before", "files_after", "series_keys", "reason"]])]
+    gone = removed_files(Path(canon).parent / "manifest")
+    L += [f"### Files removed from the Hub since the catalog was listed (download 404): {len(gone)}",
+          _md(gone.groupby("repo")["path"].agg(files="size", paths=lambda x: "; ".join(sorted(x)[:20])
+                                                + (f"; ... +{len(x) - 20}" if len(x) > 20 else "")).reset_index())
+          if not gone.empty else "(none)\n"]
     ok = st[st["status"] == "ok"] if not st.empty else st
     bad = st[st["status"] != "ok"] if not st.empty else st
     L += ["## 2. Canonical datasets (A3)", f"Built: {len(ok)}. Not built: {len(bad)}.", ""]
@@ -91,6 +117,10 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
     dr = [(d, t["step"].split(" ")[0], t.get("count")) for d, m in metas.items() for t in m.get("transformations", [])
           if t["step"].startswith(("drop_items", "ref_ids"))]
     L.append(_md(pd.DataFrame(dr, columns=["dataset", "rule", "series dropped"])))
+    L.append("### Synthetic time (calendar position not real)")
+    sy = [(d, m["frequency"], next((t["step"] for t in m.get("transformations", []) if "time" in t["step"]), ""))
+          for d, m in metas.items() if m.get("synthetic_time")]
+    L.append(_md(pd.DataFrame(sy, columns=["dataset", "frequency", "time rule"])))
     L.append("### Event tables (aggregation rule)")
     ev = [(d, m["event_rule"]["step"], m["event_rule"]["aggregate"]) for d, m in metas.items() if m.get("event_rule")]
     L.append(_md(pd.DataFrame(ev, columns=["dataset", "step", "aggregate"])))

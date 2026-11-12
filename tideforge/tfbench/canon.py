@@ -9,9 +9,12 @@ Steps: open tables -> pick the main table (the schema group with most bytes) -> 
 -> keep_filtered drop rule -> seeded stratified order -> load items in chunks of max_series, regularise, filter
 (too short, > max_nan_share NaN, constant, exact duplicate) -> accept in order until max_series -> last max_points.
 
-Override keys (per dataset_id): skip, layout, table (regex on part names), drop_parts, drop_items (regex on item_id),
-time_col, id_cols, targets, covariates, known, static, strata, freq, start_col, event_step, event_sum, agg {col: sum|mean},
-fill_zero (missing grid steps = 0), synthetic_time, note. Tables without a time column: see layouts.py.
+Override keys (per dataset_id): skip, files (regex on repo file paths: only these are opened, so big archives that are
+not needed are never extracted), layout, table (regex on part names), table_cols (parts must have all these columns),
+drop_parts, drop_items (regex on item_id), time_col, calendar ({year, month | week | quarter, day, hour} / {yyyymm} /
+{yearweek} / {fiscal_year} column names, week_rule mmwr | iso; see layouts.py), id_cols, targets, covariates, known,
+static, strata, freq, start_col, event_step, event_sum, agg {col: sum|mean}, fill_zero (missing grid steps = 0),
+synthetic_time, note. Tables without a time column: see layouts.py.
 """
 from __future__ import annotations
 
@@ -153,6 +156,15 @@ def open_all(files: list[tuple[Path, str]], workdir: Path, did: str = "") -> tup
     return parts, bad
 
 
+def pick_files(files: list, ov: dict) -> list:
+    """overrides.yaml files: regex on the repo path; the others are never opened (archives are not extracted)."""
+    if not ov.get("files"):
+        return files
+    if not (kept := [f for f in files if re.search(ov["files"], f[1])]):
+        raise Fail(f"files: no file matches {ov['files']!r}")
+    return kept
+
+
 def read_stats(parts: list[Part]) -> dict:
     """Encodings used and rows the csv reader skipped (filled in once a part has been read)."""
     enc = defaultdict(int)
@@ -174,6 +186,8 @@ def main_table(parts: list[Part], sizes: dict, ov: dict) -> tuple[list[Part], li
         parts = [p for p in parts if not is_meta(p.name)]
     if ov.get("drop_parts"):
         parts = [p for p in parts if not re.search(ov["drop_parts"], p.name)]
+    if ov.get("table_cols"):
+        parts = [p for p in parts if set(ov["table_cols"]) <= set(p.schema.names)]
     groups = defaultdict(list)
     for p in parts:
         groups[tuple(sorted(p.schema.names))].append(p)
@@ -215,14 +229,15 @@ def enumerate_items(layout: str, parts: list[Part], r: dict, ov: dict) -> pd.Dat
             for c in r["target_cols"]:
                 rows.append(((f"{p.name}/{c}" if multi else c), pi, c, p.name if multi else None))
     elif layout == "nested":
-        idc = r["id_cols"][0] if r["id_cols"] else None
+        idc = r["id_cols"]
         for pi, p in enumerate(parts):
-            cols = [c for c in (idc, strata) if c]
+            cols = list(dict.fromkeys(idc + ([strata] if strata else [])))
             k = 0
             for t in p.batches(cols or [r["target_cols"][0]]):
                 d = t.to_pandas()
+                ids = _item_ids(d, idc) if idc else None
                 for j in range(len(d)):
-                    iid = str(d[idc].iloc[j]) if idc else f"{p.name}#{k + j}"
+                    iid = str(ids.iloc[j]) if idc else f"{p.name}#{k + j}"
                     if idc and multi:
                         iid = f"{p.name}/{iid}"
                     rows.append((iid, pi, k + j, d[strata].iloc[j] if strata else None))
@@ -300,12 +315,50 @@ def load_wide(parts, r, chunk: pd.DataFrame, covs: list[str]):
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame(columns=["item_id", "timestamp", "target"])
 
 
+TIME_LIST = re.compile(r"(^|_)(time|times|timestamp|timestamps|ts|date|dates|datetime|epoch)($|_)", re.I)
+
+
+def nested_time(schema: pa.Schema, ov: dict) -> tuple[str | None, str | None]:
+    """-> (start column, time-list column). A time list is a list of timestamps, or a numeric list named like time
+    (epoch seconds / milliseconds, e.g. GlucoFM-Bench, Endomondo). A list column is never a start column."""
+    kinds = {f.name: _kind(f.type)[0] for f in schema}
+    tlist = next((n for n, k in kinds.items() if k == "list_time"), None) or \
+        next((n for n, k in kinds.items() if k == "list_num" and TIME_LIST.search(n)), None)
+    start = ov.get("start_col") or next((c for c in ("start", "start_date", "timestamp", "date")
+                                         if c in kinds and not kinds[c].startswith("list")), None)
+    return start, tlist
+
+
+def nested_target(schema: pa.Schema, r: dict, tlist: str | None) -> str:
+    """First numeric list among the targets, then the covariates, that is not the time list."""
+    kinds = {f.name: _kind(f.type)[0] for f in schema}
+    for c in r["target_cols"] + r["covariate_cols"]:
+        if c != tlist and kinds.get(c) == "list_num":
+            return c
+    if r["target_cols"] and r["target_cols"][0] != tlist:
+        return r["target_cols"][0]
+    raise Fail("nested: no target list besides the time list")
+
+
+def epoch_times(v) -> pd.Series:
+    """A time list -> timestamps. Numbers: epoch seconds (1e8..1e11) or milliseconds (1e11..1e14); else Fail."""
+    s = pd.Series(v)
+    if pd.api.types.is_numeric_dtype(s):
+        a = pd.to_numeric(s, errors="coerce")
+        m = float(np.nanmedian(np.abs(a))) if a.notna().any() else 0.0
+        if 1e8 <= m < 1e11:
+            return pd.Series(pd.to_datetime(a, unit="s", errors="coerce"))
+        if 1e11 <= m < 1e14:
+            return pd.Series(pd.to_datetime(a, unit="ms", errors="coerce"))
+        raise Fail(f"nested: numeric time list is not epoch seconds or milliseconds (median {m:g})")
+    return pd.Series(pd.to_datetime(s, errors="coerce"))
+
+
 def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, static: list[str]):
     """One row per series: target list (1-D, or 2-D = several channels -> target_0..k), start + freq or a time list."""
-    tgt = r["target_cols"][0]
-    list_cov = [c for c in r["covariate_cols"] if c != tgt]
-    start = ov.get("start_col") or next((c for c in ("start", "start_date", "timestamp", "date") if c in parts[0].schema.names), None)
-    tlist = next((f.name for f in parts[0].schema if _kind(f.type)[0] == "list_time"), None)
+    start, tlist = nested_time(parts[0].schema, ov)
+    tgt = nested_target(parts[0].schema, r, tlist)
+    list_cov = [c for c in r["covariate_cols"] if c not in (tgt, tlist)]
     fcol = next((c for c in r.get("freq_cols", []) if c in parts[0].schema.names), None)
     if not tlist and not start:
         raise Fail("nested: no start column or timestamp list (set start_col in overrides.yaml)")
@@ -321,7 +374,11 @@ def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, st
                 y = y.T
             n = y.shape[-1]
             if tlist:
-                ts = pd.to_datetime(pd.Series(row[tlist]))
+                ts = epoch_times(row[tlist] or [])
+                if len(ts) != n:
+                    m = min(len(ts), n)
+                    ts, y = ts.iloc[:m], y[..., :m]
+                    n = m
             else:
                 f = ov.get("freq") or (row.get(fcol) if fcol else None) or ds_freq
                 if not f:
@@ -408,6 +465,10 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
                                                      or ov.get("ref_ids") or ov.get("audit_only")):
         raise Fail("keep_filtered: no drop rule in overrides.yaml (drop_items / drop_parts / table)")
+    n_files = len(files)
+    files = pick_files(files, ov)
+    if len(files) < n_files:
+        T.append({"step": "files (overrides.yaml)", "pattern": ov["files"], "kept": len(files), "of": n_files})
     parts, bad = open_all([(f[0], f[1]) for f in files], workdir, did)
     if bad:
         T.append({"step": "unreadable files skipped", "count": len(bad), "examples": bad[:5]})
@@ -625,6 +686,7 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
         if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
                                                          or ov.get("ref_ids") or ov.get("audit_only")):
             raise Fail("keep_filtered: no drop rule in overrides.yaml")
+        files = pick_files(files, ov)
         parts, bad = open_all([(f[0], f[1]) for f in files], workdir, row["dataset_id"])
         out["unreadable"] = len(bad)
         if bad:
@@ -650,11 +712,11 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
         if layout != "nested" and not r["time_col"]:
             raise Fail("no time column (set time_col in overrides.yaml)")
         if layout == "nested":
-            tgt = r["target_cols"][0]
             names = parts[0].schema.names
-            start = ov.get("start_col") or next((c for c in ("start", "start_date", "timestamp", "date") if c in names), None)
+            start, tlist = nested_time(parts[0].schema, ov)
+            tgt = nested_target(parts[0].schema, r, tlist)
+            out["time_list"] = tlist or ""
             fcol = next((c for c in r.get("freq_cols", []) if c in names), None)
-            tlist = next((f.name for f in parts[0].schema if _kind(f.type)[0] == "list_time"), None)
             if not tlist and not start:
                 raise Fail("nested: no start column or timestamp list (set start_col in overrides.yaml)")
             rows = over = 0
