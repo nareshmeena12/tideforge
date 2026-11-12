@@ -52,6 +52,13 @@ def setup_logging(paths: C.Paths, step: str) -> Path:
     for h in (logging.FileHandler(f, encoding="utf-8"), logging.StreamHandler(sys.stdout)):
         h.setFormatter(fmt)
         root.addHandler(h)
+    for noisy in ("httpx", "httpcore", "urllib3", "huggingface_hub", "filelock", "fsspec"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+    try:
+        from huggingface_hub.utils import disable_progress_bars
+        disable_progress_bars()
+    except ImportError:
+        pass
     return f
 
 

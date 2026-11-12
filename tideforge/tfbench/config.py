@@ -33,7 +33,8 @@ class Settings:
     event_step: str = "D"                              # default aggregation step of event tables
     big_csv_bytes: int = 2 * 1024 ** 3                 # csv above this is read in streamed chunks
     disk_margin: float = 1.2                           # free disk needed = repo bytes x margin
-    download_jobs: int = 6
+    download_jobs: int = 4                             # repos in parallel
+    file_workers: int = 16                             # files in parallel inside one repo (4 x 16 = 64 in flight)
     # leakage audit (A5)
     audit_series_share: float = 0.10                   # drop a series above this share of matched windows
     audit_dataset_share: float = 0.01                  # flag a dataset above this share (after the series drops)

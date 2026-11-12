@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import types
 import zipfile
 from pathlib import Path
 
@@ -301,6 +302,37 @@ def test_download_repo_resume_and_disk(tmp_path):
     (tmp_path / "raw" / slug("o/r") / "y.csv").unlink()
     r = DL.download_repo("o/r", rows, paths, Settings(), fetch=fetch, disk_free=lambda p: 0)
     assert r["status"] == "skipped: disk" and len(calls) == 2
+
+
+def test_download_parallel_and_429(tmp_path):
+    import threading
+    import time as _t
+    paths = Paths(data=tmp_path)
+    rows = pd.DataFrame({"repo_id": "o/r", "revision": "main", "path": [f"f{i}.csv" for i in range(40)], "bytes": 3,
+                         "dataset_ids": "d"})
+    live, peak, lock, hits = [0], [0], threading.Lock(), {}
+
+    class E429(Exception):
+        response = types.SimpleNamespace(status_code=429, headers={"Retry-After": "0"})
+
+    def fetch(repo, path, rev, root):
+        with lock:
+            live[0] += 1
+            peak[0] = max(peak[0], live[0])
+            hits[path] = hits.get(path, 0) + 1
+        _t.sleep(0.02)
+        with lock:
+            live[0] -= 1
+        if path == "f3.csv" and hits[path] == 1:
+            raise E429()
+        p = Path(root) / path
+        p.write_bytes(b"abc")
+        return p
+    slept = []
+    r = DL.download_repo("o/r", rows, paths, Settings(file_workers=8), fetch=fetch, disk_free=lambda p: 1e12,
+                         sleep=slept.append)
+    assert r["status"] == "ok" and r["errors"] == 0 and peak[0] > 1 and slept == [0.0]
+    assert len(DL.combine(paths)) == 40
 
 
 # ---- audit --------------------------------------------------------------------------------------------------------------

@@ -3,7 +3,8 @@
 Only the files in each selected row's scope (hf_profile_files.csv), each (repo, revision, path) once even when several
 catalog rows share it. Formats the readers cannot use (npy, h5, netcdf, media, pickles, ...) are not downloaded; the plan
 lists them. huggingface_hub with hf_transfer (HF_HUB_ENABLE_HF_TRANSFER=1, set before the import). Resumable: a file whose
-manifest entry has the same size on disk is not fetched again. Before each repo: free disk >= repo bytes x disk_margin,
+manifest entry has the same size on disk is not fetched again. Inside a repo, file_workers files are fetched in parallel
+(hf_hub_download per file, retried on 429 with Retry-After); download_jobs repos run in parallel. Before each repo: free disk >= repo bytes x disk_margin,
 else the repo is skipped and logged. Parallel across repos.
 
 Manifest: $TFB_DATA/manifest/<repo slug>.jsonl, one json line per file {repo, revision, path, bytes, sha256, status,
@@ -16,6 +17,7 @@ import json
 import logging
 import os
 import shutil
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -74,8 +76,30 @@ def _load_manifest(p: Path) -> dict:
     return out
 
 
-def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetch=None, disk_free=None) -> dict:
-    """Fetch the files of one repo. fetch(repo, path, revision, local_dir) -> local path (default hf_hub_download)."""
+def with_retry(call, tries: int = 8, sleep=time.sleep):
+    """Retry on HTTP 429 (Retry-After, else exponential back-off from 5 s) and on connection errors."""
+    for k in range(tries):
+        try:
+            return call()
+        except Exception as ex:
+            resp = getattr(ex, "response", None)
+            code = getattr(resp, "status_code", None)
+            transient = code in (429, 500, 502, 503, 504) or type(ex).__name__ in ("ConnectionError", "ReadTimeout",
+                                                                                 "ConnectTimeout", "Timeout")
+            if not transient or k == tries - 1:
+                raise
+            ra = (getattr(resp, "headers", None) or {}).get("Retry-After")
+            try:
+                wait = float(ra)
+            except (TypeError, ValueError):
+                wait = min(5.0 * 2 ** k, 300.0)
+            sleep(wait)
+
+
+def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetch=None, disk_free=None,
+                  sleep=time.sleep) -> dict:
+    """Fetch the files of one repo, file_workers files in parallel (each fetch = one HEAD + one GET; the HEAD is what made
+    the sequential version slow). fetch(repo, path, revision, local_dir) -> local path (default hf_hub_download)."""
     fetch = fetch or _hf_fetch
     disk_free = disk_free or (lambda p: shutil.disk_usage(p).free)
     root = paths.raw / slug(repo)
@@ -90,21 +114,31 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
     if todo and disk_free(paths.raw) < need:
         log.warning("%s: skipped, needs %.1f GB free, has %.1f GB", repo, need / 1e9, disk_free(paths.raw) / 1e9)
         return {"repo": repo, "status": "skipped: disk", "files": len(todo)}
-    n_ok = n_err = 0
-    with open(mpath, "a", encoding="utf-8") as mf:
-        for r in todo:
-            e = {"repo": repo, "revision": r["revision"], "path": r["path"], "dataset_ids": r["dataset_ids"]}
-            try:
-                lp = Path(fetch(repo, r["path"], r["revision"], root))
-                e.update(bytes=lp.stat().st_size, sha256=sha256(lp), status="ok")
-                n_ok += 1
-            except Exception as ex:  # one file failing never stops the run
-                e.update(bytes=0, sha256="", status=f"error: {type(ex).__name__}: {str(ex)[:300]}")
-                n_err += 1
-                log.error("%s %s: %s", repo, r["path"], e["status"])
+    n = {"ok": 0, "err": 0}
+    lock = threading.Lock()
+    t0 = time.time()
+
+    def one(r, mf):
+        e = {"repo": repo, "revision": r["revision"], "path": r["path"], "dataset_ids": r["dataset_ids"]}
+        try:
+            lp = Path(with_retry(lambda: fetch(repo, r["path"], r["revision"], root), sleep=sleep))
+            e.update(bytes=lp.stat().st_size, sha256=sha256(lp), status="ok")
+        except Exception as ex:  # one file failing never stops the run
+            e.update(bytes=0, sha256="", status=f"error: {type(ex).__name__}: {str(ex)[:300]}")
+            log.error("%s %s: %s", repo, r["path"], e["status"])
+        with lock:
+            n["ok" if e["status"] == "ok" else "err"] += 1
             mf.write(json.dumps(e) + "\n")
             mf.flush()
-    log.info("%s: %d fetched, %d errors, %d already there", repo, n_ok, n_err, len(rows) - len(todo))
+            k = n["ok"] + n["err"]
+            if k % 2000 == 0:
+                log.info("%s: %d / %d files (%.0f s)", repo, k, len(todo), time.time() - t0)
+
+    with open(mpath, "a", encoding="utf-8") as mf, ThreadPoolExecutor(max(1, s.file_workers)) as ex:
+        list(ex.map(lambda r: one(r, mf), todo))
+    n_ok, n_err = n["ok"], n["err"]
+    log.info("%s: %d fetched, %d errors, %d already there (%.0f s)", repo, n_ok, n_err, len(rows) - len(todo),
+             time.time() - t0)
     return {"repo": repo, "status": "ok" if not n_err else "errors", "files": len(rows), "errors": n_err}
 
 
