@@ -82,6 +82,10 @@ def write(path: Path, selection: pd.DataFrame, canon: Path, audit_csv: Path | No
     tr = [(d, ", ".join(m["targets"][:4]), m.get("target_rule")) for d, m in metas.items() if m.get("target_rule") != "overrides.yaml"
           and m.get("layout") == "long"]
     L.append(_md(pd.DataFrame(tr, columns=["dataset", "targets", "rule"])))
+    L.append("### Series dropped by a catalog rule (drop_items) or by reference ids (ref_ids)")
+    dr = [(d, t["step"].split(" ")[0], t.get("count")) for d, m in metas.items() for t in m.get("transformations", [])
+          if t["step"].startswith(("drop_items", "ref_ids"))]
+    L.append(_md(pd.DataFrame(dr, columns=["dataset", "rule", "series dropped"])))
     L.append("### Event tables (aggregation rule)")
     ev = [(d, m["event_rule"]["step"], m["event_rule"]["aggregate"]) for d, m in metas.items() if m.get("event_rule")]
     L.append(_md(pd.DataFrame(ev, columns=["dataset", "step", "aggregate"])))

@@ -7,6 +7,7 @@
     python -m tideforge.tfbench.run audit --jobs 24           # A5 (fingerprints the references once)
     python -m tideforge.tfbench.run report                    # A4 -> devdata/tfbench/BUILD_REPORT_A.md
     python -m tideforge.tfbench.run all                       # the above in order
+    python -m tideforge.tfbench.run all --smoke               # every step on ~8 datasets covering the cases
 Options: --only <dataset_id or repo id> (repeatable), --redo. Logs: devdata/tfbench/logs/<step>-<UTC time>.log
 """
 from __future__ import annotations
@@ -44,8 +45,9 @@ def setup_logging(paths: C.Paths, step: str) -> Path:
     return f
 
 
-def read_profile() -> pd.DataFrame:
-    return pd.read_csv(C.profile_path(), low_memory=False)
+def read_profile(catalog_only: bool = False) -> pd.DataFrame:
+    p = pd.read_csv(C.profile_path(), low_memory=False)
+    return p[p["row_kind"] == "catalog"] if catalog_only else p
 
 
 def read_overrides(paths: C.Paths) -> dict:
@@ -92,7 +94,7 @@ def _canon_one(row: dict, files: list, ov: dict, s: C.Settings, data_root: str) 
     work = paths.data / "tmp" / row["dataset_id"]
     st = {"dataset_id": row["dataset_id"], "repo_id": row["repo_id"], "status": "ok", "reason": ""}
     try:
-        m = build_dataset(row, [(Path(f[0]), f[1], f[2]) for f in files], ov, s, out, work)
+        m = build_dataset(row, [(Path(f[0]), f[1], f[2]) for f in files], ov, s, out, work, paths.refs)
         st.update(n_series=m["n_series"], n_points=m["n_points"], frequency=m["frequency"])
     except Fail as e:
         st.update(status="not built", reason=str(e)[:500])
@@ -107,7 +109,7 @@ def _canon_one(row: dict, files: list, ov: dict, s: C.Settings, data_root: str) 
 
 def step_canon(a, paths, s):
     sel = selected(paths, a.only)
-    prof = read_profile().set_index("catalog_row")
+    prof = read_profile(catalog_only=True).set_index("catalog_row")
     man = pd.read_csv(paths.data / "manifest.csv")
     man = man[man["status"] == "ok"]
     ov_all = read_overrides(paths)
@@ -173,6 +175,36 @@ def step_report(a, paths, s):
     log.info("report -> %s", out)
 
 
+def pick_smoke(sel: pd.DataFrame, prof: pd.DataFrame) -> list[tuple[str, str]]:
+    """About 8 small selected datasets covering every layout, a zip, a keep_filtered row, a monthly or yearly dataset and
+    one with covariates. -> [(dataset_id, why)]; the smallest scope that fits each need."""
+    p = prof[prof["row_kind"] == "catalog"].set_index("catalog_row") if "row_kind" in prof else prof.set_index("catalog_row")
+    s = sel[sel["keep"].astype(str).str.lower() == "true"].copy()
+    cr = s["catalog_row"].astype(int)
+    s["formats"] = cr.map(p["scope_formats"]).fillna("").astype(str)
+    s["band"] = cr.map(p["freq_band"]).fillna("").astype(str)
+    s["cov"] = cr.map(p["has_covariates"]).fillna("").astype(str)
+    s = s.sort_values("scope_bytes")
+    needs = [("layout long", s["layout"] == "long"), ("layout wide", s["layout"] == "wide"),
+             ("layout nested", s["layout"] == "nested"), ("layout events", s["layout"] == "events"),
+             ("zip archive", s["formats"].str.contains(r"(?:^|; )zip:")),
+             ("keep_filtered", s["status"] == "keep_filtered"),
+             ("monthly or yearly", s["band"].isin(["monthly", "quarterly / yearly"])),
+             ("covariates", (s["cov"] == "yes") & s["layout"].isin(["long", "wide"])),
+             ("csv file", s["formats"].str.contains(r"(?:^|; )csv:") & ~s["formats"].str.contains("parquet")),
+             ("hourly or finer", s["band"].isin(["hourly", "minute", "sub-minute"]))]
+    out: dict[str, list[str]] = {}
+    for why, m in needs:
+        hit = s[m]
+        if hit.empty:
+            log.warning("smoke: no selected dataset for %s", why)
+            continue
+        have = [d for d in hit["dataset_id"] if d in out]       # reuse a dataset already picked when it fits
+        did = have[0] if have else hit["dataset_id"].iloc[0]
+        out.setdefault(did, []).append(why)
+    return [(d, ", ".join(w)) for d, w in out.items()]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=STEPS + ["all"])
@@ -180,9 +212,20 @@ def main(argv=None) -> int:
     ap.add_argument("--jobs", type=int)
     ap.add_argument("--redo", action="store_true")
     ap.add_argument("--redo-refs", action="store_true", help="rebuild the reference fingerprints")
+    ap.add_argument("--smoke", action="store_true", help="run every step on ~8 datasets that cover the cases (ids printed)")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
-    for step in (STEPS if a.step == "all" else [a.step]):
+    steps = STEPS if a.step == "all" or a.smoke else [a.step]
+    if a.smoke:
+        setup_logging(paths, "smoke")
+        step_select(a, paths, s)
+        picks = pick_smoke(pd.read_csv(paths.selection), read_profile())
+        print("smoke datasets:")
+        for d, why in picks:
+            print(f"  {d}  ({why})")
+        a.only = [d for d, _ in picks]
+        steps = [x for x in STEPS if x != "select"]
+    for step in steps:
         f = setup_logging(paths, step)
         log.info("step %s (data %s, log %s)", step, paths.data, f)
         globals()[f"step_{step}"](a, paths, s)

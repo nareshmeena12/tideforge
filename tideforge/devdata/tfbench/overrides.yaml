@@ -111,5 +111,11 @@ yahooresearch_ydata_labeled_time_series_anomalies_v1_0:
   table: "(?i)A1Benchmark"
   note: "draft: A1Benchmark (real) only"
 
-# datadog_boom: no rule yet. fev's BOOMLET uses a subset of BOOM series; the list of ids is not in the catalog.
-# Until the owner adds drop_items, this dataset is not built.
+
+datadog_boom:
+  audit_only: "owner 2026-11-12: the value audit drops the series that match fev's BOOMLET tasks"
+  ref_ids:
+    path: "(?i)fev_datasets/.*boom"
+    # ids from fev_datasets' BOOMLET files (first of item_id / id / series_id / unique_id); dropped where they equal a
+    # BOOM item id or its folder name. The report counts both drops (by id here, by value in the audit).
+  note: "owner 2026-11-12: build normally; audit drops BOOMLET matches"

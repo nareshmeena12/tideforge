@@ -81,7 +81,9 @@ def test_parse_time_years_and_epoch():
 
 def test_bands_and_min_length():
     assert band("15min") == "subhourly" and band("MS") == "monthly" and band("W-SUN") == "weekly"
-    assert min_length("h", Settings()) == 256 + 48 and min_length("D", Settings()) == 256 + 30
+    s = Settings()
+    assert min_length("h", s) == 256 + 48 and min_length("D", s) == 128 + 30 and min_length("W-SUN", s) == 52 + 8
+    assert min_length("MS", s) == 36 + 12 and min_length("QS", s) == 16 + 8 and min_length("YS", s) == 12 + 6
 
 
 # ---- layouts ------------------------------------------------------------------------------------------------------------
@@ -344,3 +346,40 @@ def test_audit_ref_series_from_nested_parquet(tmp_path):
     pq.write_table(pa.table({"id": ["a"], "target": [walk(100, 1).tolist()]}), root / "t.parquet")
     got = list(TA.ref_series(root, "fev", tmp_path / "w"))
     assert len(got) == 1 and len(got[0][0]) == 100 and got[0][1]["bench"] == "fev"
+
+
+def test_audit_stride16_shift7_rescaled(tmp_path):
+    """A copy shifted by 7 points (not a multiple of 16), rescaled and offset, is caught and dropped."""
+    from tideforge.devdata.audit import DB
+    ref = walk(3000, 11) + 4 * np.sin(np.arange(3000) / 5)
+    db = DB()
+    db.add(ref, bench="GIFT-Eval", dataset="g", item="0", freq="")
+    db.build()
+    d = _canon(tmp_path, {"copy": 2.5 * ref[7:1207] + 100.0, **{f"c{i}": walk(1200, 200 + i) for i in range(5)}}, "s7")
+    a = TA.audit_dataset(d, db, Settings())
+    assert [x["item_id"] for x in a["dropped_series"]] == ["copy"]
+    assert a["dropped_series"][0]["share"] > 0.9 and a["share_after_drops"] == 0
+
+
+def test_ref_ids_drop(tmp_path):
+    refs = tmp_path / "refs" / "autogluon_fev_datasets" / "boomlet_1"
+    refs.mkdir(parents=True)
+    pq.write_table(pa.table({"id": ["s1", "s3"], "target": [[1.0, 2.0], [3.0, 4.0]]}), refs / "t.parquet")
+    f = tmp_path / "a.parquet"
+    pq.write_table(pa.Table.from_pandas(long_table()), f)
+    m = build_dataset(row(status="keep_filtered"), [(f, f.name, 1)], {"ref_ids": {"path": "(?i)fev_datasets/.*boom"}},
+                      S, tmp_path / "out" / "ds", tmp_path / "work", tmp_path / "refs")
+    assert m["n_series"] == 4
+    assert next(x for x in m["transformations"] if x["step"].startswith("ref_ids"))["count"] == 2
+
+
+def test_pick_smoke_covers_cases():
+    from tideforge.tfbench.run import pick_smoke
+    sel = pd.DataFrame({"catalog_row": range(1, 7), "dataset_id": [f"d{i}" for i in range(1, 7)], "keep": True,
+                        "layout": ["long", "wide", "nested", "events", "long", "long"],
+                        "status": ["keep"] * 5 + ["keep_filtered"], "scope_bytes": [1, 2, 3, 4, 5, 6]})
+    prof = pd.DataFrame({"catalog_row": range(1, 7), "scope_formats": ["parquet: 1 B", "csv: 1 B", "", "", "zip: 5 B", ""],
+                         "freq_band": ["monthly", "", "", "", "", ""], "has_covariates": ["yes", "", "", "", "", ""]})
+    picks = dict(pick_smoke(sel, prof))
+    assert set(picks) == {"d1", "d2", "d3", "d4", "d5", "d6"}
+    assert "monthly or yearly" in picks["d1"] and "covariates" in picks["d1"]

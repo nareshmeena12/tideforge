@@ -57,4 +57,10 @@ def min_length(alias: str, s: Settings | None = None) -> int:
     """Shortest series kept: minimum context for the short horizon plus one short horizon."""
     s = s or Settings()
     h = short_horizon(alias)
-    return max(2 * h, s.min_context) + h
+    return max(2 * h, min_context(alias, s)) + h
+
+
+def min_context(alias: str, s: Settings | None = None) -> int:
+    s = s or Settings()
+    mc = s.min_context
+    return int(mc if isinstance(mc, int) else mc[band(alias)])

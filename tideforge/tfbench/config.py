@@ -26,7 +26,9 @@ class Settings:
     max_points: int = 50_000                           # last points kept per series
     max_nan_share: float = 0.5                         # series with more NaN than this are dropped
     max_covariates: int = 32                           # per dataset; the first ones in column order, rest recorded
-    min_context: int = 256                             # B1: context >= max(2 x horizon, min_context)
+    # minimum context per frequency band (owner 2026-11-12); B1: context >= max(2 x horizon, min_context);
+    # "too short" = that + one short horizon. An int applies to every band (tests).
+    min_context: dict | int = field(default_factory=lambda: dict(MIN_CONTEXT))
     seed: int = 20261112
     event_step: str = "D"                              # default aggregation step of event tables
     big_csv_bytes: int = 2 * 1024 ** 3                 # csv above this is read in streamed chunks
@@ -37,6 +39,9 @@ class Settings:
     audit_dataset_share: float = 0.01                  # flag a dataset above this share (after the series drops)
     refs: tuple = ("autogluon/fev_datasets", "Salesforce/GiftEval", "Real-TSF/TIME")
 
+
+MIN_CONTEXT = {"subhourly": 256, "hourly": 256, "subdaily": 256, "daily": 128, "weekly": 52, "monthly": 36,
+               "quarterly": 16, "yearly": 12}
 
 # Short horizons per frequency band (GIFT-Eval defaults; B1 moves them to horizons.yaml).
 SHORT_H = {"subhourly": 48, "hourly": 48, "subdaily": 48, "daily": 30, "weekly": 8, "monthly": 12, "quarterly": 8,

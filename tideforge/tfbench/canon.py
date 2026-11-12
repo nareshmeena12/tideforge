@@ -341,7 +341,7 @@ def series_hash(x: pd.DataFrame, targets: list[str]) -> str:
 
 # ---- build --------------------------------------------------------------------------------------------------------------
 def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Settings, out_dir: Path,
-                  workdir: Path) -> dict:
+                  workdir: Path, refs_dir: Path | None = None) -> dict:
     """row: selection row + profile fields. files: (local path, repo path, bytes). Writes out_dir/{data.parquet, meta.json}."""
     did = row["dataset_id"]
     meta = {"dataset_id": did, "source": {"repo": row["repo_id"], "config": row.get("config_or_subset", ""),
@@ -353,7 +353,8 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     T = meta["transformations"]
     if ov.get("skip"):
         raise Fail(f"skipped in overrides.yaml: {ov['skip']}")
-    if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")):
+    if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
+                                                     or ov.get("ref_ids") or ov.get("audit_only")):
         raise Fail("keep_filtered: no drop rule in overrides.yaml (drop_items / drop_parts / table)")
     parts, bad = open_all([(f[0], f[1]) for f in files], workdir)
     if bad:
@@ -408,6 +409,15 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
         m = items["item_id"].astype(str).str.contains(ov["drop_items"], regex=True)
         T.append({"step": "drop_items (catalog overlap rule)", "pattern": ov["drop_items"], "count": int(m.sum())})
         items = items[~m]
+    if ov.get("ref_ids"):
+        ids = ref_ids(Path(refs_dir) if refs_dir else None, ov["ref_ids"], workdir)
+        key = items["item_id"].astype(str)
+        m = key.isin(ids) | key.str.rsplit("/", n=1).str[-1].isin(ids) | key.str.split("!").str[0].str.split("/").str[0].isin(ids)
+        T.append({"step": "ref_ids (drop series a reference benchmark uses, by id)", "rule": ov["ref_ids"],
+                  "ids_in_reference": len(ids), "count": int(m.sum())})
+        items = items[~m]
+    if ov.get("audit_only"):
+        T.append({"step": "keep_filtered handled by the value audit only", "note": str(ov["audit_only"])})
     if items.empty:
         raise Fail("no items")
     items = stratified_order(items, s.seed)
@@ -508,6 +518,28 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     shutil.rmtree(out_dir, ignore_errors=True)
     tmp.rename(out_dir)
     return meta
+
+
+def ref_ids(refs_dir: Path | None, rule: dict, workdir: Path) -> set[str]:
+    """Series ids from reference benchmark files: rule = {path: regex on file paths under refs_dir, column: id column
+    (default the first of item_id / id / series_id / unique_id present)}."""
+    from tideforge.tfbench.download import ext
+    out: set[str] = set()
+    if not refs_dir or not Path(refs_dir).exists():
+        return out
+    for f in sorted(Path(refs_dir).rglob("*")):
+        rel = f.relative_to(refs_dir).as_posix()
+        if not f.is_file() or not re.search(rule["path"], rel) or ext(f.name) not in ("parquet", "arrow", "csv", "jsonl"):
+            continue
+        try:
+            for p in open_parts(f, workdir, rel):
+                col = rule.get("column") or next((c for c in ("item_id", "id", "series_id", "unique_id") if c in p.schema.names), None)
+                if col and col in p.schema.names:
+                    for t in p.batches([col]):
+                        out |= {str(v) for v in t.column(0).to_pylist() if v is not None}
+        except Unreadable:
+            continue
+    return out
 
 
 def _alias_from_profile(row: dict) -> str | None:
