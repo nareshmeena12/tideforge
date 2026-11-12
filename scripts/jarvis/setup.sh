@@ -14,6 +14,10 @@ pip install -q -e ".[tfbench,dev]"
 export HF_HUB_ENABLE_HF_TRANSFER=1
 python - <<'PY'
 import hf_transfer, huggingface_hub, pyarrow, pandas
+try:
+    import importlib.metadata as md; print("hf_xet", md.version("hf_xet"))
+except Exception as e:
+    print("hf_xet not installed:", e)
 from huggingface_hub import HfApi
 who = HfApi().whoami()            # uses HF_TOKEN; prints only the account name
 print("hf account:", who.get("name"), "| huggingface_hub", huggingface_hub.__version__, "| pyarrow", pyarrow.__version__)

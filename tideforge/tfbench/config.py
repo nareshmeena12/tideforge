@@ -35,7 +35,8 @@ class Settings:
     disk_margin: float = 1.2                           # free disk needed = repo bytes x margin
     download_jobs: int = 4                             # repos in parallel
     max_files_per_series_repo: int = 5000              # per repo: files of at most this many series keys (0 = off)
-    file_workers: int = 16                             # files in parallel inside one repo (4 x 16 = 64 in flight)
+    file_workers: int = 16
+    xet_retries: int = 3                               # fresh hf_hub_download calls on a Xet 401, then plain HTTPS                             # files in parallel inside one repo (4 x 16 = 64 in flight)
     # leakage audit (A5)
     audit_series_share: float = 0.10                   # drop a series above this share of matched windows
     audit_dataset_share: float = 0.01                  # flag a dataset above this share (after the series drops)

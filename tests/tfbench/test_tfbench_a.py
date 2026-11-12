@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import gzip
+import io
 import json
 import types
 import zipfile
@@ -503,3 +504,61 @@ def test_regularise_calendar_frequencies_with_point_cap(freq):
     ts = pd.date_range("1900-01-01", periods=120, freq=freq).delete([5, 6])
     out, _ = regularise(pd.DataFrame({"timestamp": ts, "y": np.arange(118.0)}), freq, ["y"], keep_last=50_000)
     assert len(out) == 120 and out["timestamp"].iloc[0] == ts[0] and out["y"].isna().sum() == 2
+
+
+def test_xet_401_retry_then_http_fallback(tmp_path):
+    paths = Paths(data=tmp_path)
+    rows = pd.DataFrame({"repo_id": "o/r", "revision": "main", "path": ["a.csv", "b.csv", "c.csv"], "bytes": 3,
+                         "dataset_ids": "d"})
+    err = RuntimeError("File reconstruction error: CAS Client Error: Request error: HTTP status client error "
+                       "(401 Unauthorized) for url (https://cas-server.xethub.hf.co/reconstructions/abc)")
+    calls = {}
+
+    def write(root, path):
+        p = Path(root) / path
+        p.write_bytes(b"abc")
+        return p
+
+    def fetch(repo, path, rev, root):
+        calls[path] = calls.get(path, 0) + 1
+        if path == "b.csv" and calls[path] == 1:      # expired once, fresh call works
+            raise err
+        if path == "c.csv":                           # never works through Xet
+            raise err
+        return write(root, path)
+    fb = []
+    r = DL.download_repo("o/r", rows, paths, Settings(xet_retries=3), fetch=fetch, disk_free=lambda p: 1e12,
+                         sleep=lambda x: None, fallback=lambda repo, path, rev, root: fb.append(path) or write(root, path))
+    assert r["errors"] == 0 and r["xet401"] == 1 + 4 and r["http_fallback"] == 1 and fb == ["c.csv"]
+    assert calls == {"a.csv": 1, "b.csv": 2, "c.csv": 4}
+    m = DL.combine(paths).set_index("path")
+    assert m.loc["c.csv", "via"] == "http-fallback" and m.loc["b.csv", "via"] == "hub"
+    assert DL.is_xet_401(err) and not DL.is_xet_401(RuntimeError("404 not found"))
+
+
+def test_http_fetch_no_token_to_redirect_host(tmp_path, monkeypatch):
+    import urllib.error
+    import urllib.request
+    seen = []
+
+    class Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    class Opener:
+        def open(self, req, timeout=None):
+            seen.append((req.full_url, req.get_header("Authorization")))
+            raise urllib.error.HTTPError(req.full_url, 302, "Found", {"Location": "https://cas-bridge.xethub.hf.co/x?sig=1"}, None)
+
+    def urlopen(req, timeout=None):
+        seen.append((req.full_url, req.get_header("Authorization")))
+        return Resp(b"hello")
+    monkeypatch.setenv("HF_TOKEN", "hf_secret")
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *a: Opener())
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    p = DL.http_fetch("o/r", "dir/f.csv", "main", tmp_path)
+    assert Path(p).read_bytes() == b"hello" and not list(tmp_path.rglob("*.part"))
+    assert seen[0][1] == "Bearer hf_secret" and seen[1] == ("https://cas-bridge.xethub.hf.co/x?sig=1", None)

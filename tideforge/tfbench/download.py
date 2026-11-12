@@ -4,7 +4,8 @@ Only the files in each selected row's scope (hf_profile_files.csv), each (repo, 
 catalog rows share it. Formats the readers cannot use (npy, h5, netcdf, media, pickles, ...) are not downloaded; the plan
 lists them. huggingface_hub with hf_transfer (HF_HUB_ENABLE_HF_TRANSFER=1, set before the import). Resumable: a file whose
 manifest entry has the same size on disk is not fetched again. Inside a repo, file_workers files are fetched in parallel
-(hf_hub_download per file, retried on 429 with Retry-After); download_jobs repos run in parallel. Before each repo: free disk >= repo bytes x disk_margin,
+(hf_hub_download per file, retried on 429 with Retry-After; a Xet / CAS 401, an expired Xet token, is retried
+xet_retries times with a fresh call, then the file is fetched over plain HTTPS); download_jobs repos run in parallel. Before each repo: free disk >= repo bytes x disk_margin,
 else the repo is skipped and logged. Parallel across repos.
 
 Manifest: $TFB_DATA/manifest/<repo slug>.jsonl, one json line per file {repo, revision, path, bytes, sha256, status,
@@ -144,11 +145,54 @@ def with_retry(call, tries: int = 8, sleep=time.sleep):
             sleep(wait)
 
 
+def is_xet_401(ex: Exception) -> bool:
+    """Xet / CAS token expired during a long repo download ("CAS Client Error ... 401 Unauthorized ... xethub")."""
+    m = f"{type(ex).__name__}: {ex}".lower()
+    return "401" in m and any(k in m for k in ("xethub", "cas client", "cas-server", "reconstruction", "xet"))
+
+
+def http_fetch(repo: str, path: str, revision: str, local_dir: Path, timeout: float = 600.0) -> str:
+    """Plain HTTPS download of one file through the Hub's resolve URL (no Xet client), standard library only.
+    The token goes only to huggingface.co; the redirect target (a signed CDN / cas-bridge URL) is fetched without it.
+    Written to a temporary name and renamed, so a broken transfer never leaves a partial file under the real name."""
+    import urllib.parse
+    import urllib.request
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+
+    url = (f"https://huggingface.co/datasets/{repo}/resolve/{urllib.parse.quote(revision, safe='')}/"
+           f"{urllib.parse.quote(path)}")
+    headers = {"User-Agent": "tfbench-download"}
+    tok = os.environ.get("HF_TOKEN")
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        resp = opener.open(urllib.request.Request(url, headers=headers), timeout=timeout)
+    except urllib.error.HTTPError as e:
+        if e.code not in (301, 302, 303, 307, 308):
+            raise
+        loc = urllib.parse.urljoin(url, e.headers["Location"])
+        same = urllib.parse.urlparse(loc).hostname == "huggingface.co"
+        resp = urllib.request.urlopen(urllib.request.Request(loc, headers=headers if same else
+                                                             {"User-Agent": headers["User-Agent"]}), timeout=timeout)
+    dst = Path(local_dir) / path
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(dst.name + ".part")
+    with resp, open(tmp, "wb") as fh:
+        shutil.copyfileobj(resp, fh, 1 << 22)
+    tmp.replace(dst)
+    return str(dst)
+
+
 def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetch=None, disk_free=None,
-                  sleep=time.sleep) -> dict:
+                  sleep=time.sleep, fallback=None) -> dict:
     """Fetch the files of one repo, file_workers files in parallel (each fetch = one HEAD + one GET; the HEAD is what made
     the sequential version slow). fetch(repo, path, revision, local_dir) -> local path (default hf_hub_download)."""
     fetch = fetch or _hf_fetch
+    fallback = fallback or http_fetch
     disk_free = disk_free or (lambda p: shutil.disk_usage(p).free)
     root = paths.raw / slug(repo)
     root.mkdir(parents=True, exist_ok=True)
@@ -161,8 +205,8 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
     need = sum(int(r["bytes"] or 0) for r in todo) * s.disk_margin
     if todo and disk_free(paths.raw) < need:
         log.warning("%s: skipped, needs %.1f GB free, has %.1f GB", repo, need / 1e9, disk_free(paths.raw) / 1e9)
-        return {"repo": repo, "status": "skipped: disk", "files": len(todo)}
-    n = {"ok": 0, "err": 0}
+        return {"repo": repo, "status": "skipped: disk", "files": len(todo), "errors": 0, "xet401": 0, "http_fallback": 0}
+    n = {"ok": 0, "err": 0, "xet401": 0, "http_fallback": 0}
     lock = threading.Lock()
     t0 = time.time()
 
@@ -170,8 +214,25 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
         e = {"repo": repo, "revision": r["revision"], "path": r["path"], "dataset_ids": r["dataset_ids"],
              "sampled": bool(r.get("sampled", False))}
         try:
-            lp = Path(with_retry(lambda: fetch(repo, r["path"], r["revision"], root), sleep=sleep))
-            e.update(bytes=lp.stat().st_size, sha256=sha256(lp), status="ok")
+            lp, x401, via = None, 0, "hub"
+            for k in range(s.xet_retries + 1):
+                try:          # each call is a fresh hf_hub_download, which asks the Hub for a new Xet token
+                    lp = Path(with_retry(lambda: fetch(repo, r["path"], r["revision"], root), sleep=sleep))
+                    break
+                except Exception as ex:
+                    if not is_xet_401(ex):
+                        raise
+                    x401 += 1
+                    if k < s.xet_retries:
+                        sleep(2.0 * (k + 1))
+            if lp is None:    # Xet kept refusing: plain HTTPS for this file
+                lp = Path(with_retry(lambda: fallback(repo, r["path"], r["revision"], root), sleep=sleep))
+                via = "http-fallback"
+            if x401:
+                with lock:
+                    n["xet401"] += x401
+                    n["http_fallback"] += via == "http-fallback"
+            e.update(bytes=lp.stat().st_size, sha256=sha256(lp), status="ok", via=via, xet401=x401)
         except Exception as ex:  # one file failing never stops the run
             e.update(bytes=0, sha256="", status=f"error: {type(ex).__name__}: {str(ex)[:300]}")
             log.error("%s %s: %s", repo, r["path"], e["status"])
@@ -186,9 +247,10 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
     with open(mpath, "a", encoding="utf-8") as mf, ThreadPoolExecutor(max(1, s.file_workers)) as ex:
         list(ex.map(lambda r: one(r, mf), todo))
     n_ok, n_err = n["ok"], n["err"]
-    log.info("%s: %d fetched, %d errors, %d already there (%.0f s)", repo, n_ok, n_err, len(rows) - len(todo),
-             time.time() - t0)
-    return {"repo": repo, "status": "ok" if not n_err else "errors", "files": len(rows), "errors": n_err}
+    log.info("%s: %d fetched, %d errors, %d already there, %d Xet 401 (%d files via HTTP fallback) (%.0f s)", repo, n_ok,
+             n_err, len(rows) - len(todo), n["xet401"], n["http_fallback"], time.time() - t0)
+    return {"repo": repo, "status": "ok" if not n_err else "errors", "files": len(rows), "errors": n_err,
+            "xet401": n["xet401"], "http_fallback": n["http_fallback"]}
 
 
 def _hf_fetch(repo: str, path: str, revision: str, local_dir: Path) -> str:
@@ -218,6 +280,14 @@ def run(selection: pd.DataFrame, files: pd.DataFrame, paths: Paths, s: Settings,
     with ThreadPoolExecutor(jobs or s.download_jobs) as ex:
         res = list(ex.map(lambda r: download_repo(r, p[p["repo_id"] == r], paths, s), repos))
     log.info("download done: %d repos in %.0f s", len(repos), time.time() - t0)
+    summ = pd.DataFrame(res)
+    if not summ.empty:
+        summ.to_csv(paths.data / "download_summary.csv", index=False)
+        x = summ[summ.get("xet401", 0) > 0] if "xet401" in summ else summ.iloc[0:0]
+        log.info("Xet 401: %d events in %d repos, %d files via HTTP fallback", int(summ.get("xet401", pd.Series([0])).sum()),
+                 len(x), int(summ.get("http_fallback", pd.Series([0])).sum()))
+        for r in x.sort_values("xet401", ascending=False).itertuples():
+            log.info("  %s: %d Xet 401, %d via HTTP, %d errors", r.repo, r.xet401, r.http_fallback, r.errors)
     combine(paths)
     return pd.DataFrame(res)
 
