@@ -1,0 +1,115 @@
+# tfbench per-dataset overrides (tideforge/tfbench/canon.py docstring lists the keys). Key = dataset_id (selection.csv).
+#
+# keep_filtered rows need a drop rule, else they are not built ("keep_filtered: no drop rule"). The rules below are
+# DRAFTS written from the catalog's overlap text before any data was seen: drop_items is a regex on item_id (for wide
+# tables the column name, for long tables the id values joined with "|"), drop_parts a regex on file paths inside the
+# repo. Check each against BUILD_REPORT_A.md ("drop_items" counts in meta.json) after the first canon run.
+# Rows marked "no rule yet" are left without one on purpose: the overlap cannot be expressed from names alone.
+
+ashwingopalsamy_central_bank_policy_rates:
+  drop_items: "(?i)(^|\\W)(US|USA|united.?states|fed|federal)(\\W|$)"
+  note: "draft: drop the US fed funds rate (FRED / TIME)"
+
+datonic_world_development_indicators_default:
+  drop_items: "(?i)co2|life.?expect|touris|international.?arrival"
+  note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
+
+kavelaltd_historysaid_global_economic:
+  drop_items: "(?i)co2|life.?expect|touris"
+  note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
+
+rogerdehe_klines_okx_futures_15m_1d:
+  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH)"
+  drop_parts: "(?i)(^|/)(BTC|ETH|LTC|BCH)[-_/]"
+  note: "draft: drop BTC, ETH, LTC, BCH pairs (TIME)"
+
+tradecatlabs_binance_futures_ohlcv_2018_2026_candles_1m:
+  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH)"
+  drop_parts: "(?i)(^|/)(BTC|ETH|LTC|BCH)"
+  note: "draft: drop BTC, ETH, LTC, BCH (TIME)"
+
+zalizedata_global_macro_trade_indicators_dataset:
+  drop_items: "(?i)co2|life.?expect|touris"
+  note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
+
+alinurdin_time_series_benchmark_eia_hourly_madrid_15min_webtris_15min_usgs_daily_usgs_continuous_hydat_daily_bom_daily_c:
+  drop_parts: "(?i)aemo|opsd"
+  note: "draft: drop aemo_dispatch_5min (TIME AEMO NEM) and opsd_load (ENTSO-E load, fev)"
+
+marplan6_batgrad_pozzato_2022:
+  drop_parts: "(?i)synthetic|pybamm|m50t"
+  note: "draft: drop the synthetic PyBaMM subset"
+
+zalizedata_us_grid_hourly_power_plants_dataset:
+  drop_items: "(?i)ercot|(^|\\W)ERCO(\\W|$)"
+  note: "draft: drop the ERCOT balancing authority (fev)"
+
+emulated_inc_sci_streamflow_ungauged_new_country:
+  drop_items: "(?i)saugeen"
+  note: "draft: drop the Saugeen River gauge (GIFT-Eval) if HYSETS has it; the value audit is the real check"
+
+cognitedata_ind_eval:
+  drop_parts: "(?i)(^|/)(electricity|solar)(/|_|\\.)"
+  note: "draft: drop configs electricity and solar"
+
+forgis_factorynet_factorywave_voraus_aursad_cnc:
+  drop_parts: "(?i)simulations_(baseline|counterfactual)"
+  note: "draft: drop the Isaac Sim simulations"
+
+yahya2491_3w_pipeline:
+  drop_parts: "(?i)simulated|drawn"
+  drop_items: "(?i)simulated|drawn"
+  note: "draft: real instances only (3W simulated files start with SIMULATED_, hand-drawn with DRAWN_)"
+
+torchspatiotemporal_processeddatasets:
+  drop_parts: "(?i)elergone|pvus"
+  note: "draft: drop Elergone (UCI electricity = GIFT) and PvUS (simulated)"
+
+autonlab_timeseries_pile_forecasting:
+  drop_parts: "(?i)(m4_|hospital|covid_deaths|us_births|saugeen|temperature_rain|kdd_cup|car_parts|fred_md|electricity|solar)"
+  note: "draft: drop the Monash sets that are in GIFT-Eval / fev"
+
+autonlab_timeseries_pile_forecasting_autoformer:
+  drop_parts: "(?i)ett|electricity|weather"
+  note: "draft: drop ETT*, electricity, weather (Jena)"
+
+nju_zhangsq_rmisc_cryptocurrency:
+  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH|bitcoin|ethereum|litecoin)"
+  drop_parts: "(?i)(BTC|ETH|LTC|BCH|bitcoin|ethereum|litecoin)"
+  note: "draft: drop BTC, ETH, LTC, BCH (TIME)"
+
+time_hd_anonymous_high_dimensional_time_series:
+  drop_parts: "(?i)(m5|ecl|etth|ettm|weather|traffic|solar|sirs|neurolib)"
+  note: "draft: drop the benchmark and simulated sets"
+
+yuiseki_un_wpp_wpp2024:
+  drop_parts: "(?i)projection|life.?expect|e0"
+  drop_items: "(?i)projection|life.?expect"
+  note: "draft: drop projection variants (2024-2100) and life-expectancy tables (fev)"
+
+yuiseki_undp_hdr:
+  drop_items: "(?i)life.?expect|(^|\\W)le(_|\\W|$)"
+  note: "draft: drop life expectancy (fev)"
+
+zaai_ai_hierarchical_time_series_datasets:
+  drop_parts: "(?i)touris|m5"
+  note: "draft: drop Tourism in Australia and M5 (fev)"
+
+hsilvosa_noaa_ghcn_daily:
+  drop_items: "(?i)^SN|singapore"
+  note: "draft: drop Singapore stations (GHCN ids starting SN)"
+
+naavrug_weather_geo_era5:
+  drop_items: "(?i)singapore"
+  note: "draft: drop Singapore; NE China cells need coordinates, the value audit is the real check"
+
+tharinduperera_weather_clustering_data:
+  drop_items: "(?i)singapore"
+  note: "draft: drop Singapore if present"
+
+yahooresearch_ydata_labeled_time_series_anomalies_v1_0:
+  table: "(?i)A1Benchmark"
+  note: "draft: A1Benchmark (real) only"
+
+# datadog_boom: no rule yet. fev's BOOMLET uses a subset of BOOM series; the list of ids is not in the catalog.
+# Until the owner adds drop_items, this dataset is not built.

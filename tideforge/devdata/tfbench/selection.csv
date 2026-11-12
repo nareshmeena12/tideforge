@@ -1,0 +1,615 @@
+catalog_row,dataset_id,repo_id,config_or_subset,domain,status,scope_bytes,layout,frequency,ingest_difficulty,keep,reason
+2,alaminxpro_bd_food_prices,alaminxpro/bd-food-prices,,agriculture_nature,keep,7784978,long,,hard,True,ok
+3,alexroz_carbonfluxbench,alexroz/CarbonFluxBench,,agriculture_nature,keep,5518356195,long,,medium,True,ok
+4,dar4huggingface_sniim_mexico_sample,dar4huggingface/sniim-mexico-sample,,agriculture_nature,keep,6500179,long,,medium,True,ok
+5,dhivakarnaidusunkari_mandi_india_daily_prices_2001_2026,DHIVAKARNAIDUSUNKARI/mandi-india-daily-prices-2001-2026,,agriculture_nature,keep,853183375,long,,easy,True,ok
+6,electricsheepafrica_africa_wfp_food_prices_for_uganda,electricsheepafrica/africa-wfp-food-prices-for-uganda,,agriculture_nature,keep,466144,long,,easy,True,ok
+7,electricsheepafrica_wfp_nigeria_food_prices,electricsheepafrica/wfp-nigeria-food-prices,,agriculture_nature,keep,496724,long,,medium,True,ok
+8,emulated_inc_sci_county_crop_yield_new_year,Emulated-Inc/sci-county-crop-yield-new-year,,agriculture_nature,keep,985354240,unknown,,hard,True,ok
+9,food_ai_nexus_global_food_safety_incidents,food-ai-nexus/global-food-safety-incidents,,agriculture_nature,keep,249238,events,,hard,True,ok
+10,globalsquiddatabase_tuna_fisheries_dataset,globalsquiddatabase/Tuna-Fisheries-Dataset,,agriculture_nature,keep,9313682929,unknown,,hard,True,ok
+11,hesandism_colombo_tea_auction_prices,hesandism/colombo-tea-auction-prices,,agriculture_nature,keep,2692075,long,,medium,True,ok
+12,judicialmind_cropbench,judicialmind/CropBench,,agriculture_nature,keep,80677382,unknown,,medium,False,"gated, no access"
+13,judicialmind_mandibench_series_all_parquet,judicialmind/MandiBench,series/all.parquet,agriculture_nature,keep,100087600,unknown,,medium,False,"gated, no access"
+14,national_digital_nt_crocodile_captures,National-Digital/nt-crocodile-captures,,agriculture_nature,keep,90254,long,,medium,True,ok
+15,national_digital_qld_shark_control_catch_numbers,National-Digital/qld-shark-control-catch-numbers,,agriculture_nature,keep,115050,long,,medium,True,ok
+16,notadib_usa_corn_belt_crop_yield,notadib/usa-corn-belt-crop-yield,,agriculture_nature,keep,1500635137,unknown,,hard,True,ok
+17,project_agml_usda_nass_crop_statistics,Project-AgML/usda_nass_crop_statistics,,agriculture_nature,keep,234920789,long,,hard,True,ok
+18,roshangupta007_yieldformer_de_data,Roshangupta007/YieldFormer-DE-data,,agriculture_nature,keep,721093504,long,,medium,True,ok
+19,salesforce_lotsa_data_beijing_air_quality,Salesforce/lotsa_data,beijing_air_quality,agriculture_nature,keep,18516128,nested,1h,medium,True,ok
+20,salesforce_lotsa_data_china_air_quality,Salesforce/lotsa_data,china_air_quality,agriculture_nature,keep,137762824,nested,1h,medium,True,ok
+21,salesforce_lotsa_data_sunspot_with_missing,Salesforce/lotsa_data,sunspot_with_missing,agriculture_nature,keep,296624,nested,1D,medium,True,ok
+22,taziksh_itrdb_tree_rings,taziksh/itrdb-tree-rings,,agriculture_nature,keep,230143474,long,,medium,True,ok
+23,taziksh_usgs_earthquakes,taziksh/usgs-earthquakes,,agriculture_nature,keep,261919374,events,,hard,True,ok
+24,teamsynapse_sri_lanka_weekly_vegetable_retail_farmer_price_dataset,teamSynapse/sri-lanka-weekly-vegetable-retail-farmer-price-dataset,,agriculture_nature,keep,6077460,long,1W,medium,True,ok
+25,yuiseki_kyoto_bear_sighting,yuiseki/kyoto-bear-sighting,,agriculture_nature,keep,2719980,long,,medium,True,ok
+26,thuml_utsd_australiarainfall_beijingpm25quality_benzeneconcentration,thuml/UTSD,AustraliaRainfall / BeijingPM25Quality / BenzeneConcentration,agriculture_nature,check,6386755512,nested,mixed,medium,False,"status check (v1 uses keep, keep_filtered)"
+27,yuiseki_faostat_raw_2026_10_04,yuiseki/faostat,raw/2026-10-04 (bulk zips),agriculture_nature,check,1520726067,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+28,aduitya9_aduitya_dextra_aqi_india,Aduitya9/Aduitya_dextra-aqi-india,,air_quality,keep,292030040,long,,hard,True,ok
+29,akshaykarthick_india_weather_air_quality,AkshayKarthick/india-weather-air-quality,,air_quality,keep,17795348,long,,medium,True,ok
+30,cmu_ospo_covid_air_quality_ramp_datasets,CMU-OSPO/COVID_air_quality_RAMP_datasets,,air_quality,keep,18562749,long,,medium,True,ok
+31,cosuleabianca_eea_pm25_forecasting,cosuleabianca/eea-pm25-forecasting,,air_quality,keep,1725621378,unknown,,medium,True,ok
+32,danielrosehill_jerusalem_air_quality_shabbat,danielrosehill/Jerusalem-Air-Quality-Shabbat,,air_quality,keep,61004738,long,,medium,True,ok
+33,dmariaa70_metraq_air_quality,dmariaa70/METRAQ-Air-Quality,,air_quality,keep,6055995156,long,,medium,True,ok
+34,haidang2405_aqshift_us_leakage_safe_air_quality,haidang2405/aqshift-us-leakage-safe-air-quality,,air_quality,keep,360128952,events,,hard,True,ok
+35,hsilvosa_safecast_radiation,hsilvosa/safecast-radiation,,air_quality,keep,8551382209,long,,medium,True,ok
+36,khajlk_copenhagen_air_quality_hourly,khajlk/copenhagen-air-quality-hourly,,air_quality,keep,2239502,long,1h,medium,True,ok
+37,meganariley_daily_aqi,meganariley/daily-aqi,,air_quality,keep,565227922,long,,easy,True,ok
+38,national_digital_act_air_quality,National-Digital/act-air-quality,,air_quality,keep,8391986,long,,medium,True,ok
+39,national_digital_vic_air_quality_hourly,National-Digital/vic-air-quality-hourly,,air_quality,keep,4613520,long,,medium,True,ok
+40,nju_zhangsq_rmisc_pm25fivecities,nju-zhangsq/RMISC,PM25FiveCities,air_quality,keep,1442915,long,1h,easy,True,ok
+41,nju_zhangsq_rmisc_usairpollution,nju-zhangsq/RMISC,USAirPollution,air_quality,keep,19832145,long,,easy,True,ok
+42,nju_zhangsq_rmisc_xiamenairquality,nju-zhangsq/RMISC,XiamenAirQuality,air_quality,keep,11532185,long,,easy,True,ok
+43,skywalker1910_skynet_aqi_panel,Skywalker1910/skynet-aqi-panel,,air_quality,keep,199423007,long,,medium,True,ok
+44,steven0226_air_quality,steven0226/air-quality,,air_quality,keep,52715815,long,,medium,True,ok
+45,envirocatalysts_hourly_pollutants_data,Envirocatalysts/hourly_pollutants_data,,air_quality,check,938383510,wide,,medium,False,"status check (v1 uses keep, keep_filtered)"
+46,meganariley_us_air_quality_hourly,meganariley/us-air-quality-hourly,,air_quality,check,0,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+47,xuxing123_airqualitybench,xuxing123/AirQualityBench,,air_quality,check,1343977711,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+48,yuiseki_edgar_ghg_countries,yuiseki/edgar-ghg-countries,,air_quality,check,190747496,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+49,aaron_freedman_banking_concentration_data,aaron-freedman/banking-concentration-data,,economics_finance,keep,1282404490,long,,hard,True,ok
+50,abel_lab_finance1k,abel-lab/finance1k,,economics_finance,keep,138532056,nested,,hard,True,ok
+51,aikstockdata_korea_equity_daily,aikstockdata/korea-equity-daily,,economics_finance,keep,162550978,long,,medium,True,ok
+52,arabalika_us_rent_history,arabalika/us-rent-history,,economics_finance,keep,7572138126,unknown,,medium,False,"gated, no access"
+53,autogluon_chronos_datasets_exchange_rate,autogluon/chronos_datasets,exchange_rate,economics_finance,keep,401501,nested,1D,medium,True,ok
+54,autogluon_chronos_datasets_monash_cif_2016,autogluon/chronos_datasets,monash_cif_2016,economics_finance,keep,70876,nested,1M,medium,True,ok
+55,autogluon_chronos_datasets_monash_m1_monthly_quarterly_yearly_monash_m3_monthly_quarterly_yearly,autogluon/chronos_datasets,"monash_m1_monthly / _quarterly / _yearly, monash_m3_monthly / _quarterly / _yearly",economics_finance,keep,834071,nested,1M,medium,True,ok
+56,autogluon_chronos_datasets_monash_nn5_weekly_nn5,autogluon/chronos_datasets,"monash_nn5_weekly, nn5",economics_finance,keep,267716,nested,1W,medium,True,ok
+57,ayushkhaire_all_stock_market_data_daily_updates,AYUSHKHAIRE/all-stock-market-data-daily-updates,,economics_finance,keep,4187906290,unknown,,medium,True,ok
+58,bayanat_labs_arab_trade_exposure,Bayanat-Labs/arab-trade-exposure,,economics_finance,keep,2318019749,long,,hard,True,ok
+59,carlossilva1_us500_ticks_default,CarlosSilva1/us500-ticks,default,economics_finance,keep,936774112,wide,,easy,True,ok
+60,empulse_ai_empulse_street_fx_index,empulse-ai/empulse-street-fx-index,,economics_finance,keep,1139444,wide,1D,medium,True,ok
+61,hexquant_stocks_daily_price,HexQuant/Stocks-Daily-Price,,economics_finance,keep,494680345,long,,easy,True,ok
+62,jwigginton_timeseries_1mn_sp500_default,jwigginton/timeseries-1mn-sp500,default,economics_finance,keep,11036974,long,,easy,True,ok
+63,kawsersikder_bangladesh_stock_market_dataset,kawsersikder/bangladesh-stock-market-dataset,,economics_finance,keep,276257603,wide,,medium,True,ok
+64,misikoff_zillow_days_on_market,misikoff/zillow,days_on_market,economics_finance,keep,44060964,unknown,,medium,True,ok
+65,misikoff_zillow_for_sale_listings,misikoff/zillow,for_sale_listings,economics_finance,keep,23713025,unknown,,medium,True,ok
+66,misikoff_zillow_home_values,misikoff/zillow,home_values,economics_finance,keep,1476772963,unknown,,medium,True,ok
+67,misikoff_zillow_rentals,misikoff/zillow,rentals,economics_finance,keep,22918610,unknown,1M,medium,True,ok
+68,misikoff_zillow_sales,misikoff/zillow,sales,economics_finance,keep,20793095,unknown,,medium,True,ok
+69,monitorbankrates_us_bank_rate_averages,MonitorBankRates/us-bank-rate-averages,,economics_finance,keep,495738,unknown,,medium,True,ok
+70,national_digital_rba_money_market_daily,National-Digital/rba-money-market-daily,,economics_finance,keep,81003,wide,1D,medium,True,ok
+71,nju_zhangsq_rmisc_amarketchina,nju-zhangsq/RMISC,AMarketChina,economics_finance,keep,11590637,long,,easy,True,ok
+72,nju_zhangsq_rmisc_chinaminutestock,nju-zhangsq/RMISC,ChinaMinuteStock,economics_finance,keep,8167478113,long,1min,easy,True,ok
+73,nju_zhangsq_rmisc_csi500,nju-zhangsq/RMISC,CSI500,economics_finance,keep,1442503239,long,1min,easy,True,ok
+74,nju_zhangsq_rmisc_niftystock,nju-zhangsq/RMISC,NIFTYStock,economics_finance,keep,15929649,long,,easy,True,ok
+75,nju_zhangsq_rmisc_sp500,nju-zhangsq/RMISC,SP500,economics_finance,keep,9056884,long,,easy,True,ok
+76,nju_zhangsq_rmisc_stockfactorscleaned,nju-zhangsq/RMISC,StockFactorsCleaned,economics_finance,keep,6025799904,long,,easy,True,ok
+77,nju_zhangsq_rmisc_stockmarketdata,nju-zhangsq/RMISC,StockMarketData,economics_finance,keep,1755842,long,,easy,True,ok
+78,nju_zhangsq_rmisc_tushareetfdaily,nju-zhangsq/RMISC,TushareETFDaily,economics_finance,keep,63811328,events,,hard,True,ok
+79,nju_zhangsq_rmisc_tushareindexdaily,nju-zhangsq/RMISC,TushareIndexDaily,economics_finance,keep,155213068,events,,hard,True,ok
+80,nju_zhangsq_rmisc_tusharestockdaily,nju-zhangsq/RMISC,TushareStockDaily,economics_finance,keep,396275054,events,,hard,True,ok
+81,nju_zhangsq_rmisc_tusharestockweekly,nju-zhangsq/RMISC,TushareStockWeekly,economics_finance,keep,79180701,events,,hard,True,ok
+82,nju_zhangsq_rmisc_ukeconomy,nju-zhangsq/RMISC,UKEconomy,economics_finance,keep,2566812,long,,easy,True,ok
+83,paperswithbacktest_forex_daily_price_default,paperswithbacktest/Forex-Daily-Price,default,economics_finance,keep,14727479,unknown,,medium,False,"gated, no access"
+84,paperswithbacktest_indices_daily_price_default,paperswithbacktest/Indices-Daily-Price,default,economics_finance,keep,22779597,unknown,,medium,False,"gated, no access"
+85,paperswithbacktest_stocks_daily_price_default,paperswithbacktest/Stocks-Daily-Price,default,economics_finance,keep,868678518,unknown,,medium,False,"gated, no access"
+86,perctrix_stockchina_minute,perctrix/StockChina-Minute,,economics_finance,keep,121472952189,wide,,medium,False,scope 121.5 GB > 20 GB
+87,prasad_gade05_india_upi_ecosystem_2018_2025,prasad-gade05/india-upi-ecosystem-2018-2025,,economics_finance,keep,1968662,long,,medium,True,ok
+88,prospex_ch_swiss_commercial_registry_monthly_panel,prospex-ch/swiss-commercial-registry-monthly-panel,,economics_finance,keep,829758,events,,hard,True,ok
+89,rogendo_forex_dukas_copy_default,Rogendo/forex-dukas-copy,default,economics_finance,keep,7275901332,wide,,hard,True,ok
+90,rrishab_ohlcv_1m_default,Rrishab/OHLCV-1m,default,economics_finance,keep,87719544647,long,,easy,False,scope 87.7 GB > 20 GB
+91,salesforce_lotsa_data_cif_2016_12,Salesforce/lotsa_data,cif_2016_12,economics_finance,keep,25192,nested,1M,medium,True,ok
+92,salesforce_lotsa_data_godaddy,Salesforce/lotsa_data,godaddy,economics_finance,keep,1127584,nested,1M,medium,True,ok
+93,salesforce_lotsa_data_m1_monthly,Salesforce/lotsa_data,m1_monthly,economics_finance,keep,195904,nested,1M,medium,True,ok
+94,salesforce_lotsa_data_nn5_daily_with_missing,Salesforce/lotsa_data,nn5_daily_with_missing,economics_finance,keep,330024,nested,1D,medium,True,ok
+95,sevriukov_bank101,sevriukov/bank101,,economics_finance,keep,3390083172,unknown,,hard,True,ok
+96,showlcw_china_cpi_ppi_pmi,showlcw/china-cpi-ppi-pmi,,economics_finance,keep,2267470,wide,,medium,True,ok
+97,sii_wangzj_polymarket_data_trades_parquet,SII-WANGZJ/Polymarket_data,trades.parquet,economics_finance,keep,45846785710,events,,hard,False,scope 45.8 GB > 20 GB
+98,thanna94_us_building_permits,thanna94/us-building-permits,,economics_finance,keep,65659872,long,,medium,True,ok
+99,thecharttruth_etf_data_prices,thecharttruth/etf-data,prices,economics_finance,keep,2372716,long,1D,easy,True,ok
+100,thulab_xauusd_default,THULab/xauusd,default,economics_finance,keep,48105631,unknown,,hard,True,ok
+101,tidy_finance_factor_library,tidy-finance/factor-library,,economics_finance,keep,36251651030,long,,medium,False,scope 36.3 GB > 20 GB
+102,traders_lab_troveledger_daily_hourly_1_minute_files,Traders-Lab/TroveLedger,daily / hourly / 1-minute files,economics_finance,keep,3264809356,long,,medium,True,ok
+103,trentmkelly_polymarket_historical_data_market_snapshots,trentmkelly/polymarket_historical_data,market_snapshots,economics_finance,keep,3051856528,long,,easy,True,ok
+104,wrpbr_pncp_compras_modalidade_dia_municipio,wrpbr/pncp-compras-modalidade-dia-municipio,,economics_finance,keep,30339740,wide,,medium,True,ok
+105,xxparthparekhxx_indian_stock_market_minute_data,xxparthparekhxx/indian-stock-market-minute-data,,economics_finance,keep,10510020728,long,mixed,easy,True,ok
+106,yadavsaurabh_us_stocks_and_search_trends,yadavsaurabh/us-stocks-and-search-trends,,economics_finance,keep,11709269538,long,,medium,True,ok
+107,yugalinks_import_export_market_demand_v1,yugalinks/import-export-market-demand-v1,,economics_finance,keep,165809148,long,,medium,True,ok
+108,yuiseki_ilostat,yuiseki/ilostat,,economics_finance,keep,2651154896,unknown,,medium,True,ok
+109,yuiseki_maddison_project,yuiseki/maddison-project,,economics_finance,keep,24508135,long,,hard,True,ok
+110,yuiseki_pwt,yuiseki/pwt,,economics_finance,keep,254663285,long,1Y,hard,True,ok
+111,yuiseki_undata_sdmx,yuiseki/undata-sdmx,,economics_finance,keep,514910863,events,mixed,hard,True,ok
+112,ashwingopalsamy_central_bank_policy_rates,ashwingopalsamy/central-bank-policy-rates,,economics_finance,keep_filtered,4893857,long,,medium,True,ok
+113,datonic_world_development_indicators_default,datonic/world_development_indicators,default,economics_finance,keep_filtered,64130913,long,,easy,True,ok
+114,kavelaltd_historysaid_global_economic,kavelaltd/historysaid-global-economic,,economics_finance,keep_filtered,197902427,long,1Y,hard,True,ok
+115,rogerdehe_klines_binance_spot_and_futures_1m_1d,rogerdehe/klines-binance,spot and futures; 1m..1d,economics_finance,keep_filtered,57688202844,wide,mixed,easy,False,scope 57.7 GB > 20 GB
+116,rogerdehe_klines_bybit_futures_3m_1d,rogerdehe/klines-bybit,futures; 3m..1d,economics_finance,keep_filtered,21196748942,wide,mixed,easy,False,scope 21.2 GB > 20 GB
+117,rogerdehe_klines_okx_futures_15m_1d,rogerdehe/klines-okx,futures; 15m..1d,economics_finance,keep_filtered,7856769392,wide,mixed,easy,True,ok
+118,tradecatlabs_binance_futures_ohlcv_2018_2026_candles_1m,tradecatlabs/binance-futures-ohlcv-2018-2026,candles_1m,economics_finance,keep_filtered,17249540907,long,,hard,True,ok
+119,zalizedata_global_macro_trade_indicators_dataset,zalizedata/global-macro-trade-indicators-dataset,,economics_finance,keep_filtered,1482675082,long,,hard,True,ok
+120,allratestoday_central_bank_exchange_rates,AllRatesToday/central-bank-exchange-rates,,economics_finance,check,577520322,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+121,ausapis_rba_daily_exchange_rates,ausapis/rba-daily-exchange-rates,,economics_finance,check,324401,wide,1D,medium,False,"status check (v1 uses keep, keep_filtered)"
+122,autogluon_chronos_datasets_monash_tourism_monthly_quarterly_yearly,autogluon/chronos_datasets,monash_tourism_monthly / _quarterly / _yearly,economics_finance,check,334951,nested,1M,medium,False,"status check (v1 uses keep, keep_filtered)"
+123,bkoyuncu_macroecon_one_config_per_country,bkoyuncu/MacroEcon,one config per country (64),economics_finance,check,1249028810,wide,,medium,False,"status check (v1 uses keep, keep_filtered)"
+124,jrvillabona_resonance_data,JrVillabona/resonance-data,,economics_finance,check,3851958178,events,mixed,hard,False,"status check (v1 uses keep, keep_filtered)"
+125,paperswithbacktest_commodities_daily_price_default,paperswithbacktest/Commodities-Daily-Price,default,economics_finance,check,7781778,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+126,salesforce_lotsa_data_tourism_monthly,Salesforce/lotsa_data,tourism_monthly,economics_finance,check,412056,nested,1M,medium,False,"status check (v1 uses keep, keep_filtered)"
+127,semantaai_semantaai_fx_majors,SemantaAI/semantaai-fx-majors,,economics_finance,check,63719982155,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+128,syncster_data_economic_data,syncster-data/economic-data,,economics_finance,check,29110162998,long,mixed,hard,False,"status check (v1 uses keep, keep_filtered)"
+129,yadavsaurabh_macro_markets,yadavsaurabh/macro-markets,,economics_finance,check,379843282,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+130,ai_iot_energybench_dgs,ai-iot/EnergyBench,DGS,energy,keep,51367776,long,mixed,easy,True,ok
+131,ai_iot_energybench_dth,ai-iot/EnergyBench,DTH,energy,keep,72301120,wide,mixed,easy,True,ok
+132,ai_iot_energybench_goiener,ai-iot/EnergyBench,GoiEner,energy,keep,977805383,wide,1h,medium,True,ok
+133,ai_iot_energybench_iflex,ai-iot/EnergyBench,iFlex,energy,keep,35898959,wide,1h,easy,True,ok
+134,ai_iot_energybench_lcl,ai-iot/EnergyBench,LCL,energy,keep,426923734,wide,mixed,easy,True,ok
+135,ai_iot_energybench_neea,ai-iot/EnergyBench,NEEA,energy,keep,13233,unknown,,medium,True,ok
+136,ai_iot_energybench_norwegian,ai-iot/EnergyBench,Norwegian,energy,keep,38519328,wide,1h,easy,True,ok
+137,ai_iot_energybench_prayas_ceew,ai-iot/EnergyBench,Prayas + CEEW,energy,keep,66054010,wide,mixed,medium,True,ok
+138,ai_iot_energybench_rsl,ai-iot/EnergyBench,RSL,energy,keep,169286681,events,mixed,hard,True,ok
+139,ai_iot_energybench_save,ai-iot/EnergyBench,SAVE,energy,keep,186834,unknown,,medium,True,ok
+140,ai_iot_energybench_sgsc,ai-iot/EnergyBench,SGSC,energy,keep,949678463,wide,mixed,easy,True,ok
+141,ai_iot_energybench_ukst,ai-iot/EnergyBench,UKST,energy,keep,503237,unknown,,medium,True,ok
+142,ai_iot_energybench_unicon,ai-iot/EnergyBench,UNICON,energy,keep,28798866,wide,mixed,easy,True,ok
+143,akderekaan_de_power_forecast_data_entsoe_a75_a69_weather_runs,akderekaan/de-power-forecast-data,"entsoe/a75, a69, weather runs",energy,keep,11444930,wide,,easy,True,ok
+144,alwaysbyx_bear_data,alwaysbyx/Bear-Data,,energy,keep,289696633,unknown,,hard,True,ok
+145,andrewlee1807_gyeonggi,andrewlee1807/Gyeonggi,,energy,keep,4588438001,unknown,,medium,True,ok
+146,autogluon_chronos_datasets_monash_london_smart_meters,autogluon/chronos_datasets,monash_london_smart_meters,energy,keep,597389119,nested,,medium,True,ok
+147,autogluon_chronos_datasets_wind_farms_hourly_wind_farms_daily,autogluon/chronos_datasets,wind_farms_hourly / wind_farms_daily,energy,keep,12931950,nested,mixed,medium,True,ok
+148,battery_life_batterylife_raw_zn_ion_na_ion_calb,Battery-Life/BatteryLife_Raw,"Zn-ion, Na-ion, CALB",energy,keep,7188989642,unknown,,hard,True,ok
+149,bsebench_org_nasa_rw_2014_partitioned_by_cell_id,bsebench-org/nasa-rw-2014,partitioned by cell_id,energy,keep,717459184,long,,easy,True,ok
+150,bsebench_org_warwick_second_life_dm_2025_raw_raw_mirror,bsebench-org/warwick-second-life-dm-2025-raw,"raw mirror (746 csv, 309 mat)",energy,keep,5190743422,nested,,hard,True,ok
+151,daniel_dona_ree_data_default,daniel-dona/ree-data,default,energy,keep,51834693,wide,5min,easy,True,ok
+152,eds_lab_gas_demand_demand_weather_metadata,EDS-lab/gas-demand,demand+weather+metadata,energy,keep,18118782,unknown,,medium,False,"gated, no access"
+153,emulated_inc_battery_capacity_trajectories_dataset_1_nca_2_ncm_3_ncm_nca_zips,Emulated-Inc/battery-capacity-trajectories,Dataset_1_NCA / 2_NCM / 3_NCM_NCA zips,energy,keep,1672743341,wide,,hard,True,ok
+154,fidel_ts_bear_room,fidel-ts/Bear_room,,energy,keep,1942118008,wide,5min,hard,True,ok
+155,fidel_ts_california_iso,fidel-ts/California_ISO,,energy,keep,500686098,wide,5min,hard,True,ok
+156,fidel_ts_canada_photovoltaics_plants,fidel-ts/Canada_photovoltaics_plants,,energy,keep,166726952,wide,,hard,True,ok
+157,gft_ttm4hvac_source_all_train,gft/ttm4hvac-source-all-train,,energy,keep,25398434,long,15min,easy,True,ok
+158,gtfierro_mortar_hive_partitioned_by_uuid,gtfierro/mortar,hive-partitioned by uuid,energy,keep,35528530105,long,,hard,False,scope 35.5 GB > 20 GB
+159,hackermango_hyderabaduniversity_hvac_dataset,hackermango/HyderabadUniversity_HVAC_Dataset,,energy,keep,993703,wide,10min,medium,True,ok
+160,happyman11_karnataka_sldc_preprocessed,happyman11/Karnataka-SLDC,preprocessed,energy,keep,1189453,unknown,,medium,True,ok
+161,hsilvosa_omie_electricity,hsilvosa/omie-electricity,,energy,keep,26546234,long,,medium,True,ok
+162,j_marcos_gs_brazil_solar_generation,J-Marcos-GS/brazil-solar-generation,,energy,keep,17742778,wide,,easy,True,ok
+163,jainam03_rescast_100k_ecobee,Jainam03/RESCAST-100k-ECOBEE,,energy,keep,392826426,long,,medium,True,ok
+164,jainam03_rescast_100k_heapo_timeseries_data,Jainam03/RESCAST-100k-HEAPO,timeseries_data,energy,keep,1240682643,wide,,medium,True,ok
+165,jainam03_rescast_100k_ideal,Jainam03/RESCAST-100k-IDEAL,,energy,keep,217604791,wide,,medium,True,ok
+166,jainam03_rescast_100k_nest,Jainam03/RESCAST-100k-NEST,,energy,keep,797186,wide,,medium,True,ok
+167,jainam03_rescast_100k_refit,Jainam03/RESCAST-100k-REFIT,,energy,keep,18585402,wide,,medium,True,ok
+168,jtupayac_ev_charging_demand_se_csv_sessions,jtupayac/EV_Charging_demand,"Se_*.csv sessions (+ INRIX traffic Readings.csv, weather)",energy,keep,47408250418,unknown,,medium,False,scope 47.4 GB > 20 GB
+169,judicialmind_bharatenergy_bench,judicialmind/BharatEnergy-Bench,,energy,keep,58797476,unknown,,medium,False,"gated, no access"
+170,judicialmind_bharatenergy_data_generation_daily_parquet,judicialmind/BharatEnergy-Data,generation_daily.parquet,energy,keep,13747032,unknown,1D,medium,False,"gated, no access"
+171,kevykibbz_wind_turbine_scada_data_for_early_fault_detection_wind_farm_a_b_c,kevykibbz/wind-turbine-scada-data-for-early-fault-detection,Wind Farm A/B/C,energy,keep,12825716628,long,,medium,True,ok
+172,michealsmitch_lithium_ion_cell_capacity_grading_process_curves_train,michealsmitch/lithium-ion-cell-capacity-grading-process-curves,train,energy,keep,110557702,long,,medium,True,ok
+173,narendersingh007_india_solar_benchmark_dataset,Narendersingh007/india-solar-benchmark-dataset,,energy,keep,936636710,long,,medium,True,ok
+174,netop_5g_network_energy_consumption_ecstat_clstat_bsinfo,netop/5G-Network-Energy-Consumption,ECstat + CLstat + BSinfo,energy,keep,9373650,unknown,,medium,True,ok
+175,nju_zhangsq_rmisc_applianceenergy,nju-zhangsq/RMISC,ApplianceEnergy,energy,keep,1068405,long,10min,easy,True,ok
+176,nju_zhangsq_rmisc_britaincoal,nju-zhangsq/RMISC,BritainCoal,energy,keep,11488804,long,,easy,True,ok
+177,nju_zhangsq_rmisc_buildingsbenchrealcsv,nju-zhangsq/RMISC,BuildingsBenchRealCSV,energy,keep,199319269,long,,medium,True,ok
+178,nju_zhangsq_rmisc_householdpower,nju-zhangsq/RMISC,HouseholdPower,energy,keep,18974646,long,1min,easy,True,ok
+179,nju_zhangsq_rmisc_lbnl,nju-zhangsq/RMISC,LBNL,energy,keep,122962195,long,,easy,True,ok
+180,nju_zhangsq_rmisc_mzvav,nju-zhangsq/RMISC,MZVAV,energy,keep,3420139,long,,easy,True,ok
+181,nju_zhangsq_rmisc_occupancydetection,nju-zhangsq/RMISC,OccupancyDetection,energy,keep,372030,long,,easy,True,ok
+182,nju_zhangsq_rmisc_opsd_household,nju-zhangsq/RMISC,OPSD-Household,energy,keep,50086515,long,,easy,True,ok
+183,nju_zhangsq_rmisc_opsd_pv_wind,nju-zhangsq/RMISC,OPSD-PV-Wind,energy,keep,78105934,long,,easy,True,ok
+184,nju_zhangsq_rmisc_opsd_when2heat,nju-zhangsq/RMISC,OPSD-When2Heat,energy,keep,59169324,long,,easy,True,ok
+185,nju_zhangsq_rmisc_pvdaq,nju-zhangsq/RMISC,Pvdaq,energy,keep,30459818,long,15min,easy,True,ok
+186,nju_zhangsq_rmisc_roomoccupancy,nju-zhangsq/RMISC,RoomOccupancy,energy,keep,87837,long,30s,easy,True,ok
+187,nju_zhangsq_rmisc_shellhackathon,nju-zhangsq/RMISC,ShellHackathon,energy,keep,19591815,long,,easy,True,ok
+188,nju_zhangsq_rmisc_smartmeteraus30m,nju-zhangsq/RMISC,SmartMeterAus30m,energy,keep,1338856134,long,30min,easy,True,ok
+189,nju_zhangsq_rmisc_smartmeteraus60m,nju-zhangsq/RMISC,SmartMeterAus60m,energy,keep,648692417,long,,easy,True,ok
+190,nju_zhangsq_rmisc_smartmeteruk30m,nju-zhangsq/RMISC,SmartMeterUK30m,energy,keep,638014685,long,30min,easy,True,ok
+191,nju_zhangsq_rmisc_smartmeteruk60m,nju-zhangsq/RMISC,SmartMeterUK60m,energy,keep,311066562,long,,easy,True,ok
+192,nju_zhangsq_rmisc_solar4seconds,nju-zhangsq/RMISC,Solar4Seconds,energy,keep,33474922,long,4s,easy,True,ok
+193,nju_zhangsq_rmisc_tetuanpowerconsumption,nju-zhangsq/RMISC,TetuanPowerConsumption,energy,keep,1677113,long,10min,easy,True,ok
+194,nju_zhangsq_rmisc_uk_dale,nju-zhangsq/RMISC,UK-DALE,energy,keep,112074881,long,,easy,True,ok
+195,nju_zhangsq_rmisc_windelec,nju-zhangsq/RMISC,WindElec,energy,keep,18830221,long,15min,easy,True,ok
+196,nju_zhangsq_rmisc_windpower4secs,nju-zhangsq/RMISC,WindPower4secs,energy,keep,4124606,long,4s,easy,True,ok
+197,open_predico_benchmark,open-predico/benchmark,,energy,keep,61654049,wide,,medium,True,ok
+198,openclimatefix_uk_pv_30min_parquet,openclimatefix/uk_pv,30min.parquet,energy,keep,6248827867,unknown,,medium,False,"gated, no access"
+199,openclimatefix_uk_pv_5min_parquet_2min_parquet,openclimatefix/uk_pv,5min.parquet / 2min.parquet,energy,keep,6248827867,unknown,,medium,False,"gated, no access"
+200,openstef_liander2024_energy_forecasting_benchmark_load_measurements_weather_forecasts,OpenSTEF/liander2024-energy-forecasting-benchmark,load_measurements + weather_forecasts(_versioned) + EPEX + profiles,energy,keep,118625549,wide,,medium,True,ok
+201,opensynth_tudelft_electricity_consumption_1_0_default,OpenSynth/TUDelft-Electricity-Consumption-1.0,default,energy,keep,3958617436,long,mixed,medium,True,ok
+202,powerzoojax_powerzoodataset_ausgrid_zone_substation,PowerZooJax/PowerZooDataset,ausgrid_zone_substation,energy,keep,62966729,long,15min,easy,True,ok
+203,powerzoojax_powerzoodataset_gb_neso_demand_gb_gen_by_type_gb_market_mid_gb_forecast_actual_demand,PowerZooJax/PowerZooDataset,gb_neso_demand + gb_gen_by_type + gb_market_mid + gb_forecast_actual_demand,energy,keep,13082747,wide,30min,medium,True,ok
+204,rebase_energy_heftcom2024_default,rebase-energy/heftcom2024,default,energy,keep,17662886,wide,,medium,True,ok
+205,rebase_energy_nve_windpower_data_nve_windpower_timeseries_csv,rebase-energy/nve-windpower-data,nve-windpower-timeseries.csv,energy,keep,46953394,unknown,,medium,True,ok
+206,rif_sql_uk_electricity_generation_mix_2019_2026,Rif-SQL/uk-electricity-generation-mix-2019-2026,,energy,keep,33030244,wide,30min,medium,True,ok
+207,salesforce_lotsa_data_bdg_2_bear,Salesforce/lotsa_data,bdg-2_bear,energy,keep,5934008,nested,1h,medium,True,ok
+208,salesforce_lotsa_data_bdg_2_fox,Salesforce/lotsa_data,bdg-2_fox,energy,keep,9304680,nested,1h,medium,True,ok
+209,salesforce_lotsa_data_bdg_2_panther,Salesforce/lotsa_data,bdg-2_panther,energy,keep,3684768,nested,1h,medium,True,ok
+210,salesforce_lotsa_data_bdg_2_rat,Salesforce/lotsa_data,bdg-2_rat,energy,keep,18925168,nested,1h,medium,True,ok
+211,salesforce_lotsa_data_borealis,Salesforce/lotsa_data,borealis,energy,keep,334496,nested,1h,medium,True,ok
+212,salesforce_lotsa_data_ideal,Salesforce/lotsa_data,ideal,energy,keep,5028080,nested,1h,medium,True,ok
+213,salesforce_lotsa_data_lcl,Salesforce/lotsa_data,lcl,energy,keep,38196632,nested,1h,medium,True,ok
+214,salesforce_lotsa_data_london_smart_meters_with_missing,Salesforce/lotsa_data,london_smart_meters_with_missing,energy,keep,665112664,nested,30min,medium,True,ok
+215,salesforce_lotsa_data_residential_load_power,Salesforce/lotsa_data,residential_load_power,energy,keep,1751952480,nested,1min,medium,True,ok
+216,salesforce_lotsa_data_residential_pv_power,Salesforce/lotsa_data,residential_pv_power,energy,keep,1504082856,nested,1min,medium,True,ok
+217,salesforce_lotsa_data_sceaux,Salesforce/lotsa_data,sceaux,energy,keep,137944,nested,1h,medium,True,ok
+218,salesforce_lotsa_data_smart,Salesforce/lotsa_data,smart,energy,keep,383992,nested,1h,medium,True,ok
+219,salesforce_lotsa_data_solar_power,Salesforce/lotsa_data,solar_power,energy,keep,29589936,nested,4s,medium,True,ok
+220,salesforce_lotsa_data_wind_farms_with_missing,Salesforce/lotsa_data,wind_farms_with_missing,energy,keep,688671864,nested,1min,medium,True,ok
+221,salesforce_lotsa_data_wind_power,Salesforce/lotsa_data,wind_power,energy,keep,29589640,nested,4s,medium,True,ok
+222,samuelm0422_hourly_electricity_demand_brazil_dataset,SamuelM0422/Hourly-Electricity-Demand-Brazil-Dataset,,energy,keep,2304250,long,1h,easy,True,ok
+223,samuelm0422_ons_capacity_factor_dataset_full,SamuelM0422/ONS-Capacity-Factor-Dataset-Full,,energy,keep,2106288708,nested,,medium,True,ok
+224,skforecast_ashrae_daily,skforecast/ashrae_daily,,energy,keep,3672152,long,1D,easy,True,ok
+225,solarbench_skippd_ground_ground_no_sky_img_era5_gfs,solarbench/SKIPPD,ground / ground_no_sky_img / ERA5 / GFS,energy,keep,2347438245,wide,,medium,True,ok
+226,yzzpz_charged_data_10_csv_per_city,yzzpz/Charged-data,10 csv per city (some in .rar),energy,keep,1329742542,unknown,,hard,True,ok
+227,ai_iot_energybench_real_subsets_overall,ai-iot/EnergyBench,real subsets overall (Dataset_V0.0),energy,keep_filtered,166375088867,long,,medium,False,scope 166.4 GB > 20 GB
+228,alinurdin_time_series_benchmark_eia_hourly_madrid_15min_webtris_15min_usgs_daily_usgs_continuous_hydat_daily_bom_daily_c,alinurdin/time-series-benchmark,"eia_hourly,madrid_15min,webtris_15min,usgs_daily,usgs_continuous,hydat_daily,bom_daily,caravan_daily,isd_hourly,swissmetnet_10min,ghcnd_daily",energy,keep_filtered,131263283,long,mixed,medium,True,ok
+229,marplan6_batgrad_pozzato_2022,marplan6/batgrad,pozzato-2022 (real) vs synthetic-pozzato-2022-m50t (drop),energy,keep_filtered,7718965502,wide,,medium,True,ok
+230,zalizedata_us_grid_hourly_power_plants_dataset,zalizedata/us-grid-hourly-power-plants-dataset,,energy,keep_filtered,1064794473,wide,,hard,True,ok
+231,alinurdin_time_series_benchmark_eia_hourly,alinurdin/time-series-benchmark,eia_hourly,energy,check,32659607,long,1h,easy,False,"status check (v1 uses keep, keep_filtered)"
+232,alinurdin_time_series_benchmark_opsd_load,alinurdin/time-series-benchmark,opsd_load,energy,check,11760074,long,,easy,False,"status check (v1 uses keep, keep_filtered)"
+233,autogluon_chronos_datasets_monash_australian_electricity,autogluon/chronos_datasets,monash_australian_electricity,energy,check,16856156,nested,30min,medium,False,"status check (v1 uses keep, keep_filtered)"
+234,autogluon_chronos_datasets_solar_solar_1h,autogluon/chronos_datasets,solar / solar_1h,energy,check,1632440337,nested,1h,medium,False,"status check (v1 uses keep, keep_filtered)"
+235,autogluon_chronos_datasets_extra_spanish_energy_and_weather,autogluon/chronos_datasets_extra,spanish_energy_and_weather,energy,check,0,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+236,dag_upb_ts_arena_archive_default,DAG-UPB/TS-Arena-Archive,default,energy,check,3795191796,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+237,eds_lab_electricity_demand_demand_weather_metadata,EDS-lab/electricity-demand,demand+weather+metadata,energy,check,1099470605,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+238,eds_lab_pv_generation_generation_weather_metadata,EDS-lab/pv-generation,generation+weather+metadata,energy,check,870553353,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+239,fidel_ts_germany_renewable_energy_grid,fidel-ts/Germany_Renewable_Energy_Grid,,energy,check,1379581709,wide,,hard,False,"status check (v1 uses keep, keep_filtered)"
+240,hsilvosa_entsoe_observatory_8_tables,hsilvosa/entsoe-observatory,8 tables,energy,check,389178831,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+241,louey9999_wattcast_data_default,louey9999/wattcast-data,default,energy,check,28817472,wide,,medium,False,"status check (v1 uses keep, keep_filtered)"
+242,nju_zhangsq_rmisc_opsd,nju-zhangsq/RMISC,OPSD,energy,check,70198284,long,,easy,False,"status check (v1 uses keep, keep_filtered)"
+243,opensynth_ai4opt_ts4ps_rte7000_tables,OpenSynth/AI4OPT-TS4PS-RTE7000,"tables (lines, generators, loads, ...)",energy,check,40012625263,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+244,optimalsolution_databank_ember_19_tables,OptimalSolution/databank-ember,"19 tables (generation monthly/yearly, prices, capacity, ...)",energy,check,26680926,long,,hard,False,"status check (v1 uses keep, keep_filtered)"
+245,qingshufan_ga_evlru,qingshufan/GA-EVLRU,,energy,check,40050704,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+246,salesforce_lotsa_data_australian_electricity_demand,Salesforce/lotsa_data,australian_electricity_demand,energy,check,4615480,nested,30min,medium,False,"status check (v1 uses keep, keep_filtered)"
+247,thulab_m2oe2_timeseries_8_tables,THULab/m2oe2_timeseries,"8 tables (building_train, building weather, household consumption, residential power usage + weather, solar + weather, Spanish energy + weather)",energy,check,69694869,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+248,ylanharrault_rte_eco2mix_regional_2025,YlanHARRAULT/rte-eco2mix-regional-2025,,energy,check,15578236,long,6h,easy,False,"status check (v1 uses keep, keep_filtered)"
+249,abmallick_heart_breath_sleep_stage_dataset,abmallick/heart-breath-sleep-stage-dataset,,health,keep,230633934,long,,easy,True,ok
+250,ajto_goldencheetah,ajto/GoldenCheetah,,health,keep,165132101,long,,medium,True,ok
+251,bsaenz_dreamt,bsaenz/dreamt,,health,keep,159249462203,wide,,medium,False,scope 159.2 GB > 20 GB
+252,cruiseresearchgroup_cgm_jepa_pretraining,CRUISEResearchGroup/CGM-JEPA-Pretraining,,health,keep,12336941,wide,30min,medium,True,ok
+253,epi_eval_canada_fluwatch,EPI-Eval/canada-fluwatch,,health,keep,28088,long,,easy,True,ok
+254,epi_eval_cdc_nrevss_rsv,EPI-Eval/cdc-nrevss-rsv,,health,keep,51341,long,,easy,True,ok
+255,epi_eval_cdc_nssp,EPI-Eval/cdc-nssp,,health,keep,28605,long,,easy,True,ok
+256,epi_eval_delphi_flusurv,EPI-Eval/delphi-flusurv,,health,keep,61954,long,,easy,True,ok
+257,epi_eval_nhsn_hrd,EPI-Eval/nhsn-hrd,,health,keep,943250,long,,easy,True,ok
+258,glucofmbench_glucofm_bench,glucofmbench/GlucoFM-Bench,,health,keep,18357340,nested,,medium,True,ok
+259,hhs_official_nndss_weekly_data,HHS-Official/nndss-weekly-data,,health,keep,161318547,long,,medium,True,ok
+260,hhs_official_sars_cov_2_variant_proportions,HHS-Official/sars-cov-2-variant-proportions,,health,keep,338533163,wide,,medium,True,ok
+261,hhs_official_weekly_counts_of_deaths_from_all_causes_by_jurisdi,HHS-Official/weekly-counts-of-deaths-from-all-causes-by-jurisdi,,health,keep,3167681,wide,,medium,True,ok
+262,hhs_official_weekly_provisional_counts_of_deaths_by_state_and_s,HHS-Official/weekly-provisional-counts-of-deaths-by-state-and-s,,health,keep,1776773,wide,,medium,True,ok
+263,hhs_official_weekly_rates_of_laboratory_confirmed_rsv_hospitali,HHS-Official/weekly-rates-of-laboratory-confirmed-rsv-hospitali,,health,keep,13945656,long,,medium,True,ok
+264,hhs_official_weekly_united_states_covid_19_hospitalization_metr,HHS-Official/weekly-united-states-covid-19-hospitalization-metr,,health,keep,994355,long,1W,medium,True,ok
+265,judicialmind_hmis_bench,judicialmind/HMIS-Bench,,health,keep,883033059,unknown,,medium,False,"gated, no access"
+266,judicialmind_indiadiseasewatch_panel_parquet,judicialmind/IndiaDiseaseWatch,panel.parquet,health,keep,11261388,unknown,,medium,False,"gated, no access"
+267,lvinaud_arboviral_alerta_dados,LVinaud/arboviral-alerta-dados,,health,keep,983133235,wide,,hard,True,ok
+268,national_digital_au_ed_patients_seen_on_time,National-Digital/au-ed-patients-seen-on-time,,health,keep,104101,long,,medium,True,ok
+269,national_digital_au_elective_surgery_waiting_times_by_specialty,National-Digital/au-elective-surgery-waiting-times-by-specialty,,health,keep,151967,long,,medium,True,ok
+270,nju_zhangsq_rmisc_hungarianchickenpoxcases,nju-zhangsq/RMISC,HungarianChickenpoxCases,health,keep,31642,long,,easy,True,ok
+271,ohja_ai_rki_grippe_web_wochenbericht_2026_02_06,Ohja-ai/rki-grippe-web-wochenbericht-2026-02-06,,health,keep,839966,long,,medium,True,ok
+272,pedrolucassantanaf_dengue_tcc2_data,pedrolucassantanaf/dengue-tcc2-data,,health,keep,4285445736,unknown,,hard,False,"gated, no access"
+273,rricc22_endomondo_hr_prediction_v2,rricc22/endomondo-hr-prediction-v2,,health,keep,677624875,nested,,medium,True,ok
+274,ruiqil_spatialepibench_aucase_cacase_canpositivity_chnginpatient_chngoutpatient_cpradmissions_dvcli_hhshosp,ruiqil/SpatialEpiBench,"AUcase,CAcase,CANpositivity,CHNGinpatient,CHNGoutpatient,CPRadmissions,DVcli,HHShosp",health,keep,4337759,long,,medium,True,ok
+275,salesforce_lotsa_data_cdc_fluview_ilinet,Salesforce/lotsa_data,cdc_fluview_ilinet,health,keep,1283224,nested,1W,medium,True,ok
+276,salesforce_lotsa_data_cdc_fluview_who_nrevss,Salesforce/lotsa_data,cdc_fluview_who_nrevss,health,keep,672944,nested,1W,medium,True,ok
+277,salesforce_lotsa_data_project_tycho,Salesforce/lotsa_data,project_tycho,health,keep,5586752,nested,1W,medium,True,ok
+278,thuml_utsd_tdbrain,thuml/UTSD,TDBrain,health,keep,6386755512,nested,mixed,medium,True,ok
+279,uvathe_wellborn_pregnancy_wearable,Uvathe/wellborn-pregnancy-wearable,,health,keep,17262743,unknown,,hard,True,ok
+280,dragonbornray_fludataset,DragonbornRay/FluDataset,,health,check,492132291,long,,hard,False,"status check (v1 uses keep, keep_filtered)"
+281,epi_eval_covid_tracking_project,EPI-Eval/covid-tracking-project,,health,check,613583,long,,easy,False,"status check (v1 uses keep, keep_filtered)"
+282,epi_eval_nyt_covid,EPI-Eval/nyt-covid,,health,check,12725155,long,,easy,False,"status check (v1 uses keep, keep_filtered)"
+283,ruiqil_spatialepibench_ili2019,ruiqil/SpatialEpiBench,ILI2019,health,check,210396,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+284,ruiqil_spatialepibench_jhucase,ruiqil/SpatialEpiBench,JHUcase,health,check,159382,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+285,ruiqil_spatialepibench_nchsdeaths,ruiqil/SpatialEpiBench,NCHSdeaths,health,check,84879,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+286,thuml_utsd_bidmc32hr_ieeeppg_motorimagery_selfregulationscp1_selfregulationscp2_pigartpressure_pigcvp_atrialfibrillation,thuml/UTSD,BIDMC32HR / IEEEPPG / MotorImagery / SelfRegulationSCP1 / SelfRegulationSCP2 / PigArtPressure / PigCVP / AtrialFibrillation,health,check,6386755512,nested,mixed,medium,False,"status check (v1 uses keep, keep_filtered)"
+287,cashlessconsumer_chennai_rain_gauges,CashlessConsumer/chennai-rain-gauges,,hydrology_ocean,keep,14418624,long,,hard,True,ok
+288,ceepr_bit_dianchi_water,ceepr-bit/dianchi-water,,hydrology_ocean,keep,3230097,long,,medium,True,ok
+289,chrimerss_rsi_benchmark_hydro,chrimerss/RSI-benchmark-hydro,,hydrology_ocean,keep,16113138,long,,hard,True,ok
+290,cjc0013_ouroboros_ooi_ctd_benchmark,cjc0013/ouroboros-ooi-ctd-benchmark,,hydrology_ocean,keep,107772970,long,,medium,True,ok
+291,cmu_ospo_data_for_extended_range_water_demand_forecasts_driven_by_subseasonal_to_seasonal,CMU-OSPO/Data_for_Extended-Range_Water_Demand_Forecasts_Driven_by_Subseasonal-to-Seasonal,,hydrology_ocean,keep,2051191,wide,,medium,True,ok
+292,copernicus_argentina_estado_hidrico_argentina_2001_2026,copernicus-argentina/estado-hidrico-argentina-2001-2026,,hydrology_ocean,keep,9381664,unknown,,medium,True,ok
+293,copernicus_argentina_lagunas_pampeanas_2018_2026,copernicus-argentina/lagunas-pampeanas-2018-2026,,hydrology_ocean,keep,1562094,long,,medium,True,ok
+294,copernicus_argentina_parana_alturas_historicas_1900_2026,copernicus-argentina/parana-alturas-historicas-1900-2026,,hydrology_ocean,keep,32858748,long,,medium,True,ok
+295,earino_noaa_tide_flooding,earino/noaa-tide-flooding,,hydrology_ocean,keep,196059041,long,,medium,True,ok
+296,emulated_inc_sci_arctic_sea_ice_forecast_later_years,Emulated-Inc/sci-arctic-sea-ice-forecast-later-years,,hydrology_ocean,keep,1940635364,unknown,,hard,True,ok
+297,emulated_inc_sci_lake_temperature_profiles_unmonitored,Emulated-Inc/sci-lake-temperature-profiles-unmonitored,,hydrology_ocean,keep,1995141120,unknown,,hard,True,ok
+298,henryyhw_baton,HenryYHW/BATON,,hydrology_ocean,keep,1603566666763,unknown,,hard,False,scope 1603.6 GB > 20 GB
+299,jotone_pcfvg_weatherstations,jotone/pcfvg-weatherstations,,hydrology_ocean,keep,276311224,long,,medium,True,ok
+300,judicialmind_bharatwater_bench,judicialmind/BharatWater-Bench,,hydrology_ocean,keep,406638844,unknown,,medium,False,"gated, no access"
+301,judicialmind_bharatwater_data,judicialmind/BharatWater-Data,,hydrology_ocean,keep,32303079,unknown,,medium,False,"gated, no access"
+302,national_digital_au_water_storage_levels,National-Digital/au-water-storage-levels,,hydrology_ocean,keep,56124899,long,,medium,True,ok
+303,national_digital_vic_melbourne_water_daily_storage,National-Digital/vic-melbourne-water-daily-storage,,hydrology_ocean,keep,2064521,long,,medium,True,ok
+304,phanerozoic_noaa_ww3_multi1_points_wmo,phanerozoic/noaa-ww3-multi1-points,wmo/ (hourly wind + Hs + Tp at ~700 points); part/ and spec/ less useful,hydrology_ocean,keep,1012439219,unknown,,hard,True,ok
+305,phanerozoic_ww3_ndbc_pairs,phanerozoic/ww3-ndbc-pairs,,hydrology_ocean,keep,81338411,long,,easy,True,ok
+306,qdrant_noaa_buoy,Qdrant/NOAA-Buoy,,hydrology_ocean,keep,172262061,wide,,medium,True,ok
+307,surfe_diem_wave_archive_usa_southwest,surfe-diem/wave-archive-USA-southwest,,hydrology_ocean,keep,297328313,wide,,medium,True,ok
+308,taziksh_argo_profiles,taziksh/argo-profiles,,hydrology_ocean,keep,13345447194,nested,,medium,True,ok
+309,xairon_piezo_embedding_benchmark,xairon/piezo-embedding-benchmark,,hydrology_ocean,keep,591059735,long,,medium,True,ok
+310,zer0contextlost_waterwatch_runoff,zer0contextlost/waterwatch-runoff,,hydrology_ocean,keep,34150798,long,,medium,True,ok
+311,emulated_inc_sci_streamflow_ungauged_new_country,Emulated-Inc/sci-streamflow-ungauged-new-country,,hydrology_ocean,keep_filtered,22457118720,unknown,,hard,True,over 20 GB (22.5 GB) but on the allow list
+312,national_digital_qld_coastal_waves_cairns,National-Digital/qld-coastal-waves-cairns,,hydrology_ocean,check,191989,wide,30min,medium,False,"status check (v1 uses keep, keep_filtered)"
+313,rekin226_aquascope_gauges_observation_bundles,Rekin226/aquascope-gauges,"observation bundles (USGS, UK EA, BOM, Hub'Eau, PEGELONLINE, ...)",hydrology_ocean,check,3557783604,long,,hard,False,"status check (v1 uses keep, keep_filtered)"
+314,amgharr_femto_st_dataset,Amgharr/FEMTO-ST_DATASET,,industrial,keep,2261843499,long,,easy,True,ok
+315,arailym_tleubayeva_nk_oil_well_sensor_monitoring_v2,Arailym-tleubayeva/NK-Oil-Well-Sensor-Monitoring-v2,,industrial,keep,39691448,long,30min,medium,True,ok
+316,arailym_tleubayeva_nk_oil_well_sensor_monitoring_v2_train_test,Arailym-tleubayeva/NK-Oil-Well-Sensor-Monitoring-v2,train/test,industrial,keep,39691448,long,30min,medium,True,ok
+317,cduong04_ngafid_loci_gats_data,CDuong04/NGAFID-LOCI-GATS-Data,,industrial,keep,39625221925,unknown,,medium,False,scope 39.6 GB > 20 GB
+318,emulated_inc_sci_booster_gmps_regulation_forecast,Emulated-Inc/sci-booster-gmps-regulation-forecast,,industrial,keep,1345065816,wide,,medium,True,ok
+319,emulated_inc_sci_vlt_turbulence_from_ao_telemetry,Emulated-Inc/sci-vlt-turbulence-from-ao-telemetry,,industrial,keep,57350994880,unknown,,hard,False,scope 57.4 GB > 20 GB
+320,henryyhw_cantraj,HenryYHW/CANTraj,,industrial,keep,29366705905,unknown,,hard,False,"gated, no access"
+321,jwsouza13_eved,jwsouza13/eVED,,industrial,keep,690402908,events,,hard,True,ok
+322,krohnedigital_fuelcast,krohnedigital/FuelCast,,industrial,keep,17494400,long,,medium,True,ok
+323,mihnathul_celljar,mihnathul/celljar,,industrial,keep,4168491953,long,,medium,True,ok
+324,nju_zhangsq_rmisc_batteryrul,nju-zhangsq/RMISC,BatteryRUL,industrial,keep,504402,long,,easy,True,ok
+325,nju_zhangsq_rmisc_boschcnc,nju-zhangsq/RMISC,BoschCNC,industrial,keep,145949576,long,,easy,True,ok
+326,nju_zhangsq_rmisc_frothflotation,nju-zhangsq/RMISC,FrothFlotation,industrial,keep,353621,long,,easy,True,ok
+327,nju_zhangsq_rmisc_gaspipeline,nju-zhangsq/RMISC,GasPipeline,industrial,keep,286363,long,,easy,True,ok
+328,nju_zhangsq_rmisc_gassensordynamic,nju-zhangsq/RMISC,GasSensorDynamic,industrial,keep,60150024,long,,easy,True,ok
+329,nju_zhangsq_rmisc_gassensortemperature,nju-zhangsq/RMISC,GasSensorTemperature,industrial,keep,129331323,long,,easy,True,ok
+330,nju_zhangsq_rmisc_metropt3,nju-zhangsq/RMISC,Metropt3,industrial,keep,8292728,long,,easy,True,ok
+331,nju_zhangsq_rmisc_motortemperature,nju-zhangsq/RMISC,MotorTemperature,industrial,keep,109240982,long,,easy,True,ok
+332,nju_zhangsq_rmisc_oilwell,nju-zhangsq/RMISC,OilWell,industrial,keep,960086601,long,,medium,True,ok
+333,nju_zhangsq_rmisc_pump,nju-zhangsq/RMISC,PUMP,industrial,keep,43475346,long,,easy,True,ok
+334,nju_zhangsq_rmisc_swat,nju-zhangsq/RMISC,SWAT,industrial,keep,5283114,long,5s,easy,True,ok
+335,nju_zhangsq_rmisc_wadi,nju-zhangsq/RMISC,WADI,industrial,keep,45055487,long,5s,easy,True,ok
+336,samlzy_mcc5_thu_motor,Samlzy/MCC5-THU-Motor,,industrial,keep,12716290408,unknown,,hard,True,ok
+337,thuml_utsd_sensordata,thuml/UTSD,SensorData,industrial,keep,6386755512,nested,mixed,medium,True,ok
+338,xijiazhao_casemotordataset_dated_folders,xijiazhao/casemotordataset,dated folders,industrial,keep,3318411496,unknown,,hard,True,ok
+339,xijiazhao_welding2_trial_1_trial_2,xijiazhao/welding2,"trial=1, trial=2",industrial,keep,2211848192,unknown,,hard,True,ok
+340,cognitedata_ind_eval,cognitedata/IND-Eval,,industrial,keep_filtered,11202736929,wide,mixed,hard,True,ok
+341,forgis_factorynet_factorywave_voraus_aursad_cnc,Forgis/FactoryNet,"factorywave_*, voraus_*, aursad_*, cnc_*",industrial,keep_filtered,10803685833,long,,medium,True,ok
+342,yahya2491_3w_pipeline,Yahya2491/3w-pipeline,,industrial,keep_filtered,1873136058,wide,,hard,True,ok
+343,scalytics_smartmeterdata_smartmeter_csv,scalytics/smartmeterdata,smartmeter_*.csv,industrial,check,903523442,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+344,adrien97_velib_monitoring_historical,Adrien97/velib-monitoring-historical,,mobility,keep,23915845,long,,medium,True,ok
+345,aiacademy_kg_bishkek_transport,aiacademy-kg/bishkek-transport,,mobility,keep,5301438070,long,,medium,True,ok
+346,algo0o_flight_delay_default,Algo0o/flight_delay,default,mobility,keep,6883618747,long,,hard,True,ok
+347,amandahattaway_bike_lane_lakehouse,AmandaHattaway/bike-lane-lakehouse,,mobility,keep,91026434,long,,medium,True,ok
+348,angelosaadeh_velib,angelosaadeh/velib,,mobility,keep,40336623,long,,medium,True,ok
+349,arimancy_bts_flights_weather,Arimancy/bts-flights-weather,,mobility,keep,6087292352,long,1h,medium,True,ok
+350,autogluon_chronos_datasets_mexico_city_bikes,autogluon/chronos_datasets,mexico_city_bikes,mobility,keep,103206946,nested,,medium,True,ok
+351,autogluon_chronos_datasets_monash_pedestrian_counts,autogluon/chronos_datasets,monash_pedestrian_counts,mobility,keep,12377357,nested,,medium,True,ok
+352,autogluon_chronos_datasets_monash_rideshare,autogluon/chronos_datasets,monash_rideshare,mobility,keep,781873,nested,1h,medium,True,ok
+353,autogluon_chronos_datasets_monash_traffic,autogluon/chronos_datasets,monash_traffic,mobility,keep,52748547,nested,1h,medium,True,ok
+354,autogluon_chronos_datasets_taxi_30min_taxi_1h,autogluon/chronos_datasets,taxi_30min / taxi_1h,mobility,keep,6806541,nested,mixed,medium,True,ok
+355,autogluon_chronos_datasets_uber_tlc_hourly_uber_tlc_daily,autogluon/chronos_datasets,uber_tlc_hourly / uber_tlc_daily,mobility,keep,1963262,nested,mixed,medium,True,ok
+356,chengsenwang_cgtsf_ptf,ChengsenWang/CGTSF,PTF (Paris traffic flow),mobility,keep,18549020,unknown,,medium,True,ok
+357,danipaez_velib_tft_default,danipaez/velib_tft,default,mobility,keep,742316868,long,,medium,True,ok
+358,digitalhen_nyc_subway_realtime,digitalhen/nyc-subway-realtime,,mobility,keep,5834211468,unknown,,medium,False,"gated, no access"
+359,digitalhen_us_airport_wait_times,digitalhen/us-airport-wait-times,,mobility,keep,438601817,wide,,medium,True,ok
+360,dmariaa70_go_mo,dmariaa70/GO-MO,,mobility,keep,56098797931,long,,hard,False,scope 56.1 GB > 20 GB
+361,donny_guo_airline_delay,Donny-Guo/airline-delay,,mobility,keep,1348978199,long,,medium,True,ok
+362,epi_eval_global_mobility,EPI-Eval/global-mobility,,mobility,keep,77964402,long,,easy,True,ok
+363,femartip_valencia_urban_mobility,femartip/valencia-urban-mobility,,mobility,keep,14415342843,long,,hard,True,ok
+364,feregrino_london_cycles,feregrino/london-cycles,,mobility,keep,4306368334,unknown,,medium,True,ok
+365,fidel_ts_nyc_traffic_speed,fidel-ts/NYC_traffic_speed,,mobility,keep,5342673648,wide,,hard,True,ok
+366,fulldecent_septa_regionalrail_otp,fulldecent/septa-regionalrail-otp,,mobility,keep,57769552,wide,1Y,easy,True,ok
+367,gigigi7_ais_dataset_default,gigigi7/AIS_Dataset,default,mobility,keep,7339764568,unknown,,hard,True,ok
+368,jakov_bajs_zagreb_station_status,Jakov/bajs-zagreb,station_status,mobility,keep,230233092,long,,easy,True,ok
+369,jhumbl_dft_vehicle_licensing,jhumbl/dft-vehicle-licensing,,mobility,keep,27143980,long,,hard,True,ok
+370,jhumbl_orr_station_usage,jhumbl/orr-station-usage,,mobility,keep,2478567,long,,hard,True,ok
+371,jhumbl_tfl_network_demand,jhumbl/tfl-network-demand,,mobility,keep,20568407,long,,hard,True,ok
+372,karry001_movemelbourne_gtfsr,Karry001/movemelbourne-gtfsr,,mobility,keep,342310370,events,,hard,True,ok
+373,kpubdata_seoul_bike_rent_month,kpubdata/seoul-bike-rent-month,,mobility,keep,10829730,long,1M,medium,True,ok
+374,malavnaik_dublin_bikes_weather_raw,Malavnaik/dublin-bikes-weather-raw,,mobility,keep,30827322,long,,medium,True,ok
+375,matrosovdani_moscow_parking_occupancy,matrosovdani/moscow-parking-occupancy,,mobility,keep,12945611,long,,medium,True,ok
+376,mlcapstonerideshare_rideshare_trips,MLCapstoneRideshare/rideshare-trips,,mobility,keep,68752278854,events,,hard,False,scope 68.8 GB > 20 GB
+377,national_digital_nsw_traffic_volume_yearly,National-Digital/nsw-traffic-volume-yearly,,mobility,keep,2369493,long,,medium,True,ok
+378,nju_zhangsq_rmisc_bts,nju-zhangsq/RMISC,BTS,mobility,keep,90376286,long,,easy,True,ok
+379,nju_zhangsq_rmisc_chengdutaxi,nju-zhangsq/RMISC,ChengduTaxi,mobility,keep,14086029,long,,easy,True,ok
+380,nju_zhangsq_rmisc_largest,nju-zhangsq/RMISC,LargeST,mobility,keep,4872486546,long,5min,medium,True,ok
+381,nju_zhangsq_rmisc_metrotraffic,nju-zhangsq/RMISC,MetroTraffic,mobility,keep,510294,long,,easy,True,ok
+382,nju_zhangsq_rmisc_pemscalifornia,nju-zhangsq/RMISC,PEMSCalifornia,mobility,keep,77537196,long,,easy,True,ok
+383,nju_zhangsq_rmisc_t_drive,nju-zhangsq/RMISC,T-Drive,mobility,keep,201487124,long,10min,easy,True,ok
+384,olaflaitinen_baku_metro_station_flow,olaflaitinen/baku-metro-station-flow,,mobility,keep,1754369,long,,medium,True,ok
+385,orailix_ride_silver,orailix/ride-silver,,mobility,keep,1552514004,long,,medium,True,ok
+386,piebro_deutsche_bahn_data,piebro/deutsche-bahn-data,,mobility,keep,91166396809,long,,medium,False,scope 91.2 GB > 20 GB
+387,salesforce_lotsa_data_beijing_subway_30min,Salesforce/lotsa_data,BEIJING_SUBWAY_30MIN,mobility,keep,22583264,nested,30min,medium,True,ok
+388,salesforce_lotsa_data_covid_mobility,Salesforce/lotsa_data,covid_mobility,mobility,keep,604432,nested,1D,medium,True,ok
+389,salesforce_lotsa_data_hzmetro,Salesforce/lotsa_data,HZMETRO,mobility,keep,1524752,nested,15min,medium,True,ok
+390,salesforce_lotsa_data_largest_2017,Salesforce/lotsa_data,largest_2017,mobility,keep,3446496072,nested,5min,medium,True,ok
+391,salesforce_lotsa_data_largest_2018,Salesforce/lotsa_data,largest_2018,mobility,keep,3544055632,nested,5min,medium,True,ok
+392,salesforce_lotsa_data_largest_2019,Salesforce/lotsa_data,largest_2019,mobility,keep,3616383568,nested,5min,medium,True,ok
+393,salesforce_lotsa_data_largest_2020,Salesforce/lotsa_data,largest_2020,mobility,keep,3609846048,nested,5min,medium,True,ok
+394,salesforce_lotsa_data_largest_2021,Salesforce/lotsa_data,largest_2021,mobility,keep,3594517192,nested,5min,medium,True,ok
+395,salesforce_lotsa_data_los_loop,Salesforce/lotsa_data,LOS_LOOP,mobility,keep,28384032,nested,5min,medium,True,ok
+396,salesforce_lotsa_data_pedestrian_counts,Salesforce/lotsa_data,pedestrian_counts,mobility,keep,12525656,nested,1h,medium,True,ok
+397,salesforce_lotsa_data_pems03,Salesforce/lotsa_data,PEMS03,mobility,keep,37540912,nested,5min,medium,True,ok
+398,salesforce_lotsa_data_pems04,Salesforce/lotsa_data,PEMS04,mobility,keep,62609704,nested,5min,medium,True,ok
+399,salesforce_lotsa_data_pems07,Salesforce/lotsa_data,PEMS07,mobility,keep,99710152,nested,5min,medium,True,ok
+400,salesforce_lotsa_data_pems08,Salesforce/lotsa_data,PEMS08,mobility,keep,36432904,nested,5min,medium,True,ok
+401,salesforce_lotsa_data_pems_bay,Salesforce/lotsa_data,PEMS_BAY,mobility,keep,67776520,nested,5min,medium,True,ok
+402,salesforce_lotsa_data_q_traffic,Salesforce/lotsa_data,Q-TRAFFIC,mobility,keep,1059057456,nested,15min,medium,True,ok
+403,salesforce_lotsa_data_rideshare_with_missing,Salesforce/lotsa_data,rideshare_with_missing,mobility,keep,3498256,nested,1h,medium,True,ok
+404,salesforce_lotsa_data_shmetro,Salesforce/lotsa_data,SHMETRO,mobility,keep,20305632,nested,15min,medium,True,ok
+405,salesforce_lotsa_data_taxi_30min,Salesforce/lotsa_data,taxi_30min,mobility,keep,221915960,nested,30min,medium,True,ok
+406,salesforce_lotsa_data_traffic_hourly,Salesforce/lotsa_data,traffic_hourly,mobility,keep,59934920,nested,1h,medium,True,ok
+407,salesforce_lotsa_data_uber_tlc_daily,Salesforce/lotsa_data,uber_tlc_daily,mobility,keep,195560,nested,1D,medium,True,ok
+408,salesforce_lotsa_data_uber_tlc_hourly,Salesforce/lotsa_data,uber_tlc_hourly,mobility,keep,4524984,nested,1h,medium,True,ok
+409,salesforce_lotsa_data_vehicle_trips_with_missing,Salesforce/lotsa_data,vehicle_trips_with_missing,mobility,keep,139184,nested,1D,medium,True,ok
+410,somemone_ac_transit_apc,somemone/ac-transit-apc,,mobility,keep,6301219982,events,,hard,True,ok
+411,swadhinbiswas_air_traffic,swadhinbiswas/air-traffic,,mobility,keep,28913607878,long,,medium,False,scope 28.9 GB > 20 GB
+412,vinicius_souza_antaq,vinicius-souza/antaq,,mobility,keep,786224848,wide,,hard,True,ok
+413,witgaw_metr_la,witgaw/METR-LA,,mobility,keep,229294722,long,5min,hard,True,ok
+414,witgaw_pems_bay,witgaw/PEMS-BAY,,mobility,keep,515641377,long,5min,hard,True,ok
+415,yadavsaurabh_indian_railways_runs,yadavsaurabh/indian-railways-runs,,mobility,keep,34687585052,long,,medium,False,scope 34.7 GB > 20 GB
+416,yind7_evoxxltraffic,yind7/EvoXXLTraffic,,mobility,keep,201242162791,unknown,,hard,False,scope 201.2 GB > 20 GB
+417,youngbongbong_30_od_subway_default,youngbongbong/30_od_subway,default,mobility,keep,207238294,long,,easy,True,ok
+418,youngbongbong_mobility_dataset,youngbongbong/mobility_dataset,,mobility,keep,10279549766,long,,easy,True,ok
+419,yuiseki_meta_range_maps_2022_05,yuiseki/meta-range-maps-2022-05,,mobility,keep,218716687,long,,hard,True,ok
+420,yuiseki_npa_traffic_accidents,yuiseki/npa-traffic-accidents,,mobility,keep,571350538,unknown,,hard,True,ok
+421,torchspatiotemporal_processeddatasets,TorchSpatiotemporal/ProcessedDatasets,,mobility,keep_filtered,6384325310,unknown,,hard,True,ok
+422,onedean_urbanfm_datasets_taxinyc_bikenyc_tdrive_trafficsh_occhamburg_occparis,onedean/UrbanFM-datasets,"taxinyc/bikenyc/tdrive/trafficsh/occhamburg/occparis (+pems, metrla)",mobility,check,10578762367,wide,,hard,False,"status check (v1 uses keep, keep_filtered)"
+423,tjtrans_traffic_demand_bench,tjtrans/Traffic-Demand-Bench,,mobility,check,1936844488,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+424,zanderl1337_shipping_data_pipeline,ZanderL1337/shipping-data-pipeline,,mobility,check,1764984174,long,1W,medium,False,"status check (v1 uses keep, keep_filtered)"
+425,bayway_italian_open_timeseries,Bayway/italian-open-timeseries,,other,keep,18148838,long,,medium,True,ok
+426,judicialmind_bharatts_corpus,judicialmind/BharatTS-Corpus,,other,keep,205487099,unknown,,medium,False,"gated, no access"
+427,nju_zhangsq_rmisc_timemmd,nju-zhangsq/RMISC,TimeMMD,other,keep,374500,long,,easy,True,ok
+428,thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot,thuml/UTSD,London Smart Meters / Wind Farms / Aus. Electricity Demand / Pedestrian Counts / Web Traffic / Sunspot,other,keep,6386755512,nested,mixed,medium,True,ok
+429,autonlab_timeseries_pile_forecasting,AutonLab/Timeseries-PILE,"forecasting/ (Monash archive, 58 dataset variants)",other,keep_filtered,3147516926,unknown,,hard,True,ok
+430,autonlab_timeseries_pile_forecasting_autoformer,AutonLab/Timeseries-PILE,"forecasting/autoformer (ETTh1/2, ETTm1/2, electricity, traffic, weather, ILI, exchange_rate)",other,keep_filtered,264985046,unknown,,medium,True,ok
+431,nju_zhangsq_rmisc_cryptocurrency,nju-zhangsq/RMISC,Cryptocurrency,other,keep_filtered,35376183,long,,easy,True,ok
+432,time_hd_anonymous_high_dimensional_time_series,Time-HD-Anonymous/High_Dimensional_Time_Series,,other,keep_filtered,17379404613,wide,,medium,True,ok
+433,multiple_time_series_panelts,Multiple-Time-Series/PanelTS,,other,check,2734089795,unknown,,medium,False,"status check (v1 uses keep, keep_filtered)"
+434,nju_zhangsq_rmisc_exchangerate,nju-zhangsq/RMISC,ExchangeRate,other,check,395554,long,,easy,False,"status check (v1 uses keep, keep_filtered)"
+435,nju_zhangsq_rmisc_illness,nju-zhangsq/RMISC,Illness,other,check,54742,long,1W,easy,False,"status check (v1 uses keep, keep_filtered)"
+436,prabakaranchandran_enterprise_dynamics_corpus_v1,prabakaranchandran/enterprise-dynamics-corpus-v1,,other,check,8306201251,nested,,hard,False,"status check (v1 uses keep, keep_filtered)"
+437,alanwgt_fipex_veiculos_brasil,alanwgt/fipex-veiculos-brasil,,retail_demand,keep,2273392747,wide,,hard,True,ok
+438,autogluon_chronos_datasets_dominick,autogluon/chronos_datasets,dominick,retail_demand,keep,42290010,nested,,medium,True,ok
+439,cq_ai_financial_datasets_retail_and_wherehouse_sale_csv,CQ-AI/Financial_datasets,Retail and wherehouse Sale.csv,retail_demand,keep,2657935,unknown,,medium,True,ok
+440,dingdong_inc_freshretailnet_50k_default,Dingdong-Inc/FreshRetailNet-50K,default,retail_demand,keep,114876411,nested,,medium,True,ok
+441,dingdong_inc_freshretailnet_lt_unknown,Dingdong-Inc/FreshRetailNet-LT,unknown,retail_demand,keep,317408002,nested,,medium,True,ok
+442,dubairealestatedata_dubai_real_estate_sales_transactions,dubairealestatedata/dubai-real-estate-sales-transactions,,retail_demand,keep,263350325,events,,hard,True,ok
+443,earino_my_pricecatcher_weekly_increase,earino/my-pricecatcher-weekly-increase,,retail_demand,keep,105401892,long,,medium,True,ok
+444,fuel_prices_eu_european_fuel_prices,fuel-prices-eu/european-fuel-prices,,retail_demand,keep,5828969,long,,medium,True,ok
+445,idomanteu_cs2_historical_item_prices_hourly_march_april_2026,idomanteu/cs2-historical-item-prices-hourly-march-april-2026,,retail_demand,keep,1967893180,long,1h,medium,True,ok
+446,jamesb7_fuel_prices_uk,jamesb7/fuel-prices-uk,,retail_demand,keep,178025987,long,,medium,True,ok
+447,kpubdata_seoul_apartment_rent,kpubdata/seoul-apartment-rent,,retail_demand,keep,16291062,long,,easy,True,ok
+448,kpubdata_seoul_apartment_trades,kpubdata/seoul-apartment-trades,,retail_demand,keep,6060198,long,,medium,True,ok
+449,national_digital_nt_fuel_prices_history,National-Digital/nt-fuel-prices-history,,retail_demand,keep,1216905,long,,medium,True,ok
+450,national_digital_qld_median_rents_by_postcode,National-Digital/qld-median-rents-by-postcode,,retail_demand,keep,101904,wide,,medium,True,ok
+451,nju_zhangsq_rmisc_dominick,nju-zhangsq/RMISC,Dominick,retail_demand,keep,2555816,long,,easy,True,ok
+452,nju_zhangsq_rmisc_weeklyfuelpricesitaly,nju-zhangsq/RMISC,WeeklyFuelPricesItaly,retail_demand,keep,84097,long,,easy,True,ok
+453,nju_zhangsq_rmisc_weeklyroadfuelprices,nju-zhangsq/RMISC,WeeklyRoadFuelPrices,retail_demand,keep,18917,long,,easy,True,ok
+454,pracadata_brazil_fuel_prices,pracadata/brazil-fuel-prices,,retail_demand,keep,19127945,events,,hard,True,ok
+455,pracadata_mexico_fuel_prices,pracadata/mexico-fuel-prices,,retail_demand,keep,458174,long,,medium,True,ok
+456,rif_sql_time_series_uk_retail_supermarket_price_data,Rif-SQL/time-series-uk-retail-supermarket-price-data,,retail_demand,keep,104526467,long,,easy,True,ok
+457,sureshbeekhani_salesforecastingwomartstore_default,SURESHBEEKHANI/SalesForecastingWOMartStore,default,retail_demand,keep,10178658,unknown,,medium,True,ok
+458,thehooklab_nsw_property,thehooklab/nsw-property,,retail_demand,keep,72612733,long,,medium,True,ok
+459,vincentgourbin_fuelinfrancedata,VincentGOURBIN/FuelInFranceData,,retail_demand,keep,11710453740,long,,medium,True,ok
+460,xus_spain_fuel_prices,xus/Spain-Fuel-Prices,,retail_demand,keep,64213030,long,1M,medium,True,ok
+461,abdullahimran_saudi_supply_demand_datasets,AbdullahImran/Saudi-Supply-Demand-Datasets,,retail_demand,check,324463287,events,,hard,False,"status check (v1 uses keep, keep_filtered)"
+462,approjects_us_layoffs_monthly_time_series_warn_act,APProjects/us-layoffs-monthly-time-series-warn-act,,society,keep,149631,long,1M,medium,True,ok
+463,arh1p_instagram_top_accounts,arh1p/instagram-top-accounts,,society,keep,7799778,long,,medium,True,ok
+464,earino_austin_911_response,earino/austin-911-response,,society,keep,131443936,events,,hard,True,ok
+465,gallicagram_atlas_motifs,Gallicagram/atlas-motifs,,society,keep,1625442177,wide,,medium,True,ok
+466,gladcolor_hourly_population_us,gladcolor/hourly_population_US,,society,keep,3661392348,unknown,,medium,True,ok
+467,gymprathap_chicago_crime_dataset,gymprathap/Chicago-Crime-Dataset,,society,keep,1914304118,long,,medium,True,ok
+468,hsilvosa_gdelt_events,hsilvosa/gdelt-events,,society,keep,45224015066,events,,hard,False,scope 45.2 GB > 20 GB
+469,jannchie_bilibili_creator_stats,Jannchie/bilibili-creator-stats,,society,keep,61445236672,unknown,,medium,False,"gated, no access"
+470,jhumbl_police_crime_london,jhumbl/police-crime-london,,society,keep,1618244691,events,,hard,True,ok
+471,lingbow_tiktok_video_engagement_200k,lingbow/tiktok-video-engagement-200k,,society,keep,135533144,long,,medium,True,ok
+472,matanzig_disney_theme_park_queue_dynamics,matanzig/Disney-Theme-Park-Queue-Dynamics,,society,keep,623118933,long,,hard,True,ok
+473,nason_open_policing_database,Nason/open-policing-database,,society,keep,8653123584,unknown,,hard,True,ok
+474,national_digital_au_births_by_age_of_mother,National-Digital/au-births-by-age-of-mother,,society,keep,32505,long,1Y,medium,True,ok
+475,nju_zhangsq_rmisc_booksperperson,nju-zhangsq/RMISC,BooksPerPerson,society,keep,47466,long,,easy,True,ok
+476,todopueblos_poblacion_municipios_espana,todopueblos/poblacion-municipios-espana,,society,keep,1948056,wide,,medium,True,ok
+477,valdovaldo1500_crime_brasil_rs_2022_2026,valdovaldo1500/crime-brasil-rs-2022-2026,,society,keep,33376745,wide,,medium,True,ok
+478,yuiseki_estat_jumin_idou,yuiseki/estat-jumin-idou,,society,keep,2158928951,long,,medium,True,ok
+479,yuiseki_ucdp_ged_26_1,yuiseki/ucdp-ged,26.1,society,keep,35569449,long,,easy,True,ok
+480,zwn22_nc_crime,zwn22/NC_Crime,,society,keep,39517589,unknown,,hard,True,ok
+481,yuiseki_un_wpp_wpp2024,yuiseki/un-wpp,WPP2024,society,keep_filtered,7229086721,long,,hard,True,ok
+482,yuiseki_undp_hdr,yuiseki/undp-hdr,,society,keep_filtered,5265869,long,,hard,True,ok
+483,zaai_ai_hierarchical_time_series_datasets,zaai-ai/hierarchical_time_series_datasets,,society,keep_filtered,5987000,unknown,,hard,True,ok
+484,earino_abs_visitor_arrivals_direction,earino/abs-visitor-arrivals-direction,,society,check,2309589,long,,medium,False,"status check (v1 uses keep, keep_filtered)"
+485,astromlcore_astrom3dataset,AstroMLCore/AstroM3Dataset,,space_science,keep,1320892486,unknown,,hard,True,ok
+486,autonlab_timeseries_pile_anomaly_detection_tsb_uad_public,AutonLab/Timeseries-PILE,"anomaly_detection/TSB-UAD-Public (18 datasets, 1,980 series)",space_science,keep,1428406200,unknown,,hard,True,ok
+487,cangyeone_seismicx_cont,cangyeone/SeismicX-Cont,,space_science,keep,423606646692,events,,hard,False,scope 423.6 GB > 20 GB
+488,giggseh_kepler_lc_star_params,giggseh/kepler-lc-star-params,,space_science,keep,96495998979,nested,,medium,False,scope 96.5 GB > 20 GB
+489,juliensimon_auroral_electrojet_index,juliensimon/auroral-electrojet-index,,space_science,keep,678899,wide,1h,easy,True,ok
+490,juliensimon_celestrak_space_weather,juliensimon/celestrak-space-weather,,space_science,keep,796710,wide,,easy,True,ok
+491,juliensimon_deep_space_probes,juliensimon/deep-space-probes,,space_science,keep,33653970,wide,,easy,True,ok
+492,juliensimon_dst_index,juliensimon/dst-index,,space_science,keep,4434437,wide,,easy,True,ok
+493,juliensimon_f107_solar_flux,juliensimon/f107-solar-flux,,space_science,keep,628852,wide,,easy,True,ok
+494,juliensimon_geomagnetic_kp_index,juliensimon/geomagnetic-kp-index,,space_science,keep,22007,wide,3h,easy,True,ok
+495,juliensimon_goes_xray_flux,juliensimon/goes-xray-flux,,space_science,keep,3459207,wide,1min,easy,True,ok
+496,juliensimon_iers_earth_orientation,juliensimon/iers-earth-orientation,,space_science,keep,667264,wide,1D,easy,True,ok
+497,juliensimon_nasa_maven_kp_insitu,juliensimon/nasa-maven-kp-insitu,,space_science,keep,321712304,wide,,medium,True,ok
+498,juliensimon_neutron_monitor_cosmic_rays,juliensimon/neutron-monitor-cosmic-rays,,space_science,keep,3761302,long,,easy,True,ok
+499,juliensimon_omni_solar_wind_parameters,juliensimon/omni-solar-wind-parameters,,space_science,keep,23940824,wide,1h,easy,True,ok
+500,juliensimon_solar_wind,juliensimon/solar-wind,,space_science,keep,7633637,wide,,easy,True,ok
+501,juliensimon_space_track_tle_history,juliensimon/space-track-tle-history,,space_science,keep,12547156999,unknown,,medium,False,"gated, no access"
+502,lxr11111_telemanom_smap_msl,lxr11111/telemanom,"SMAP,MSL",space_science,keep,281137409,wide,,hard,True,ok
+503,multimodaluniverse_tess,MultimodalUniverse/tess,,space_science,keep,9941673536,nested,,medium,True,ok
+504,nasa_ibm_ai4science_surya_bench_solarwind,nasa-ibm-ai4science/Surya-bench-solarwind,,space_science,keep,5206654,wide,,medium,True,ok
+505,nju_zhangsq_rmisc_keplerlightcurves,nju-zhangsq/RMISC,KeplerLightCurves,space_science,keep,48765167,long,,easy,True,ok
+506,nju_zhangsq_rmisc_satellite,nju-zhangsq/RMISC,Satellite,space_science,keep,541090,long,,easy,True,ok
+507,nyu_planet_finders_kepler_llc,nyu-planet-finders/kepler-llc,,space_science,keep,166450853743,nested,,medium,False,scope 166.5 GB > 20 GB
+508,nyu_planet_finders_tess_spoc_2min_binned,nyu-planet-finders/tess-spoc-2min-binned,,space_science,keep,27677373286,nested,,medium,False,scope 27.7 GB > 20 GB
+509,patrickfleith_goce_satellite_telemtry_raw_10min_stats_6h_stats,patrickfleith/GOCE-satellite-telemtry,"raw, 10min stats, 6h stats",space_science,keep,45253536978,wide,,medium,False,scope 45.3 GB > 20 GB
+510,phanerozoic_qiskit_calibration_drift,phanerozoic/qiskit-calibration-drift,,space_science,keep,106498613,events,,hard,True,ok
+511,snowsadh_goes_omni_electron_flux_forecasting,snowsadh/goes-omni-electron-flux-forecasting,,space_science,keep,165529455,wide,,hard,True,ok
+512,thermobench_thermobench_pure,ThermoBench/ThermoBench_pure,,space_science,keep,177143402,wide,,medium,True,ok
+513,aerostratospheric_spc_tornado_history,aerostratospheric/spc-tornado-history,,weather_climate,keep,16024833,wide,,medium,True,ok
+514,alexdum_meteogate_archive,alexdum/meteogate-archive,,weather_climate,keep,11409898332,long,,easy,True,ok
+515,autogluon_chronos_datasets_monash_weather,autogluon/chronos_datasets,monash_weather,weather_climate,keep,133164027,nested,,medium,True,ok
+516,autogluon_chronos_datasets_ushcn_daily,autogluon/chronos_datasets,ushcn_daily,weather_climate,keep,221089890,nested,1D,medium,True,ok
+517,autogluon_chronos_datasets_weatherbench_daily,autogluon/chronos_datasets,weatherbench_daily,weather_climate,keep,18924392742,nested,1D,medium,True,ok
+518,autogluon_chronos_datasets_weatherbench_hourly_2m_temperature,autogluon/chronos_datasets,"weatherbench_hourly_2m_temperature (also 10m_u/v wind, total_precipitation, total_cloud_cover, toa_incident_solar_radiation)",weather_climate,keep,7276396852,nested,1h,medium,True,ok
+519,autogluon_chronos_datasets_weatherbench_hourly_temperature,autogluon/chronos_datasets,"weatherbench_hourly_temperature (also geopotential, relative_humidity, specific_humidity, u/v wind, vorticity, potential_vorticity)",weather_climate,keep,94081539079,nested,1h,medium,False,scope 94.1 GB > 20 GB
+520,autogluon_chronos_datasets_weatherbench_weekly,autogluon/chronos_datasets,weatherbench_weekly,weather_climate,keep,2243012083,nested,1W,medium,True,ok
+521,autogluon_chronos_datasets_extra_brazilian_cities_temperature,autogluon/chronos_datasets_extra,brazilian_cities_temperature,weather_climate,keep,0,unknown,,hard,False,no data files in scope
+522,brandonhxrr_mexico_city_weather,brandonhxrr/mexico_city_weather,,weather_climate,keep,122330037,unknown,,medium,True,ok
+523,cm3r_meteo_france_climatologie_quotidienne,cm3r/meteo-france-climatologie-quotidienne,,weather_climate,keep,1394644343,wide,,medium,True,ok
+524,datonic_spain_aemet_historical_weather,datonic/spain_aemet_historical_weather,,weather_climate,keep,128163584,wide,,easy,True,ok
+525,duckermaster_thaiclim_district,DuckerMaster/thaiclim-district,,weather_climate,keep,682678931,long,,hard,True,ok
+526,edilia12380_era5_daily_weather_western_europe,edilia12380/era5-daily-weather-western-europe,,weather_climate,keep,8108737799,unknown,,hard,True,ok
+527,elskow_weather4cast,elskow/Weather4cast,,weather_climate,keep,77848361,unknown,,medium,True,ok
+528,emulated_inc_sci_airport_low_ceiling_visibility,Emulated-Inc/sci-airport-low-ceiling-visibility,,weather_climate,keep,598928444,long,,medium,True,ok
+529,excarta_madis2020,excarta/madis2020,,weather_climate,keep,0,unknown,,hard,False,no data files in scope
+530,furusu_japan_max_temperature,furusu/japan-max-temperature,,weather_climate,keep,37883946,long,,medium,True,ok
+531,geoweaver_snowwaterequivalent_trainingdata,Geoweaver/SnowWaterEquivalent_trainingdata,,weather_climate,keep,3900044226,unknown,,medium,True,ok
+532,hblim_weather_data,hblim/weather_data,,weather_climate,keep,14810269,long,,medium,True,ok
+533,jacobbieker_dwd,jacobbieker/dwd,,weather_climate,keep,44118177768,unknown,,hard,False,scope 44.1 GB > 20 GB
+534,jotone_arpa_osmer_weatherstations,jotone/arpa-osmer-weatherstations,,weather_climate,keep,146121247,long,,medium,True,ok
+535,juliangehring_noaa_isd,juliangehring/noaa-isd,,weather_climate,keep,20632482887,long,1Y,easy,False,scope 20.6 GB > 20 GB
+536,kamilatr_weather_data_bavaria,Kamilatr/weather_data_bavaria,,weather_climate,keep,764677715,unknown,,medium,True,ok
+537,meteoswiss_peakweather,MeteoSwiss/PeakWeather,,weather_climate,keep,16157300052,wide,,hard,True,ok
+538,nakas_powderbench_truth,nakas/powderbench-truth,,weather_climate,keep,7463141,long,,medium,True,ok
+539,nju_zhangsq_rmisc_era5hourlysinglelevels,nju-zhangsq/RMISC,ERA5HourlySingleLevels,weather_climate,keep,2275547160,long,1h,easy,True,ok
+540,nju_zhangsq_rmisc_globalclimatechange,nju-zhangsq/RMISC,GlobalClimateChange,weather_climate,keep,13695805,long,,easy,True,ok
+541,nju_zhangsq_rmisc_weatherbench5_625deg,nju-zhangsq/RMISC,WeatherBench5-625deg,weather_climate,keep,333660491108,long,,medium,False,scope 333.7 GB > 20 GB
+542,notadib_nasa_power_daily_weather,notadib/NASA-Power-Daily-Weather,,weather_climate,keep,265863282745,unknown,,hard,False,scope 265.9 GB > 20 GB
+543,numix_stations_officielles_es,numix/stations-officielles-es,,weather_climate,keep,951826541,unknown,,medium,True,ok
+544,pahzuzu_pah_env_001_serc_soil_signals,Pahzuzu/PAH-ENV-001-serc-soil-signals,,weather_climate,keep,53364312,long,,hard,True,ok
+545,previdengue_predict_climate_data,previdengue/predict_climate_data,,weather_climate,keep,103257283,wide,,easy,True,ok
+546,ron_the_code_telangana_time_series_2023_2025,ron-the-code/Telangana_time_series_2023-2025,,weather_climate,keep,28477227,wide,,medium,True,ok
+547,salesforce_lotsa_data_era5,Salesforce/lotsa_data,era5 (and era5_1989 ... era5_2018 yearly configs),weather_climate,keep,386506888560,nested,1h,medium,False,scope 386.5 GB > 20 GB
+548,salesforce_lotsa_data_oikolab_weather,Salesforce/lotsa_data,oikolab_weather,weather_climate,keep,3203032,nested,1h,medium,True,ok
+549,salesforce_lotsa_data_subseasonal,Salesforce/lotsa_data,subseasonal,weather_climate,keep,227192472,nested,1D,medium,True,ok
+550,salesforce_lotsa_data_subseasonal_precip,Salesforce/lotsa_data,subseasonal_precip,weather_climate,keep,39069456,nested,1D,medium,True,ok
+551,salesforce_lotsa_data_weather,Salesforce/lotsa_data,weather,weather_climate,keep,171846176,nested,1D,medium,True,ok
+552,sayanroy058_weather_time_series_forecasting,sayanroy058/Weather-Time-Series-Forecasting,,weather_climate,keep,44899994,unknown,,medium,True,ok
+553,taziksh_cliwoc,taziksh/cliwoc,,weather_climate,keep,12233349,long,,medium,True,ok
+554,taziksh_ibtracs,taziksh/ibtracs,,weather_climate,keep,25488030,long,,medium,True,ok
+555,thuml_utsd_era5_surface_era5_pressure,thuml/UTSD,ERA5 Surface / ERA5 Pressure,weather_climate,keep,6386755512,nested,mixed,medium,True,ok
+556,verisimilitudex_weather,VerisimilitudeX/Weather,,weather_climate,keep,1792095,long,,medium,True,ok
+557,wasurats_ecmwf_thailand_land_air_temperatures,WasuratS/ECMWF_Thailand_Land_Air_Temperatures,,weather_climate,keep,9079639478,wide,,easy,True,ok
+558,yuiseki_agera5_japan_monthly_temperature_1979_2026,yuiseki/agera5-japan-monthly-temperature-1979-2026,,weather_climate,keep,84618169,wide,,medium,True,ok
+559,yuiseki_jma_rain_kanto,yuiseki/jma-rain-kanto,,weather_climate,keep,1509026330,long,,medium,True,ok
+560,zait_ai_rusweather_434,zait-ai/RusWeather-434,,weather_climate,keep,23790347,long,1D,medium,True,ok
+561,hsilvosa_noaa_ghcn_daily,hsilvosa/noaa-ghcn-daily,,weather_climate,keep_filtered,3758374061,unknown,,hard,True,ok
+562,naavrug_weather_geo_era5,NaaVrug/weather-geo-era5,,weather_climate,keep_filtered,17856234827,wide,,medium,True,ok
+563,tharinduperera_weather_clustering_data,tharinduperera/weather-clustering-data,,weather_climate,keep_filtered,33021882,long,,medium,True,ok
+564,afhubbard_gpu_prices,afhubbard/gpu-prices,,web_cloud,keep,92960968,long,,easy,True,ok
+565,alimaatouk_telecomts_default,AliMaatouk/TelecomTS,default,web_cloud,keep,1274319013,nested,,medium,True,ok
+566,amirshahbaz_cloudperftrace,AmirShahbaz/CloudPerfTrace,,web_cloud,keep,17978272781,nested,,medium,True,ok
+567,aurman_googletrendarchive_trending_queries,aurman/GoogleTrendArchive,trending_queries,web_cloud,keep,1906651170,long,,medium,True,ok
+568,autogluon_chronos_datasets_wiki_daily_100k,autogluon/chronos_datasets,wiki_daily_100k,web_cloud,keep,592554033,nested,1D,medium,True,ok
+569,commoncrawl_statistics,commoncrawl/statistics,,web_cloud,keep,54413981,wide,15min,medium,True,ok
+570,emperor_mew_ooni_censorship_historical,emperor-mew/ooni-censorship-historical,,web_cloud,keep,14661582,long,,medium,True,ok
+571,emulated_inc_wikipedia_clickstream_enwiki,Emulated-Inc/wikipedia-clickstream-enwiki,,web_cloud,keep,3087898274,unknown,,medium,True,ok
+572,epi_eval_wikipedia_pageviews,EPI-Eval/wikipedia-pageviews,,web_cloud,keep,166674,long,,easy,True,ok
+573,geocables_internet_latency_and_routing_events,geocables/internet-latency-and-routing-events,,web_cloud,keep,32618703,unknown,,medium,True,ok
+574,hq_bench_quito_corpus_hour,hq-bench/quito-corpus,hour,web_cloud,keep,2782161754,long,1h,easy,True,ok
+575,hq_bench_quito_corpus_min,hq-bench/quito-corpus,min,web_cloud,keep,1707545191,long,1min,easy,True,ok
+576,hq_bench_quitobench_hour_min,hq-bench/quitobench,"hour, min",web_cloud,keep,204649635,long,mixed,medium,True,ok
+577,hq_bench_quitobench_hour_min_r577,hq-bench/quitobench,"hour,min",web_cloud,keep,204649635,long,mixed,medium,True,ok
+578,jeremycochoy_wikimedia_pageview_timeseries,jeremycochoy/wikimedia-pageview-timeseries,,web_cloud,keep,9366045746,nested,,medium,True,ok
+579,kashif_app_flow_default,kashif/App_Flow,default,web_cloud,keep,11930791,long,1h,hard,True,ok
+580,leadlagforecasting_llf_github_default,LeadLagForecasting/llf_github,default,web_cloud,keep,1094625852,nested,,medium,True,ok
+581,lemma_rca_nec_cloud_computing_preprocessed,Lemma-RCA-NEC/Cloud_Computing_Preprocessed,,web_cloud,keep,4737524465,unknown,,hard,True,ok
+582,lightcap_multi_domain_cloudflare_observability,Lightcap/multi-domain-cloudflare-observability,,web_cloud,keep,10642684,long,,hard,True,ok
+583,lilambd_security_daily,Lilambd/security-daily,,web_cloud,keep,79930921,long,,medium,True,ok
+584,lsliwko_google_cluster_data_2019_sorted_by_timestamp,lsliwko/google-cluster-data-2019-sorted-by-timestamp,,web_cloud,keep,117735326426,unknown,,medium,False,scope 117.7 GB > 20 GB
+585,machaparfait_clusterwise,MachaParfait/ClusterWise,,web_cloud,keep,221012369356,long,,medium,False,scope 221.0 GB > 20 GB
+586,marcuslammers_vast_rtx3090_market_6mo,MarcusLammers/vast-rtx3090-market-6mo,,web_cloud,keep,29482861,long,,medium,True,ok
+587,modelpulse_model_pulse_data,modelpulse/model-pulse-data,,web_cloud,keep,2288275004,long,,medium,True,ok
+588,netop_gotsf_ds_default,netop/gotsf-ds,default,web_cloud,keep,210020652,wide,,medium,True,ok
+589,nevirim_wikipedia_attention_13lang,nevirim/wikipedia-attention-13lang,,web_cloud,keep,296893171,wide,,medium,True,ok
+590,nju_zhangsq_rmisc_alicar,nju-zhangsq/RMISC,AliCar,web_cloud,keep,12612,long,,easy,True,ok
+591,nju_zhangsq_rmisc_azurepublicdatasetv1,nju-zhangsq/RMISC,AzurePublicDatasetV1,web_cloud,keep,25306375537,long,5min,easy,False,scope 25.3 GB > 20 GB
+592,nju_zhangsq_rmisc_ebayserver,nju-zhangsq/RMISC,EbayServer,web_cloud,keep,18646935,long,,easy,True,ok
+593,nju_zhangsq_rmisc_miniapp,nju-zhangsq/RMISC,MiniApp,web_cloud,keep,2660786,long,,easy,True,ok
+594,nju_zhangsq_rmisc_nab,nju-zhangsq/RMISC,NAB,web_cloud,keep,1044669,long,,easy,True,ok
+595,nju_zhangsq_rmisc_servermachinedataset,nju-zhangsq/RMISC,ServerMachineDataset,web_cloud,keep,56913837,long,,easy,True,ok
+596,paperswithbacktest_stocks_quarterly_wikipediaviews,paperswithbacktest/Stocks-Quarterly-WikipediaViews,,web_cloud,keep,178668437,unknown,,medium,False,"gated, no access"
+597,pytoshka_attacks_daily,pyToshka/attacks-daily,,web_cloud,keep,111622134,events,,hard,True,ok
+598,salesforce_cloudops_tsf_alibaba_cluster_trace_2018,Salesforce/cloudops_tsf,alibaba_cluster_trace_2018,web_cloud,keep,1264667151,unknown,,hard,True,ok
+599,salesforce_cloudops_tsf_borg_cluster_data_2011,Salesforce/cloudops_tsf,borg_cluster_data_2011,web_cloud,keep,3505625425,unknown,,hard,True,ok
+600,salesforce_lotsa_data_alibaba_cluster_trace_2018,Salesforce/lotsa_data,alibaba_cluster_trace_2018,web_cloud,keep,3049413552,nested,5min,medium,True,ok
+601,salesforce_lotsa_data_borg_cluster_data_2011,Salesforce/lotsa_data,borg_cluster_data_2011,web_cloud,keep,15058967392,nested,5min,medium,True,ok
+602,salesforce_lotsa_data_extended_web_traffic_with_missing,Salesforce/lotsa_data,extended_web_traffic_with_missing,web_cloud,keep,1487714712,nested,1D,medium,True,ok
+603,salesforce_lotsa_data_kaggle_web_traffic_weekly,Salesforce/lotsa_data,kaggle_web_traffic_weekly,web_cloud,keep,70737520,nested,1W,medium,True,ok
+604,salesforce_lotsa_data_wiki_rolling_nips,Salesforce/lotsa_data,wiki-rolling_nips,web_cloud,keep,163724288,nested,1D,medium,True,ok
+605,sbaiiiiii_looked_up,Sbaiiiiii/looked-up,,web_cloud,keep,6201971827,wide,,medium,True,ok
+606,shashkovich_telecommunication_sms_time_series,Shashkovich/Telecommunication_SMS_time_series,,web_cloud,keep,1496763,unknown,,medium,True,ok
+607,soncco_historical_twitter_trends_spanish_locations_2020_2021,soncco/historical-twitter-trends-spanish-locations-2020-2021,,web_cloud,keep,57577679,long,,medium,True,ok
+608,sovai_wikipedia_views_default,sovai/wikipedia_views,default,web_cloud,keep,257186129,long,,easy,True,ok
+609,tardellirs_paper_pulse_data,tardellirs/paper-pulse-data,,web_cloud,keep,16533780,long,,medium,True,ok
+610,venvoo_openrouter_uptime,venvoo/openrouter-uptime,,web_cloud,keep,137613653,long,,medium,True,ok
+611,wikimedia_community_english_wikipedia_pageviews_by_second,wikimedia-community/english-wikipedia-pageviews-by-second,,web_cloud,keep,89443256,long,1s,easy,True,ok
+612,datadog_boom,Datadog/BOOM,"(whole repo: 2,807 folders named ds-<id>-<freq>, e.g. ds-10-T, ds-1030-5T)",web_cloud,keep_filtered,2808675246,nested,,medium,True,ok
+613,yahooresearch_ydata_labeled_time_series_anomalies_v1_0,YahooResearch/ydata-labeled-time-series-anomalies-v1_0,,web_cloud,keep_filtered,46262810,unknown,,medium,True,ok
+614,salesforce_cloudops_tsf_azure_vm_traces_2017,Salesforce/cloudops_tsf,azure_vm_traces_2017,web_cloud,check,11299364223,unknown,,hard,False,"status check (v1 uses keep, keep_filtered)"
+615,salesforce_lotsa_data_azure_vm_traces_2017,Salesforce/lotsa_data,azure_vm_traces_2017,web_cloud,check,10632048496,nested,5min,medium,False,"status check (v1 uses keep, keep_filtered)"
