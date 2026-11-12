@@ -66,6 +66,7 @@ autonlab_timeseries_pile_forecasting_autoformer:
   note: "draft: drop ETT*, electricity, weather (Jena)"
 
 time_hd_anonymous_high_dimensional_time_series:
+  diff: false   # owner 2026-11-13: real growth, not a running total
   drop_parts: "(?i)(m5|ecl|etth|ettm|weather|traffic|solar|sirs|neurolib)"
   note: "draft: drop the benchmark and simulated sets"
 
@@ -456,3 +457,60 @@ kpubdata_seoul_bike_rent_month:
   targets: [use_count]
   covariates: []
   note: "rent_month yyyymm -> month start"
+
+# --- cumulative review and target fixes (owner 2026-11-13) --------------------------------------------------------------
+prasad_gade05_india_upi_ecosystem_2018_2025:
+  diff: false
+  note: "UPI transaction count: real growth, not a running total (owner 2026-11-13)"
+
+jainam03_rescast_100k_ecobee:
+  diff: false
+  note: "Indoor Temp flagged as non-decreasing by the check; not a running total (owner 2026-11-13)"
+
+narendersingh007_india_solar_benchmark_dataset:
+  diff: false
+  note: "solar MO flagged by the check; not a running total (owner 2026-11-13)"
+
+epi_eval_nhsn_hrd:
+  diff: false
+  note: "totalconfflunewadm: weekly new admissions, not a running total (owner 2026-11-13)"
+
+hhs_official_weekly_counts_of_deaths_from_all_causes_by_jurisdi:
+  diff: false
+  note: "weekly death counts, not a running total (owner 2026-11-13)"
+
+hhs_official_weekly_provisional_counts_of_deaths_by_state_and_s:
+  diff: false
+  note: "weekly death counts, not a running total (owner 2026-11-13; the review named 'hhs weekly deaths': set on both HHS weekly-deaths datasets, it only switches differencing off)"
+
+nju_zhangsq_rmisc_solar4seconds:
+  diff: false
+  note: "T1 is PV power (0-116.5, zero at night, 94% of 4 s steps unchanged), not a time counter: checked on the Hub file 2026-11-13; time from the datetime column"
+
+nju_zhangsq_rmisc_gassensortemperature:
+  skip: "gas sensor lab experiment under temperature set-points, like gassensordynamic (skipped): the set-points drive the signal (owner 2026-11-13)"
+
+ajto_goldencheetah:
+  files: "^measurements\\.parquet$"
+  time_col: secs
+  id_cols: [athlete_id, source_file]
+  targets: [power]
+  covariates: [hr, cad, alt]
+  note: "one ride per (athlete, file); secs = elapsed seconds (time axis, synthetic calendar); target power; if power is mostly blank in the build, switch targets to [hr] (owner 2026-11-13); km is cumulative distance, not used"
+
+jhumbl_dft_vehicle_licensing:
+  files: "dft_veh0105_licensed_by_la\\.parquet$"
+  id_cols: [ons_code, body_type, fuel, keepership]
+  targets: [count_thousands]
+  covariates: []
+  note: "licensed vehicles (thousands) per local authority x body type x fuel x keepership, quarterly; ons_sort is a sort key (owner 2026-11-13); the ULEV table (veh0132) is not used"
+
+taziksh_cliwoc:
+  skip: "ship logbook records: irregular positions per voyage, no per-station regular series (owner 2026-11-13)"
+
+national_digital_nt_crocodile_captures:
+  layout: events
+  time_col: date_captured
+  id_cols: [region]
+  event_step: MS
+  note: "captures per month per region (event count, empty months 0); rows were sorted by total_length_cm (owner 2026-11-13)"
