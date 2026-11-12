@@ -7,88 +7,88 @@
 # Rows marked "no rule yet" are left without one on purpose: the overlap cannot be expressed from names alone.
 
 ashwingopalsamy_central_bank_policy_rates:
-  drop_items: "(?i)(^|\\W)(US|USA|united.?states|fed|federal)(\\W|$)"
+  drop_items: '(?i)(^|\W)(US|USA|united.?states|fed|federal)(\W|$)'
   note: "draft: drop the US fed funds rate (FRED / TIME)"
 
 datonic_world_development_indicators_default:
-  drop_items: "(?i)co2|life.?expect|touris|international.?arrival"
+  drop_items: '(?i)co2|life.?expect|touris|international.?arrival'
   note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
 
 kavelaltd_historysaid_global_economic:
-  drop_items: "(?i)co2|life.?expect|touris"
+  drop_items: '(?i)co2|life.?expect|touris'
   note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
 
 rogerdehe_klines_okx_futures_15m_1d:
-  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH)"
-  drop_parts: "(?i)(^|/)(BTC|ETH|LTC|BCH)[-_/]"
+  drop_items: '(?i)(^|\W)(BTC|ETH|LTC|BCH)'
+  drop_parts: '(?i)(^|/)(BTC|ETH|LTC|BCH)[-_/]'
   note: "draft: drop BTC, ETH, LTC, BCH pairs (TIME)"
 
 tradecatlabs_binance_futures_ohlcv_2018_2026_candles_1m:
-  drop_items: "(?i)(^|\\W)(BTC|ETH|LTC|BCH)"
-  drop_parts: "(?i)(^|/)(BTC|ETH|LTC|BCH)"
+  drop_items: '(?i)(^|\W)(BTC|ETH|LTC|BCH)'
+  drop_parts: '(?i)(^|/)(BTC|ETH|LTC|BCH)'
   note: "draft: drop BTC, ETH, LTC, BCH (TIME)"
 
 zalizedata_global_macro_trade_indicators_dataset:
-  drop_items: "(?i)co2|life.?expect|touris"
+  drop_items: '(?i)co2|life.?expect|touris'
   note: "draft: drop CO2, life expectancy and tourism indicators (fev)"
 
 alinurdin_time_series_benchmark_eia_hourly_madrid_15min_webtris_15min_usgs_daily_usgs_continuous_hydat_daily_bom_daily_c:
-  drop_parts: "(?i)aemo|opsd"
+  drop_parts: '(?i)aemo|opsd'
   note: "draft: drop aemo_dispatch_5min (TIME AEMO NEM) and opsd_load (ENTSO-E load, fev)"
 
 marplan6_batgrad_pozzato_2022:
-  drop_parts: "(?i)synthetic|pybamm|m50t"
+  drop_parts: '(?i)synthetic|pybamm|m50t'
   note: "draft: drop the synthetic PyBaMM subset"
 
 zalizedata_us_grid_hourly_power_plants_dataset:
-  drop_items: "(?i)ercot|(^|\\W)ERCO(\\W|$)"
+  drop_items: '(?i)ercot|(^|\W)ERCO(\W|$)'
   note: "draft: drop the ERCOT balancing authority (fev)"
 
 cognitedata_ind_eval:
-  drop_parts: "(?i)(^|/)(electricity|solar)(/|_|\\.)"
+  drop_parts: '(?i)(^|/)(electricity|solar)(/|_|\.)'
   note: "draft: drop configs electricity and solar"
 
 forgis_factorynet_factorywave_voraus_aursad_cnc:
-  drop_parts: "(?i)simulations_(baseline|counterfactual)"
+  drop_parts: '(?i)simulations_(baseline|counterfactual)'
   note: "draft: drop the Isaac Sim simulations"
 
 yahya2491_3w_pipeline:
-  drop_parts: "(?i)simulated|drawn"
-  drop_items: "(?i)simulated|drawn"
+  drop_parts: '(?i)simulated|drawn'
+  drop_items: '(?i)simulated|drawn'
   note: "draft: real instances only (3W simulated files start with SIMULATED_, hand-drawn with DRAWN_)"
 
 autonlab_timeseries_pile_forecasting:
-  drop_parts: "(?i)(m4_|hospital|covid_deaths|us_births|saugeen|temperature_rain|kdd_cup|car_parts|fred_md|electricity|solar)"
+  drop_parts: '(?i)(m4_|hospital|covid_deaths|us_births|saugeen|temperature_rain|kdd_cup|car_parts|fred_md|electricity|solar)'
   note: "draft: drop the Monash sets that are in GIFT-Eval / fev"
 
 autonlab_timeseries_pile_forecasting_autoformer:
-  drop_parts: "(?i)ett|electricity|weather"
+  drop_parts: '(?i)ett|electricity|weather'
   note: "draft: drop ETT*, electricity, weather (Jena)"
 
 time_hd_anonymous_high_dimensional_time_series:
   diff: false   # owner 2026-11-13: real growth, not a running total
-  drop_parts: "(?i)(m5|ecl|etth|ettm|weather|traffic|solar|sirs|neurolib)"
+  drop_parts: '(?i)(m5|ecl|etth|ettm|weather|traffic|solar|sirs|neurolib)'
   note: "draft: drop the benchmark and simulated sets"
 
 yuiseki_un_wpp_wpp2024:
-  drop_parts: "(?i)projection|life.?expect|e0"
-  drop_items: "(?i)projection|life.?expect"
+  drop_parts: '(?i)projection|life.?expect|e0'
+  drop_items: '(?i)projection|life.?expect'
   note: "draft: drop projection variants (2024-2100) and life-expectancy tables (fev)"
 
 yuiseki_undp_hdr:
-  drop_items: "(?i)life.?expect|(^|\\W)le(_|\\W|$)"
+  drop_items: '(?i)life.?expect|(^|\W)le(_|\W|$)'
   note: "draft: drop life expectancy (fev)"
 
 hsilvosa_noaa_ghcn_daily:
-  drop_items: "(?i)^SN|singapore"
+  drop_items: '(?i)^SN|singapore'
   note: "draft: drop Singapore stations (GHCN ids starting SN)"
 
 naavrug_weather_geo_era5:
-  drop_items: "(?i)singapore"
+  drop_items: '(?i)singapore'
   note: "draft: drop Singapore; NE China cells need coordinates, the value audit is the real check"
 
 tharinduperera_weather_clustering_data:
-  drop_items: "(?i)singapore"
+  drop_items: '(?i)singapore'
   note: "draft: drop Singapore if present"
 
 yahooresearch_ydata_labeled_time_series_anomalies_v1_0:
@@ -98,7 +98,7 @@ yahooresearch_ydata_labeled_time_series_anomalies_v1_0:
 datadog_boom:
   audit_only: "owner 2026-11-12: the value audit drops the series that match fev's BOOMLET tasks"
   ref_ids:
-    path: "(?i)fev_datasets/.*boom"
+    path: '(?i)fev_datasets/.*boom'
     # ids from fev_datasets' BOOMLET files (first of item_id / id / series_id / unique_id); dropped where they equal a
     # BOOM item id or its folder name. The report counts both drops (by id here, by value in the audit).
   note: "owner 2026-11-12: build normally; audit drops BOOMLET matches"
@@ -290,18 +290,18 @@ bsebench_org_warwick_second_life_dm_2025_raw_raw_mirror:
   skip: "battery cycler exports: every csv starts with a key-value header block of varying length (Measurement ID, Battery Name, ...); needs a dedicated reader"
 
 yzzpz_charged_data_10_csv_per_city:
-  files: "^[A-Z]+/volume\\.csv$"
+  files: '^[A-Z]+/volume\.csv$'
   time_col: "Unnamed: 0"
   layout: wide
   note: "EV charging volume, hourly, one column per station; the *_remove_zero copies, duration / other files and .rar parts are not used; time column has an empty header"
 
 glucofmbench_glucofm_bench:
-  files: "^data/train-"
+  files: '^data/train-'
   id_cols: [dataset, subject_id]
   note: "nested lists, timestamps as epoch seconds (the plan TypeError); train split only (test continues the same subjects)"
 
 rricc22_endomondo_hr_prediction_v2:
-  files: "^dataset\\.parquet$"
+  files: '^dataset\.parquet$'
   id_cols: [workout_id]
   targets: [heart_rate]
   note: "nested lists, timestamps as epoch seconds (the plan TypeError); dataset.parquet only (train / validation / test are splits of it)"
@@ -313,7 +313,7 @@ uvathe_wellborn_pregnancy_wearable:
   skip: ".mtn device files, format not documented; no reader"
 
 cashlessconsumer_chennai_rain_gauges:
-  table: "data/gcc_rain_gauge_panel\\.parquet$"
+  table: 'data/gcc_rain_gauge_panel\.parquet$'
   time_col: obs_date
   id_cols: [argid]
   targets: [rainfall]
@@ -335,13 +335,13 @@ taziksh_argo_profiles:
   skip: "Argo vertical profiles (values over pressure levels, not over time); a float's own series is ~10-day irregular cycles"
 
 emulated_inc_sci_streamflow_ungauged_new_country:
-  files: "(^|/)timeseries-camels(gb|aus|cl)?\\.tar$"
+  files: '(^|/)timeseries-camels(gb|aus|cl)?\.tar$'
   targets: [streamflow]
   covariates: [total_precipitation_sum, potential_evaporation_sum, temperature_2m_mean, temperature_2m_min,
                temperature_2m_max, dewpoint_temperature_2m_mean, surface_net_solar_radiation_mean,
                surface_net_thermal_radiation_mean, surface_pressure_mean, snow_depth_water_equivalent_mean,
                u_component_of_wind_10m_mean, v_component_of_wind_10m_mean, volumetric_soil_water_layer_1_mean]
-  drop_items: "(?i)saugeen"
+  drop_items: '(?i)saugeen'
   note: "owner 2026-11-13: Caravan CAMELS (US, GB, AUS, CL) netCDF, one series per catchment, streamflow target, ERA5-Land forcings past covariates; HYSETS / CAMELS-BR tars not opened"
 
 amgharr_femto_st_dataset:
@@ -354,7 +354,7 @@ xijiazhao_welding2_trial_1_trial_2:
   skip: "no files on disk after the download (0 files)"
 
 jhumbl_orr_station_usage:
-  files: "\\.parquet$"
+  files: '\.parquet$'
   calendar: {fiscal_year: financial_year}
   id_cols: [station_name]
   targets: [entries_exits]
@@ -369,7 +369,7 @@ torchspatiotemporal_processeddatasets:
   note: "draft: drop Elergone (UCI electricity = GIFT) and PvUS (simulated)"
 
 alanwgt_fipex_veiculos_brasil:
-  files: "^fipex-prices-latest\\.parquet$"
+  files: '^fipex-prices-latest\.parquet$'
   calendar: {year: ano_referencia, month: mes_referencia}
   id_cols: [codigo_fipe, ano_modelo, sigla_combustivel]
   targets: [valor_centavos]
@@ -429,7 +429,7 @@ jeremycochoy_wikimedia_pageview_timeseries:
   skip: "pre-cut 1025-step windows of STL residuals, z-normalised, no time or frequency (derived data)"
 
 leadlagforecasting_llf_github_default:
-  files: "^data/train-"
+  files: '^data/train-'
   start_col: created_date
   freq: D
   targets: [cumulative_stars]
@@ -438,7 +438,7 @@ leadlagforecasting_llf_github_default:
   note: "owner 2026-11-13: daily from created_date (Milestone B builds the weekly variant); target = new stars per day (diff of cumulative_stars, first day dropped), covariates = daily pushes / forks (diffs); unlabeled_test files not used"
 
 netop_gotsf_ds_default:
-  files: "^data/train/.*\\.csv$"
+  files: '^data/train/.*\.csv$'
   layout: wide
   freq: h
   note: "840 rows = 5 weeks x 24 h (file names 0w-5w); one column per cell; first column is a row index with an empty header"
@@ -491,7 +491,7 @@ nju_zhangsq_rmisc_gassensortemperature:
   skip: "gas sensor lab experiment under temperature set-points, like gassensordynamic (skipped): the set-points drive the signal (owner 2026-11-13)"
 
 ajto_goldencheetah:
-  files: "^measurements\\.parquet$"
+  files: '^measurements\.parquet$'
   time_col: secs
   id_cols: [athlete_id, source_file]
   targets: [power]
@@ -499,7 +499,7 @@ ajto_goldencheetah:
   note: "one ride per (athlete, file); secs = elapsed seconds (time axis, synthetic calendar); target power; if power is mostly blank in the build, switch targets to [hr] (owner 2026-11-13); km is cumulative distance, not used"
 
 jhumbl_dft_vehicle_licensing:
-  files: "dft_veh0105_licensed_by_la\\.parquet$"
+  files: 'dft_veh0105_licensed_by_la\.parquet$'
   id_cols: [ons_code, body_type, fuel, keepership]
   targets: [count_thousands]
   covariates: []
@@ -516,6 +516,6 @@ national_digital_nt_crocodile_captures:
   note: "captures per month per region (event count, empty months 0); rows were sorted by total_length_cm (owner 2026-11-13)"
 
 gladcolor_hourly_population_us:
-  id_from_path: "(?:^|/)(\d{5})\.csv(\.gz)?$"
+  id_from_path: '(?:^|/)(\d{5})\.csv(\.gz)?$'
   sum_rows: true
   note: "owner 2026-11-13: files year/month/<county FIPS>.csv.gz, rows = CBGs, columns = hours ('2022-01-01 00:00:00'); CBGs summed per county per hour, months concatenated: one hourly series per county (~3,142), real time"
