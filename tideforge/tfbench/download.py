@@ -2,7 +2,7 @@
 
 Only the files in each selected row's scope (hf_profile_files.csv), each (repo, revision, path) once even when several
 catalog rows share it. Formats the readers cannot use (npy, h5, netcdf, media, pickles, ...) are not downloaded; the plan
-lists them. huggingface_hub with hf_transfer (HF_HUB_ENABLE_HF_TRANSFER=1, set before the import). Resumable: a file whose
+lists them. huggingface_hub (Xet transfers; hf_transfer is deprecated and not enabled). Resumable: a file whose
 manifest entry has the same size on disk is not fetched again. Inside a repo, file_workers files are fetched in parallel
 (hf_hub_download per file, retried on 429 with Retry-After; a Xet / CAS 401, an expired Xet token, is retried
 xet_retries times with a fresh call, then the file is fetched over plain HTTPS); download_jobs repos run in parallel. Before each repo: free disk >= repo bytes x disk_margin,
@@ -93,7 +93,7 @@ def file_caps(p: pd.DataFrame, s: Settings) -> pd.DataFrame:
 
 _PART_DATE = re.compile(
     r"(?P<ymdt>(?<!\d)(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?=T|\D|$))"
-    r"|(?P<ymd>(?<!\d)(?:19|20)\d{2}[-_.](?:0[1-9]|1[0-2])[-_.](?:0[1-9]|[12]\d|3[01])(?!\d))"
+    r"|(?P<ymd>(?<!\d)(?:19|20)\d{2}(?P<sep>[-_./])(?:0[1-9]|1[0-2])(?P=sep)(?:0[1-9]|[12]\d|3[01])(?!\d))"
     r"|(?P<dmy>(?<!\d)(?:0[1-9]|[12]\d|3[01])[-_.](?:0[1-9]|1[0-2])[-_.](?:19|20)\d{2}(?!\d))"
     r"|(?P<hive>year=(?:19|20)\d{2}(?:/month=\d{1,2}(?:/day=\d{1,2})?)?)"
     r"|(?P<ym>(?<!\d)(?:19|20)\d{2}[-_./](?:0[1-9]|1[0-2])(?!\d))"
@@ -102,7 +102,7 @@ _PART_DATE = re.compile(
 
 def partition_date(path: str) -> tuple[pd.Timestamp, pd.Timestamp] | None:
     """(start, end) of the time partition a file covers, from the last date in its path (the one nearest the file name):
-    a day, a month (2022/04, 2020-09, year=/month=) or a year (2024.csv)."""
+    a day (2021-03-01, 2021/03/01 folders), a month (2022/04, 2020-09, year=/month=) or a year (2024.csv)."""
     last = None
     for m in _PART_DATE.finditer(path):
         last = m
@@ -114,7 +114,7 @@ def partition_date(path: str) -> tuple[pd.Timestamp, pd.Timestamp] | None:
             a = pd.Timestamp(v[:8])
             return a, a + pd.Timedelta(days=1)
         if k == "ymd":
-            a = pd.Timestamp(re.sub(r"[_.]", "-", v))
+            a = pd.Timestamp(re.sub(r"[_./]", "-", v))
             return a, a + pd.Timedelta(days=1)
         if k == "dmy":
             d, mo, y = re.split(r"[-_.]", v)
@@ -373,7 +373,6 @@ def download_repo(repo: str, rows: pd.DataFrame, paths: Paths, s: Settings, fetc
 
 
 def _hf_fetch(repo: str, path: str, revision: str, local_dir: Path) -> str:
-    os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
     from huggingface_hub import hf_hub_download
     return hf_hub_download(repo, path, repo_type="dataset", revision=revision, local_dir=str(local_dir))
 
@@ -422,7 +421,6 @@ def combine(paths: Paths) -> pd.DataFrame:
 
 def download_refs(paths: Paths, s: Settings) -> None:
     """The three reference benchmarks for the leakage audit (whole repos)."""
-    os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
     from huggingface_hub import snapshot_download
     for repo in s.refs:
         try:

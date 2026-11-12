@@ -4,6 +4,7 @@
     python -m tideforge.tfbench.run download --jobs 6         # A2, JarvisLabs only
     python -m tideforge.tfbench.run refs                      # A2, the three reference benchmarks
     python -m tideforge.tfbench.run canon --plan --jobs 24    # A3 dry check: layout, columns, synthetic time; no build
+    python -m tideforge.tfbench.run canon --inspect --jobs 24 # raw-file view of every not-built dataset (canon_inspect.txt)
     python -m tideforge.tfbench.run canon --jobs 24           # A3
     python -m tideforge.tfbench.run audit --jobs 24           # A5 (fingerprints the references once)
     python -m tideforge.tfbench.run report                    # A4 -> devdata/tfbench/BUILD_REPORT_A.md
@@ -25,6 +26,7 @@ import argparse
 import datetime as dt
 import json
 import logging
+import re
 import shutil
 import sys
 import traceback
@@ -186,7 +188,78 @@ def step_canon_plan(a, paths, s):
     log.info("canon plan -> %s", paths.data / "canon_plan.csv")
 
 
+def _inspect_one(row, files, ov, s, data_root, reason) -> str:
+    """One dataset's block for canon_inspect.txt (about 60 lines at most)."""
+    from tideforge.tfbench.canon import main_table, open_all
+    from tideforge.tfbench.layouts import is_meta
+    did = row["dataset_id"]
+    work = Path(data_root) / "tmp" / ("inspect_" + did)
+    L = [f"=== {did}  ({row.get('repo_id')}, config {row.get('config_or_subset') or '-'})",
+         f"plan: {reason}", f"profile: layout {row.get('layout')}, frequency {row.get('frequency')}, "
+         f"{len(files)} files on disk", f"overrides: {json.dumps(ov, default=str)[:300] if ov else '-'}"]
+    try:
+        big = sorted(files, key=lambda f: -f[2])
+        L.append("files (largest 5):")
+        L += [f"  {f[1]}  {f[2] / 1e6:.2f} MB{'  [metadata path]' if is_meta(f[1]) else ''}" for f in big[:5]]
+        cards = [f for f in files if re.search(r"(?i)(readme|card)[^/]*\.(md|txt)$", f[1]) and f[2] < 200_000]
+        root = Path(data_root) / "raw" / slug(row["repo_id"])
+        for c in [root / "README.md"] + [Path(f[0]) for f in cards]:
+            if c.exists():
+                txt = re.sub(r"\s+", " ", c.read_text(encoding="utf-8", errors="replace"))
+                L.append(f"card ({c.name}): {txt[:1500]}")
+                break
+        data_files = [f for f in big if not is_meta(f[1])] or big
+        parts, bad = open_all([(Path(f[0]), f[1]) for f in data_files[:20]], work, did)
+        if bad:
+            L.append(f"unreadable: {len(bad)}; first: {bad[0][:200]}")
+        if parts:
+            ps, other = main_table(parts, {f[1]: f[2] for f in files}, ov)
+            p = (ps or parts)[0]
+            t = p.read()
+            d = t.slice(0, 200_000).to_pandas()
+            L.append(f"first readable table: {p.name}  rows {t.num_rows}  cols {t.num_columns}"
+                     + (f"  encoding {p.stats.get('encoding')}" if p.stats.get("encoding") else ""))
+            L.append("columns (dtype, blank share): " + "; ".join(
+                f"{c} ({t.schema.field(c).type}, {d[c].isna().mean():.0%})" for c in t.column_names[:25])
+                + (f"; ... +{t.num_columns - 25}" if t.num_columns > 25 else ""))
+            with pd.option_context("display.width", 160, "display.max_columns", 12, "display.max_colwidth", 30):
+                L += ["  " + x for x in d.head(5).to_string().splitlines()[:6]]
+            if other:
+                L.append(f"other tables: {'; '.join(other[:3])}")
+    except Exception as e:
+        L.append(f"inspect error: {type(e).__name__}: {str(e)[:300]}")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return "\n".join(L[:60]) + "\n"
+
+
+def step_canon_inspect(a, paths, s):
+    """canon --inspect: for each dataset canon_plan.csv marks as not built, one block in $TFB_DATA/canon_inspect.txt."""
+    plan_csv = paths.data / "canon_plan.csv"
+    if not plan_csv.exists():
+        raise SystemExit("run canon --plan first")
+    plan = pd.read_csv(plan_csv)
+    bad = plan[plan["status"] != "ok"].set_index("dataset_id")
+    jobs = [(row, files, ov) for row, files, ov in canon_jobs(a, paths) if row["dataset_id"] in bad.index]
+    with ProcessPoolExecutor(a.jobs or 8) as ex:
+        blocks = list(ex.map(_inspect_one, *zip(*[(row, files, ov, s, str(paths.data),
+                                                   f"{bad.loc[row['dataset_id'], 'status']}: "
+                                                   f"{bad.loc[row['dataset_id'], 'reason']}") for row, files, ov in jobs])))            if jobs else []
+    skipped = plan["reason"].fillna("").str.startswith("skipped in overrides")
+    fails = plan[(plan["status"] != "ok") & ~skipped]
+    why = fails["reason"].fillna("").str.replace(r"\(.*", "", regex=True).str.split(":").str[0].str.strip()
+    summ = [f"would build: {int((plan['status'] == 'ok').sum())}",
+            f"would fail: {len(fails)}"] + [f"  {n:4d}  {k}" for k, n in why.value_counts().items()] +            [f"excluded (overrides skip): {int(skipped.sum())}"] +            [f"  {d}: {r}" for d, r in plan.loc[skipped, ["dataset_id", "reason"]].itertuples(index=False)]
+    out = paths.data / "canon_inspect.txt"
+    out.write_text("\n".join(blocks) + "\n=== summary\n" + "\n".join(summ) + "\n", encoding="utf-8")
+    for x in summ:
+        log.info("%s", x)
+    log.info("canon inspect -> %s (%d datasets)", out, len(blocks))
+
+
 def step_canon(a, paths, s):
+    if getattr(a, "inspect", False):
+        return step_canon_inspect(a, paths, s)
     if getattr(a, "plan", False):
         return step_canon_plan(a, paths, s)
     jobs = [j for j in canon_jobs(a, paths)
@@ -501,6 +574,7 @@ def main(argv=None) -> int:
     ap.add_argument("--max-gb", type=float, default=100.0)
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
+    ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
     steps = STEPS if a.step == "all" or a.smoke else [a.step]

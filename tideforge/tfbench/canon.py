@@ -11,7 +11,7 @@ Steps: open tables -> pick the main table (the schema group with most bytes) -> 
 
 Override keys (per dataset_id): skip, layout, table (regex on part names), drop_parts, drop_items (regex on item_id),
 time_col, id_cols, targets, covariates, known, static, strata, freq, start_col, event_step, event_sum, agg {col: sum|mean},
-note.
+fill_zero (missing grid steps = 0), synthetic_time, note. Tables without a time column: see layouts.py.
 """
 from __future__ import annotations
 
@@ -104,10 +104,18 @@ def roles_for(schema: pa.Schema, ov: dict) -> tuple[dict, str, str]:
                 r["target_rule"] = "overrides.yaml"
     if "targets" in ov and "covariates" not in ov:   # value columns that are not targets stay covariates
         r["covariate_cols"] = [c for c in r["covariate_cols"] + r["value_cols"] if c not in r["target_cols"]]
+    from tideforge.tfbench.layouts import UNNAMED
+    for k in ("target_cols", "covariate_cols", "value_cols", "static_cols"):   # pandas index columns are never data
+        r[k] = [c for c in r.get(k, []) if not UNNAMED.match(c)] if k != "target_cols" or "targets" not in ov else r[k]
     if "covariates" not in ov:   # numeric calendar columns (hour, month, ...) are known covariates, not time columns
         cal = [c.name for c in cols if c.kind in ("num", "bool") and CALENDAR.search(c.name) and c.name != r["time_col"]
                and c.name not in r["id_cols"] and c.name not in r["target_cols"]]
         r["covariate_cols"] = list(dict.fromkeys(r["covariate_cols"] + cal))
+    if "time_col" in ov and not ov.get("layout"):   # a time column set from outside: decide the layout again
+        r["value_cols"] = [c for c in r["value_cols"] if c != r["time_col"]]
+        if "targets" not in ov:
+            r["target_cols"] = [c for c in r["target_cols"] if c != r["time_col"]]
+        layout, rule, _ = D.decide_layout(cols, r)
     if ov.get("layout"):
         layout, rule = ov["layout"], "overrides.yaml"
     missing = [c for c in ([r["time_col"]] if r["time_col"] else []) + r["id_cols"] + r["target_cols"] if c not in names]
@@ -131,21 +139,39 @@ def cov_roles(names: list[str], known_ov: list[str]) -> dict:
 
 
 # ---- table choice -------------------------------------------------------------------------------------------------------
-def open_all(files: list[tuple[Path, str]], workdir: Path) -> tuple[list[Part], list[str]]:
+def open_all(files: list[tuple[Path, str]], workdir: Path, did: str = "") -> tuple[list[Part], list[str]]:
     parts, bad = [], []
     for local, rel in files:
         try:
             parts += open_parts(local, workdir, rel)
         except Unreadable as e:
             bad.append(f"{rel}: {e}")
+            log.warning("%s: %s unreadable: %s", did, rel, str(e)[:200])
         except Exception as e:  # a reader bug on one file never stops the dataset
             bad.append(f"{rel}: {type(e).__name__}: {str(e)[:200]}")
+            log.warning("%s: %s read error %s: %s", did, rel, type(e).__name__, str(e)[:200])
     return parts, bad
 
 
+def read_stats(parts: list[Part]) -> dict:
+    """Encodings used and rows the csv reader skipped (filled in once a part has been read)."""
+    enc = defaultdict(int)
+    lossy = []
+    for p in parts:
+        enc[p.stats.get("encoding", "binary")] += 1
+        n, sk = p.stats.get("rows", 0), p.stats.get("skipped", 0)
+        if sk and sk > 0.01 * (n + sk):
+            lossy.append(f"{p.name}: {sk} of {n + sk} rows skipped")
+    return {"encodings": dict(enc), "skipped_rows": int(sum(p.stats.get("skipped", 0) for p in parts)),
+            "files_over_1pct_skipped": lossy[:50]}
+
+
 def main_table(parts: list[Part], sizes: dict, ov: dict) -> tuple[list[Part], list[str]]:
+    from tideforge.tfbench.layouts import is_meta
     if ov.get("table"):
         parts = [p for p in parts if re.search(ov["table"], p.name)]
+    elif any(not is_meta(p.name) for p in parts):   # metadata / README-like tables are never the data
+        parts = [p for p in parts if not is_meta(p.name)]
     if ov.get("drop_parts"):
         parts = [p for p in parts if not re.search(ov["drop_parts"], p.name)]
     groups = defaultdict(list)
@@ -382,7 +408,7 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
                                                      or ov.get("ref_ids") or ov.get("audit_only")):
         raise Fail("keep_filtered: no drop rule in overrides.yaml (drop_items / drop_parts / table)")
-    parts, bad = open_all([(f[0], f[1]) for f in files], workdir)
+    parts, bad = open_all([(f[0], f[1]) for f in files], workdir, did)
     if bad:
         T.append({"step": "unreadable files skipped", "count": len(bad), "examples": bad[:5]})
     if not parts:
@@ -393,6 +419,9 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
         raise Fail("no table left after the table / drop_parts overrides")
     if other:
         T.append({"step": "other tables not used (different columns)", "tables": other[:10], "count": len(other)})
+    from tideforge.tfbench.layouts import adapt
+    parts, ov, notes = adapt(parts, ov, row, roles_for)
+    T += notes
     r, layout, layout_rule = roles_for(parts[0].schema, ov)
     if layout == "unknown":
         raise Fail(f"layout unknown ({layout_rule})")
@@ -488,7 +517,8 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                 vals = targets + [c for c in covs if c in df.columns]
                 for iid, g in df.groupby("item_id", sort=False):
                     agg = {**(ov.get("agg") or {}), **({events["name"]: "sum"} if events else {})}
-                    x, st = regularise(g.drop(columns="item_id"), freq, vals, agg=agg, fill_zero=bool(events),
+                    x, st = regularise(g.drop(columns="item_id"), freq, vals, agg=agg, 
+                                       fill_zero=bool(events or ov.get("fill_zero")),
                                        keep_last=s.max_points)
                     for k, v in st.items():
                         reg_stats[k] += v
@@ -514,6 +544,10 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
     if not kept:
         raise Fail(f"no series left after the filters ({ {k: len(v) for k, v in drops.items()} }, min length {min_len})")
 
+    T.append({"step": "read", **read_stats(parts)})
+    if ov.get("fill_zero"):
+        T.append({"step": "fill_zero (overrides.yaml)", "rule": "missing grid steps = 0: the source has rows only for "
+                  "non-zero values"})
     covs = [c for c in covs if c in kept[0].columns]
     roles = cov_roles(covs, list(ov.get("known") or []))
     data = pd.concat(kept, ignore_index=True)
@@ -591,7 +625,7 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
         if row.get("status") == "keep_filtered" and not (ov.get("drop_items") or ov.get("drop_parts") or ov.get("table")
                                                          or ov.get("ref_ids") or ov.get("audit_only")):
             raise Fail("keep_filtered: no drop rule in overrides.yaml")
-        parts, bad = open_all([(f[0], f[1]) for f in files], workdir)
+        parts, bad = open_all([(f[0], f[1]) for f in files], workdir, row["dataset_id"])
         out["unreadable"] = len(bad)
         if bad:
             out["unreadable_example"] = bad[0][:200]
@@ -600,6 +634,12 @@ def plan_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Set
         parts, other = main_table(parts, {f[1]: f[2] for f in files}, ov)
         if not parts:
             raise Fail("no table left after the table / drop_parts overrides")
+        from tideforge.tfbench.layouts import adapt
+        out["main_table"] = parts[0].name[:200]
+        parts, ov, notes = adapt(parts, ov, row, roles_for)
+        out["generic_layout"] = "; ".join(n["step"] for n in notes)
+        if ov.get("synthetic_time"):
+            out["synthetic_time"] = True
         r, layout, rule = roles_for(parts[0].schema, ov)
         out.update(layout=layout, rule=rule, time_col=r["time_col"], id_cols=";".join(r["id_cols"]),
                    targets=";".join(r["target_cols"][:5]), n_targets=len(r["target_cols"]),

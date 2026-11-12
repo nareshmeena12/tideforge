@@ -34,8 +34,8 @@ test-sf = ["statsforecast"]  # test-only: checks naive_time against statsforecas
 devdata = ["openpyxl==3.1.5", "pdfplumber==0.11.10"]
 # Hugging Face catalog profiler, metadata only (owner OK 2026-11-12; never core): tideforge.devdata.hf_profile
 hf-profile = ["requests"]
-# tfbench build on JarvisLabs (owner OK 2026-11-12; never core): hf_transfer = parallel chunked downloads
-tfbench = ["huggingface_hub[hf_xet]>=0.32", "hf_transfer", "fev"]  # fev: smoke loads packaged tasks
+# tfbench build on JarvisLabs (owner OK 2026-11-12; never core): hf_xet transfers
+tfbench = ["huggingface_hub[hf_xet]>=0.32", "fev"]  # fev: smoke loads packaged tasks
 
 [tool.setuptools.packages.find]
 include = ["tideforge*"]

@@ -11,9 +11,8 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -q --upgrade pip
 pip install -q -e ".[tfbench,dev]"
-export HF_HUB_ENABLE_HF_TRANSFER=1
 python - <<'PY'
-import hf_transfer, huggingface_hub, pyarrow, pandas
+import huggingface_hub, pyarrow, pandas
 try:
     import importlib.metadata as md; print("hf_xet", md.version("hf_xet"))
 except Exception as e:

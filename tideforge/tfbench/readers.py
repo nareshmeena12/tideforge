@@ -17,7 +17,8 @@ import json
 import shutil
 import tarfile
 import zipfile
-from dataclasses import dataclass
+import codecs
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -45,6 +46,7 @@ class Part:
     name: str
     schema: pa.Schema
     _batches: Callable[[list | None], Iterator[pa.Table]]
+    stats: dict = field(default_factory=dict)      # csv: encoding, rows, skipped (rows counted on the last full read)
 
     def batches(self, columns: list | None = None) -> Iterator[pa.Table]:
         return self._batches(columns)
@@ -90,9 +92,28 @@ def _arrow(path: Path, name: str) -> Part:
 
 
 # ---- text ----------------------------------------------------------------------------------------------------------------
-def _sniff_delim(path: Path, gz: bool) -> str:
+ENCODINGS = ("utf-8", "cp1252", "latin-1")
+
+
+def detect_encoding(path: Path, gz: bool, chunk: int = 16 << 20) -> str:
+    """First of utf-8, cp1252, latin-1 that decodes the whole file (latin-1 always does)."""
     op = gzip.open if gz else open
-    with op(path, "rt", encoding="utf-8", errors="replace") as fh:
+    for enc in ENCODINGS[:-1]:
+        dec = codecs.getincrementaldecoder(enc)()
+        try:
+            with op(path, "rb") as fh:
+                while b := fh.read(chunk):
+                    dec.decode(b)
+                dec.decode(b"", final=True)
+            return enc
+        except UnicodeDecodeError:
+            continue
+    return ENCODINGS[-1]
+
+
+def _sniff_delim(path: Path, gz: bool, enc: str = "utf-8") -> str:
+    op = gzip.open if gz else open
+    with op(path, "rt", encoding=enc, errors="replace") as fh:
         head = "".join(fh.readline() for _ in range(5))
     counts = {d: head.count(d) for d in (",", "\t", ";", "|")}
     d = max(counts, key=counts.get)
@@ -101,9 +122,16 @@ def _sniff_delim(path: Path, gz: bool) -> str:
 
 def _csv(path: Path, name: str, e: str) -> Part:
     gz = e.endswith(".gz")
-    delim = "\t" if e.startswith("tsv") else _sniff_delim(path, gz)
-    parse = pcsv.ParseOptions(delimiter=delim, newlines_in_values=False, invalid_row_handler=lambda row: "skip")
-    read = pcsv.ReadOptions(block_size=CSV_BLOCK)
+    enc = detect_encoding(path, gz)
+    delim = "\t" if e.startswith("tsv") else _sniff_delim(path, gz, enc)
+    stats = {"encoding": enc, "rows": 0, "skipped": 0}
+    count = {"skipped": 0}
+
+    def skip(row):        # the input is transcoded to utf-8 first, so row.text never fails to decode
+        count["skipped"] += 1
+        return "skip"
+    parse = pcsv.ParseOptions(delimiter=delim, newlines_in_values=False, invalid_row_handler=skip)
+    read = pcsv.ReadOptions(block_size=CSV_BLOCK, encoding=enc)
 
     def stream(conv):
         src = pa.input_stream(str(path), compression="gzip" if gz else None)
@@ -121,12 +149,15 @@ def _csv(path: Path, name: str, e: str) -> Part:
 
     def gen(cols):
         conv = pcsv.ConvertOptions(column_types=types, strings_can_be_null=True, include_columns=cols)
+        count["skipped"], n = 0, 0
         try:
             for b in stream(conv):
+                n += b.num_rows
                 yield pa.Table.from_batches([b])
         except pa.ArrowInvalid as ex:  # a later chunk does not fit the types of the first one
             raise Unreadable(f"csv chunk: {str(ex)[:200]}")
-    return Part(name, schema, gen)
+        stats.update(rows=n, skipped=count["skipped"])
+    return Part(name, schema, gen, stats)
 
 
 def _json(path: Path, name: str, e: str) -> Part:

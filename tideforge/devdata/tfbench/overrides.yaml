@@ -108,8 +108,7 @@ tharinduperera_weather_clustering_data:
   note: "draft: drop Singapore if present"
 
 yahooresearch_ydata_labeled_time_series_anomalies_v1_0:
-  table: "(?i)A1Benchmark"
-  note: "draft: A1Benchmark (real) only"
+  skip: "gated repo (no access); excluded (owner 2026-11-12)"
 
 
 datadog_boom:
@@ -119,3 +118,25 @@ datadog_boom:
     # ids from fev_datasets' BOOMLET files (first of item_id / id / series_id / unique_id); dropped where they equal a
     # BOOM item id or its folder name. The report counts both drops (by id here, by value in the audit).
   note: "owner 2026-11-12: build normally; audit drops BOOMLET matches"
+
+happyman11_karnataka_sldc:
+  skip: "gated repo (no access); excluded (owner 2026-11-12)"
+
+netop_5g_network_energy_consumption:
+  skip: "gated repo (no access); excluded (owner 2026-11-12)"
+
+nju_zhangsq_rmisc_alicar:
+  skip: "no time axis: columns brand, cnt only (owner 2026-11-12)"
+
+kashif_app_flow_default:
+  time_col: time
+  id_cols: [app_name, zone]
+  targets: [value]
+  covariates: []
+  freq: h
+  fill_zero: true
+  note: "owner 2026-11-12: long hourly; rows exist only when value > 0, so missing hours are 0"
+
+ai_iot_energybench_neea:
+  table: "Energy-Load-Profiles/15min/"
+  note: "owner 2026-11-12: real data under Dataset_V0.0/Energy-Load-Profiles/; 15min is the finest (B builds hourly)"
