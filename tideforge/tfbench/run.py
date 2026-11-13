@@ -207,7 +207,7 @@ def _inspect_one(row, files, ov, s, data_root, reason) -> str:
     did = row["dataset_id"]
     work = Path(data_root) / "tmp" / ("inspect_" + did)
     L = [f"=== {did}  ({row.get('repo_id')}, config {row.get('config_or_subset') or '-'})",
-         f"plan: {reason}", f"profile: layout {row.get('layout')}, frequency {row.get('frequency')}, "
+         *(reason.splitlines() if "\n" in reason else [f"plan: {reason}"]), f"profile: layout {row.get('layout')}, frequency {row.get('frequency')}, "
          f"{len(files)} files on disk", f"overrides: {json.dumps(ov, default=str)[:300] if ov else '-'}"]
     try:
         big = sorted(files, key=lambda f: -f[2])
@@ -237,6 +237,14 @@ def _inspect_one(row, files, ov, s, data_root, reason) -> str:
             L.append("columns (dtype, blank share in first chunk): " + "; ".join(
                 f"{c} ({p.schema.field(c).type}, {d[c].isna().mean():.0%})" for c in names[:30])
                 + (f"; ... +{len(names) - 30}" if len(names) > 30 else ""))
+            from tideforge.tfbench.timefreq import guess_format, parse_time
+            for c in names[:30]:        # how each date-like column parses (format guessed, share unreadable)
+                v = d[c].dropna()
+                if len(v) and (d[c].dtype == object or str(d[c].dtype).startswith(("string", "datetime"))) and \
+                        v.astype(str).str.contains(r"\d{1,4}[-/.:]\d|[A-Za-z]{3}\s+\d").mean() > .5:
+                    u = pd.Series(v.astype(str).unique(), dtype="string")
+                    L.append(f"time parse {c}: format {guess_format(u)}, unreadable {parse_time(v).isna().mean():.0%}"
+                             f", sample {list(u[:3])}")
             h = d.head(5).astype(str).apply(lambda col: col.str.slice(0, 40))
             with pd.option_context("display.width", 400, "display.max_columns", 30, "display.max_colwidth", 40):
                 L += ["  " + x for x in h.to_string().splitlines()[:6]]
@@ -246,12 +254,16 @@ def _inspect_one(row, files, ov, s, data_root, reason) -> str:
         L.append(f"inspect error: {type(e).__name__}: {str(e)[:300]}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    out = "\n".join(x[:600] for x in L[:60]) + "\n"
-    return out if len(out) <= 4096 else out[:4060] + "\n... (cut at 4 KB)\n"
+    out = "\n".join(x[:900] for x in L[:90]) + "\n"
+    return out if len(out) <= 7000 else out[:6960] + "\n... (cut at 7 KB)\n"
 
 
 def step_canon_inspect(a, paths, s):
-    """canon --inspect: for each dataset canon_plan.csv marks as not built, one block in $TFB_DATA/canon_inspect.txt."""
+    """canon --inspect: for each dataset canon_plan.csv marks as not built, one block in $TFB_DATA/canon_inspect.txt.
+    canon --inspect --failed: for each dataset whose canon status.json is not ok / skipped, one block with the status
+    reason and traceback, in $TFB_DATA/canon_inspect_failed.txt."""
+    if getattr(a, "failed", False):
+        return step_canon_inspect_failed(a, paths, s)
     plan_csv = paths.data / "canon_plan.csv"
     if not plan_csv.exists():
         raise SystemExit("run canon --plan first")
@@ -273,6 +285,38 @@ def step_canon_inspect(a, paths, s):
     for x in summ:
         log.info("%s", x)
     log.info("canon inspect -> %s (%d datasets)", out, len(blocks))
+
+
+def step_canon_inspect_failed(a, paths, s):
+    plan_csv = paths.data / "canon_plan.csv"
+    plan = pd.read_csv(plan_csv).set_index("dataset_id") if plan_csv.exists() else pd.DataFrame()
+    bad, jobs = {}, []
+    for row, files, ov in canon_jobs(a, paths):
+        did = row["dataset_id"]
+        f = paths.canon / did / "status.json"
+        st = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {"status": "no status.json", "reason": ""}
+        reason = str(st.get("reason") or "")
+        if st.get("status") == "ok" or reason.startswith("skipped"):
+            continue
+        bad[did] = st
+        head = f"status {st.get('status')}: {reason}" + (f" (status.json {dt.datetime.fromtimestamp(f.stat().st_mtime):%Y-%m-%d %H:%M})"
+                                                       if f.exists() else "")
+        if did in plan.index:
+            pr = plan.loc[did]
+            head += "\nplan: " + "; ".join(f"{k}={pr[k]}" for k in plan.columns if str(pr[k]) not in ("", "nan"))[:900]
+        if ov.get("skip"):
+            head += f"\nNOTE: overrides.yaml has skip for this dataset ({ov['skip']}): the status above is stale"
+        if st.get("traceback"):
+            head += "\ntraceback:\n" + "\n".join("  " + x for x in str(st["traceback"]).splitlines()[-25:])
+        jobs.append((did, (row, files, ov, s, str(paths.data), head)))
+    blocks = [b if ok else f"=== {did}\ninspect failed: {str(b)[:300]}\n" for did, ok, b in isolated(a, _inspect_one, jobs)]
+    why = pd.Series({d: re.split(r"[:(]", str(st.get("reason") or st.get("status")))[0].strip() for d, st in bad.items()})
+    summ = [f"failed datasets: {len(bad)}"] + [f"  {n:4d}  {k}" for k, n in why.value_counts().items()]
+    out = paths.data / "canon_inspect_failed.txt"
+    out.write_text("\n".join(blocks) + "\n=== summary\n" + "\n".join(summ) + "\n", encoding="utf-8")
+    for x in summ:
+        log.info("%s", x)
+    log.info("canon inspect --failed -> %s (%d datasets)", out, len(blocks))
 
 
 def step_canon(a, paths, s):
@@ -630,6 +674,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
+    ap.add_argument("--failed", action="store_true", help="canon --inspect: every dataset whose status.json is not ok / skipped")
     ap.add_argument("--redo-failed", help="canon: rebuild datasets whose status reason matches this regex (e.g. timeout)")
     ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
     ap.add_argument("--timeout-min", type=float, default=45.0, help="canon: per-dataset time limit (0 = none)")

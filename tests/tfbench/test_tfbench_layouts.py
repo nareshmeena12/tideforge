@@ -189,6 +189,30 @@ def test_canon_inspect_writes_blocks_and_summary(tmp_path, monkeypatch):
     assert "no time axis" in txt
 
 
+def test_canon_inspect_failed_lists_status_reason_and_traceback(tmp_path, monkeypatch):
+    import json
+    import types
+
+    from tideforge.tfbench import run as RUN
+    from tideforge.tfbench.config import Paths
+    paths = Paths(data=tmp_path)
+    f = tmp_path / "raw" / "o_r" / "x.csv"
+    f.parent.mkdir(parents=True)
+    pd.DataFrame({"day": ["13/02/2020", "14/02/2020"], "cnt": [1.0, 2.0]}).to_csv(f, index=False)
+    for did, st in {"bad": {"status": "error", "reason": "TypeError: boom", "traceback": "Traceback\n  line 1\nTypeError: boom"},
+                    "good": {"status": "ok"}, "skip": {"status": "not built", "reason": "skipped in overrides.yaml: x"}}.items():
+        (paths.canon / did).mkdir(parents=True)
+        (paths.canon / did / "status.json").write_text(json.dumps(st), encoding="utf-8")
+    fl = [(str(f), "x.csv", f.stat().st_size)]
+    jobs = [(row(dataset_id=d), fl, {"skip": "gone"} if d == "bad" else {}) for d in ("bad", "good", "skip")]
+    monkeypatch.setattr(RUN, "canon_jobs", lambda a, p: jobs)
+    RUN.step_canon_inspect(types.SimpleNamespace(jobs=1, only=None, inspect=True, failed=True), paths, S)
+    txt = (tmp_path / "canon_inspect_failed.txt").read_text(encoding="utf-8")
+    assert "=== bad" in txt and "=== good" not in txt and "=== skip" not in txt
+    assert "TypeError: boom" in txt and "  line 1" in txt and "stale" in txt
+    assert "time parse day: format %d/%m/%Y, unreadable 0%" in txt and "failed datasets: 1" in txt
+
+
 def test_encoding_sampled_for_big_files_and_restart_when_sample_misses(tmp_path, monkeypatch):
     monkeypatch.setattr(readers, "SAMPLE_FULL", 1000)
     monkeypatch.setattr(readers, "SAMPLE_HEAD", 400)

@@ -658,7 +658,7 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
             freq = ov.get("freq") or (events["step"] if events else None)   # event counts: the grid is the step
             freq_share = None
             min_len = None
-            kept, drops, hashes = [], defaultdict(list), set()
+            kept, drops, hashes, drop_len = [], defaultdict(list), set(), defaultdict(list)
             reg_stats = defaultdict(int)
             # chunks of the seeded order: max_series ids first, then 3x larger (at most 20k ids) each pass, so a dataset
             # where most series fail the filters needs a few full reads of the files, not one per 1,000 ids
@@ -681,6 +681,9 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                 if n_nat:
                     reg_stats["rows without a readable timestamp"] += n_nat
                     df = df.dropna(subset=["timestamp"])
+                reg_stats["rows read"] += len(df) + n_nat
+                if df.empty:
+                    continue
                 if not targets:
                     targets = [events["name"]] if events else (
                         [c for c in df.columns if c == "target" or c.startswith("target_")] if layout in ("wide", "nested")
@@ -707,8 +710,9 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         cum = cumulative_rule(ov, src, [c for c in covs if c in df.columns], mono)
                 if not freq:
                     freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id")["timestamp"])
-                    if not freq:
-                        raise Fail("frequency: fewer than two timestamps per series")
+                    if not freq:      # this chunk has only one-stamp series: try the next chunk
+                        reg_stats["chunks without a frequency"] += 1
+                        continue
                 if min_len is None:
                     min_len = rules.min_length(freq, s)
                 vals = targets + [c for c in covs if c in df.columns]
@@ -737,6 +741,7 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         hashes.add(h)
                     if why:
                         drops[why].append(iid)
+                        drop_len[why].append(int(x[targets].notna().any(axis=1).sum()) if len(x) else 0)
                         continue
                     kept.append(x.assign(item_id=iid))
                     if len(kept) >= s.max_series:
@@ -749,7 +754,15 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
             T.append({"step": "synthetic time", "rule": f"real timestamps do not fit pandas' range ({str(e)[:200]}); every "
                       f"series re-indexed from {SYNTHETIC_START.date()} at its frequency; calendar position is not real"})
     if not kept:
-        raise Fail(f"no series left after the filters ({ {k: len(v) for k, v in drops.items()} }, min length {min_len})")
+        diag = {k: v for k, v in reg_stats.items() if k in ("rows read", "rows without a readable timestamp",
+                                                           "chunks without a frequency")}
+        if not freq:
+            raise Fail(f"frequency: no series with two or more readable timestamps ({diag}, layout {layout}, "
+                       f"time column {r.get('time_col')})")
+        lens = {k: f"{len(v)} series, observed points min {min(v)} / median {int(np.median(v))} / max {max(v)}"
+                for k, v in drop_len.items() if v}
+        raise Fail(f"no series left after the filters ({lens or dict(drops)}, frequency {freq}"
+                   f"{f' (share {freq_share:.0%})' if freq_share else ''}, min length {min_len}, {diag})")
 
     T.append({"step": "read", **read_stats(parts)})
     if ov.get("fill_zero"):
