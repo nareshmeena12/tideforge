@@ -172,8 +172,9 @@ def step_canon_plan(a, paths, s):
     """canon --plan: per dataset, the layout / time / id / target columns the adapter would use, unreadable files, and
     nested rows whose real timestamps overflow (synthetic time). Writes $TFB_DATA/canon_plan.csv; builds nothing."""
     jobs = canon_jobs(a, paths)
-    with ProcessPoolExecutor(a.jobs or 8) as ex:
-        res = list(ex.map(_plan_one, *zip(*[(row, files, ov, s, str(paths.data)) for row, files, ov in jobs]))) if jobs else []
+    res = [st if ok else {"dataset_id": did, "status": "error", "reason": str(st)[:500]}
+           for did, ok, st in isolated(a, _plan_one, [(row["dataset_id"], (row, files, ov, s, str(paths.data)))
+                                                      for row, files, ov in jobs])]
     df = pd.DataFrame(res)
     df.to_csv(paths.data / "canon_plan.csv", index=False)
     if df.empty:
@@ -255,10 +256,11 @@ def step_canon_inspect(a, paths, s):
     plan = pd.read_csv(plan_csv)
     bad = plan[plan["status"] != "ok"].set_index("dataset_id")
     jobs = [(row, files, ov) for row, files, ov in canon_jobs(a, paths) if row["dataset_id"] in bad.index]
-    with ProcessPoolExecutor(a.jobs or 8) as ex:
-        blocks = list(ex.map(_inspect_one, *zip(*[(row, files, ov, s, str(paths.data),
-                                                   f"{bad.loc[row['dataset_id'], 'status']}: "
-                                                   f"{bad.loc[row['dataset_id'], 'reason']}") for row, files, ov in jobs])))            if jobs else []
+    blocks = [b if ok else f"=== {did}\ninspect failed: {str(b)[:300]}\n"
+              for did, ok, b in isolated(a, _inspect_one, [
+                  (row["dataset_id"], (row, files, ov, s, str(paths.data),
+                                       f"{bad.loc[row['dataset_id'], 'status']}: {bad.loc[row['dataset_id'], 'reason']}"))
+                  for row, files, ov in jobs])]
     skipped = plan["reason"].fillna("").str.startswith("skipped in overrides")
     fails = plan[(plan["status"] != "ok") & ~skipped]
     why = fails["reason"].fillna("").str.replace(r"\(.*", "", regex=True).str.split(":").str[0].str.strip()
@@ -279,12 +281,29 @@ def step_canon(a, paths, s):
     jobs = [j for j in canon_jobs(a, paths)
             if a.redo or not (paths.canon / j[0]["dataset_id"] / "status.json").exists()]
     log.info("canon: %d datasets to build", len(jobs))
-    with ProcessPoolExecutor(a.jobs or 8) as ex:
-        futs = {ex.submit(_canon_one, row, files, ov, s, str(paths.data)): row["dataset_id"] for row, files, ov in jobs}
-        for f in as_completed(futs):
-            st = f.result()
-            log.info("%s: %s %s", st["dataset_id"], st["status"], st.get("reason") or
-                     f"{st.get('n_series')} series, {st.get('n_points')} points, {st.get('frequency')}")
+    rows = {row["dataset_id"]: row for row, _, _ in jobs}
+    for did, ok, st in isolated(a, _canon_one, [(row["dataset_id"], (row, files, ov, s, str(paths.data)))
+                                                for row, files, ov in jobs]):
+        if not ok:      # worker died / timeout / memory cap / crash: recorded as failed, the run goes on
+            st = {"dataset_id": did, "repo_id": rows[did]["repo_id"], "status": "error", "reason": str(st)[:500]}
+            out = paths.canon / did
+            out.mkdir(parents=True, exist_ok=True)
+            (out / "status.json").write_text(json.dumps(st, indent=1), encoding="utf-8")
+            shutil.rmtree(paths.data / "tmp" / did, ignore_errors=True)
+        log.info("%s: %s %s", st["dataset_id"], st["status"], st.get("reason") or
+                 f"{st.get('n_series')} series, {st.get('n_points')} points, {st.get('frequency')}")
+
+
+def isolated(a, fn, jobs):
+    """One process per dataset (pool.run): logs 'start <id>', a dead worker / timeout / memory cap fails that dataset only."""
+    from tideforge.tfbench import pool
+    n = a.jobs or 8
+    mem_gb, tmin = getattr(a, "mem_gb", None), getattr(a, "timeout_min", 60.0)
+    mem = int(mem_gb * 1e9) if mem_gb else pool.default_mem_bytes(n)
+    log.info("workers %d, timeout %s min, memory cap per dataset %s", n, tmin or "none",
+             f"{mem / 1e9:.1f} GB" if mem else "none")
+    yield from pool.run(fn, jobs, n, timeout_s=(tmin or 0) * 60 or None, mem_bytes=mem,
+                        on_start=lambda k: log.info("start %s", k))
 
 
 def _audit_one(canon_dir: str, db_dir: str, out: str, s: C.Settings) -> str:
@@ -589,6 +608,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
+    ap.add_argument("--timeout-min", type=float, default=60.0, help="canon: per-dataset time limit (0 = none)")
+    ap.add_argument("--mem-gb", type=float, help="canon: per-dataset memory cap (default 90%% of the container limit / jobs)")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
     steps = STEPS if a.step == "all" or a.smoke else [a.step]
