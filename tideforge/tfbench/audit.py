@@ -29,6 +29,9 @@ from tideforge.tfbench.config import Settings
 from tideforge.tfbench.readers import Unreadable, open_parts
 
 log = logging.getLogger("tfbench.audit")
+# Version of the audit code, recorded in every <dataset_id>.json (audit_code). Results without it predate a2cb824.
+AUDIT_CODE = "a2cb824"
+PRE = "before a2cb824"
 REF_EXT = {"parquet", "arrow", "csv", "tsv", "json", "jsonl", "csv.gz", "zip", "tar.gz"}
 
 
@@ -128,7 +131,7 @@ def audit_dataset(canon_dir: Path, db: A.DB, s: Settings) -> dict:
     tot = keep["windows"].sum()
     ds_share = float(keep["matched"].sum() / tot) if tot else 0.0
     tasks = Counter(keep.loc[keep["matched"] > 0, "matched_task"])
-    out = dict(dataset_id=meta["dataset_id"], series=len(per), series_dropped=int(per["dropped"].sum()),
+    out = dict(dataset_id=meta["dataset_id"], audit_code=AUDIT_CODE, series=len(per), series_dropped=int(per["dropped"].sum()),
                windows=int(per["windows"].sum()), matched_windows=int(per["matched"].sum()),
                share_after_drops=ds_share, flagged=ds_share > s.audit_dataset_share,
                old_rule_windows=int(old_windows), old_rule_flag=old_windows >= A.FLAG_WINDOWS,

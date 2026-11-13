@@ -11,7 +11,7 @@ from tideforge.tfbench.report import _md
 
 
 def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task_root: Path, crossdup: pd.DataFrame,
-          failures: pd.DataFrame) -> str:
+          failures: pd.DataFrame, audit_versions: pd.DataFrame | None = None) -> str:
     man = pd.read_csv(Path(release) / "manifest.csv")
     tags = pd.read_csv(Path(release) / "tags.csv")
     m = man.merge(tags[["task", "covariates"]], on="task", how="left")
@@ -29,6 +29,10 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
         L += [f"## Tasks (full tier) by {title}", _md(g)]
     if not failures.empty:
         L += ["## Datasets that failed in Milestone B", _md(failures)]
+    if audit_versions is not None and not audit_versions.empty:
+        L += ["## Audit code version per dataset (audit_code in audit/<dataset_id>.json)",
+              ", ".join(f"{r.datasets} {r.audit_code}" for r in audit_versions.itertuples()) + ".",
+              _md(audit_versions)]
     L += ["## Cross-dataset copies dropped from tuning (z-normalised window hashes, > 10% of windows)",
           f"Series dropped: {len(crossdup)}.", _md(crossdup.groupby(["dataset_id", "matched"]).size()
                                                    .reset_index(name="series") if not crossdup.empty else crossdup)]

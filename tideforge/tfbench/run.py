@@ -405,7 +405,8 @@ def step_audit(a, paths, s):
         if out.exists() and not a.redo and out.stat().st_mtime >= d.stat().st_mtime:
             continue
         todo.append((str(d.parent), str(out)))
-    log.info("audit: %d datasets", len(todo))
+    log.info("audit: %d datasets to audit (code %s): %s", len(todo), TA.AUDIT_CODE,
+             ", ".join(Path(c).name for c, _ in todo))
     with ProcessPoolExecutor(a.jobs or 8) as ex:
         for f in as_completed([ex.submit(_audit_one, c, str(db_dir), o, s) for c, o in todo]):
             log.info(f.result())
@@ -652,6 +653,18 @@ def _baseline_one(path, task):
                 "series_windows": 0, "flag": f"error {type(e).__name__}: {str(e)[:200]}"}
 
 
+def audit_versions(paths, used: set) -> pd.DataFrame:
+    """Audit code version per dataset in the release -> table (version, datasets, ids)."""
+    from tideforge.tfbench.audit import PRE
+    rows = []
+    for d in sorted(used):
+        f = paths.audit / f"{d}.json"
+        rows.append(dict(dataset=d, audit_code=json.loads(f.read_text(encoding="utf-8")).get("audit_code") or PRE
+                         if f.exists() else "missing"))
+    df = pd.DataFrame(rows, columns=["dataset", "audit_code"])
+    return df.groupby("audit_code")["dataset"].agg(datasets="size", ids=lambda x: ", ".join(x)).reset_index()
+
+
 def step_report_b(a, paths, s):
     from tideforge.tfbench import report, report_b
     rel = release(a, paths, s)
@@ -667,7 +680,8 @@ def step_report_b(a, paths, s):
     bl.to_csv(rel / "baseline.csv", index=False)
     ra = report.write(paths.data / f"BUILD_REPORT_A{_sfx(a)}.md", pd.read_csv(paths.selection), paths.canon,
                       paths.audit / "audit.csv")
-    report_b.write(rel / "BUILD_REPORT.md", rel, ra, bl, task_root(a, paths), crossdup_table(a, paths), failures(a, paths))
+    report_b.write(rel / "BUILD_REPORT.md", rel, ra, bl, task_root(a, paths), crossdup_table(a, paths), failures(a, paths),
+                   audit_versions(paths, set(pd.read_csv(rel / "manifest.csv")["dataset"])))
     shutil.copyfile(rel / "BUILD_REPORT.md", paths.small / f"BUILD_REPORT{_sfx(a)}.md")
     flagged = int((bl["flag"].fillna("") != "").sum())
     log.info("report_b: %d tasks scored, %d flagged -> %s", len(bl), flagged, rel / "BUILD_REPORT.md")
@@ -729,6 +743,8 @@ def main(argv=None) -> int:
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
     ap.add_argument("--from", dest="from_step", choices=STEPS,
                     help="all: start at this step (e.g. --from audit runs audit, report, then Milestone B)")
+    ap.add_argument("--redo-b", action="store_true",
+                    help="redo the Milestone B steps (crossdup, tasks, package, report_b) but not the audit")
     ap.add_argument("--failed", action="store_true", help="canon --inspect: every dataset whose status.json is not ok / skipped")
     ap.add_argument("--redo-failed", help="canon: rebuild datasets whose status reason matches this regex (e.g. timeout)")
     ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
@@ -750,7 +766,9 @@ def main(argv=None) -> int:
         steps = steps[steps.index(a.from_step):]
     if a.no_upload:
         steps = [x for x in steps if x != "upload"]
+    redo = a.redo
     for step in steps:
+        a.redo = redo or (a.redo_b and step in STEPS_B)     # --redo-b: Milestone B fresh, audits kept
         f = setup_logging(paths, step)
         log.info("step %s (data %s, log %s)", step, paths.data, f)
         globals()[f"step_{step}"](a, paths, s)

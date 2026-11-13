@@ -237,7 +237,8 @@ def make_canon(paths: Paths, did, data, m):
     (d / "meta.json").write_text(json.dumps(m))
     (d / "status.json").write_text(json.dumps({"dataset_id": did, "status": "ok"}))
     paths.audit.mkdir(parents=True, exist_ok=True)
-    (paths.audit / f"{did}.json").write_text(json.dumps({"dataset_id": did, "flagged": False, "dropped_series": []}))
+    code = {"audit_code": "a2cb824"} if did.endswith(("0", "2")) else {}     # some audits predate the version field
+    (paths.audit / f"{did}.json").write_text(json.dumps({"dataset_id": did, "flagged": False, "dropped_series": [], **code}))
 
 
 def test_end_to_end(tmp_path, monkeypatch):
@@ -298,6 +299,7 @@ def test_end_to_end(tmp_path, monkeypatch):
     assert len(bl) == len(man) and bl["flag"].isna().all()
     rep = (rel / "BUILD_REPORT.md").read_text()
     assert "Tasks per tier and split" in rep and "Seasonal naive baseline" in rep
+    assert "Audit code version per dataset" in rep and "a2cb824" in rep and "before a2cb824" in rep
     # tampering is caught
     f = next((rel / "data").rglob("data.parquet"))
     f.write_bytes(f.read_bytes() + b"x")
