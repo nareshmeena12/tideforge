@@ -109,3 +109,16 @@ def test_shard_and_split_ids():
         assert SHARD_ID.search(s), s
     for s in ("Val-de-Marne", "contest", "dev_17", "train_ids", "station_42"):
         assert not SHARD_ID.search(s), s
+
+
+def test_shard_ids_flagged_only_when_a_series_is_cut_across_files():
+    from tideforge.tfbench.run import base_id, split_collisions
+    lotsa = [f"pems03/data-0000{k}-of-00002.arrow/{k * 10 + j}" for k in range(2) for j in range(5)]
+    chronos = ["nn5/train-00000-of-00001.parquet/NN5-009", "nn5/train-00000-of-00001.parquet/NN5-010"]
+    assert split_collisions(lotsa) == [] and split_collisions(chronos) == []
+    assert base_id("nn5/train-00000-of-00001.parquet/NN5-009") == "nn5/NN5-009"
+    assert base_id("residential_load_power/train/0000.parquet/unit_73") == "residential_load_power/0000.parquet/unit_73"
+    cut = ["data/train.csv/V", "data/test.csv/V", "data/train.csv/W"]
+    assert [k for k, _ in split_collisions(cut)] == ["data/V"]
+    shards = ["x/data-00000-of-00002.arrow/T1", "x/data-00001-of-00002.arrow/T1"]
+    assert [k for k, _ in split_collisions(shards)] == ["x/T1"]

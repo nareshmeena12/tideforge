@@ -443,6 +443,7 @@ def release(a, paths, s) -> Path:
 SHARD_ID = re.compile(r"-of-\d{3,}|(^|[/_.\-])(train|test|val|valid|validation|dev)([_\-][^/]*)?\."
                       r"(parquet|csv|tsv|json|jsonl|arrow|feather|npy|npz|h5|hdf5|nc|txt|pkl)(\.gz)?\b"
                       r"|(^|/)(train|test|val|valid|validation)/", re.I)
+SPLIT_DIR = re.compile(r"train|test|val|valid|validation", re.I)
 
 
 def unusable(paths, did: str, ov_all: dict) -> str | None:
@@ -456,10 +457,27 @@ def unusable(paths, did: str, ov_all: dict) -> str | None:
         return f"skipped in overrides.yaml: {ov_all[did]['skip']}"
     import pyarrow.parquet as pq
     ids = pq.read_table(paths.canon / did / "data.parquet", columns=["item_id"]).column(0).unique().to_pylist()
-    bad = [i for i in ids if SHARD_ID.search(str(i))]
-    if bad:
-        return f"shard / split file names in series ids ({len(bad)} of {len(ids)}, e.g. {bad[0]}); v1.1"
+    hit = split_collisions([str(i) for i in ids])
+    if hit:
+        return (f"one series cut across shard / split files ({len(hit)} base ids in more than one file, e.g. "
+                f"{hit[0][0]}: {hit[0][1][:3]}); v1.1")
     return None
+
+
+def base_id(i: str) -> str:
+    """The id without its shard / split path parts (data-00001-of-00004.arrow, train.csv, /test/)."""
+    return "/".join(p for p in str(i).split("/") if not SHARD_ID.search(p) and not SPLIT_DIR.fullmatch(p))
+
+
+def split_collisions(ids: list[str]) -> list[tuple[str, list[str]]]:
+    """Base ids that occur under more than one shard / split file: one series cut across files. Ids that stay unique
+    once the shard / split parts are removed are distinct whole series (LOTSA data-0000k-of-0000n.arrow, chronos)."""
+    groups: dict[str, list[str]] = {}
+    for i in ids:
+        if SHARD_ID.search(i):
+            groups.setdefault(base_id(i), []).append(i)
+    plain = {i for i in ids if not SHARD_ID.search(i)}
+    return [(k, v) for k, v in groups.items() if len(v) > 1 or k in plain]
 
 
 def passed(a, paths) -> dict:
