@@ -376,7 +376,7 @@ def _audit_one(canon_dir: str, db_dir: str, out: str, s: C.Settings) -> str:
     from tideforge.devdata.audit import DB
     from tideforge.tfbench.audit import audit_dataset
     try:
-        res = audit_dataset(Path(canon_dir), DB.load(Path(db_dir)), s)
+        res = audit_dataset(Path(canon_dir), DB.shared(Path(db_dir)), s)   # memory-mapped, once per worker
     except Exception as e:
         return f"{Path(canon_dir).name}: error {type(e).__name__}: {e}"
     Path(out).write_text(json.dumps(res, indent=1, default=str), encoding="utf-8")

@@ -80,3 +80,23 @@ def test_name_audit_runs_on_batch1():
     srcs, batches = load_sources()
     df = audit.name_audit(srcs, batches["batch1"])
     assert len(df) == 21 and df.set_index("dataset_id").loc["D053", "check_by_hand"]
+
+
+def test_fast_fingerprints_equal_reference_implementation():
+    rng = np.random.default_rng(3)
+    x = np.cumsum(rng.normal(size=3000))
+    x[500:520] = np.nan
+    x[1000:1200] = 5.0                       # flat: no spread
+    x[1500:1700] = np.round(x[1500:1700])    # few distinct values
+    for stride in (1, 16):
+        s0, a0, b0 = audit.fingerprints(x, stride)
+        s1, a1, b1, _ = audit.fast_fingerprints(x, stride)
+        assert np.array_equal(s0, s1)
+        assert (a0 == a1).mean() > 0.999 and (b0 == b1).mean() > 0.999   # rolling sums: a rare bin-edge flip at most
+
+
+def test_frequency_band():
+    assert audit.freq_band("h") == "hourly" and audit.freq_band("15min") == "sub-hourly"
+    assert audit.freq_band("D") == "daily" and audit.freq_band("W-SUN") == "weekly"
+    assert audit.freq_band("MS") == audit.freq_band("QS") == audit.freq_band("YS") == "monthly"
+    assert audit.freq_band("") == ""

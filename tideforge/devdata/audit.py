@@ -71,8 +71,8 @@ def codes(w: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def hashes(c: np.ndarray) -> np.ndarray:
-    with np.errstate(over="ignore"):
-        return (c.astype(np.uint64) * _COEF[None, :]).sum(1, dtype=np.uint64)
+    # int64 matrix-vector product: wraps modulo 2**64 exactly as the uint64 sum did, in one pass, no temporary array
+    return (np.asarray(c, dtype=np.int64) @ _COEF.view(np.int64)).view(np.uint64)
 
 
 def fingerprints(x: np.ndarray, stride: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -82,6 +82,64 @@ def fingerprints(x: np.ndarray, stride: int) -> tuple[np.ndarray, np.ndarray, np
         return st, np.zeros(0, np.uint64), np.zeros(0, np.uint64)
     c1, c2, ok = codes(w)
     return st[ok], hashes(c1[ok]), hashes(c2[ok])
+
+
+CHUNK = 1 << 17      # windows per block in the fast path (memory: CHUNK x W x 8 bytes per array)
+
+
+def _fast_codes(x: np.ndarray, starts: np.ndarray):
+    """Codes of the windows at `starts`, z-scored with rolling sums (no per-window mean / std passes). -> (c1, c2, ok)
+    where ok is only the cheap filter (finite, spread); the distinct / one-code filters are applied later, to the few
+    windows that hit a reference hash (same result: a filter before or after the lookup keeps the same windows)."""
+    xf = np.where(np.isfinite(x), x, 0.0)
+    x0 = xf - xf.mean() if len(xf) else xf                 # centred: rolling sums stay accurate
+    c1s = np.r_[0.0, np.cumsum(x0)]
+    c2s = np.r_[0.0, np.cumsum(x0 * x0)]
+    bad = np.r_[0, np.cumsum(~np.isfinite(x))]
+    s = starts
+    mu0 = (c1s[s + W] - c1s[s]) / W
+    var = np.maximum((c2s[s + W] - c2s[s]) / W - mu0 * mu0, 0.0)
+    sd = np.sqrt(var)
+    mu = mu0 + (xf.mean() if len(xf) else 0.0)
+    ok = (bad[s + W] - bad[s] == 0) & (sd > 1e-9 * (np.abs(mu) + 1.0))
+    z = np.lib.stride_tricks.sliding_window_view(x0, W)[s] - mu0[:, None]     # new array; then in place
+    z /= np.where(sd > 0, sd, 1.0)[:, None]
+    np.clip(z, -CLIP, CLIP, out=z)
+    z /= BIN
+    c1 = np.floor(z)
+    z -= c1
+    c2 = (c1 + (z >= 0.5)).astype(np.int64)       # floor(z + 0.5)
+    return c1.astype(np.int64), c2, ok
+
+
+def _strict_ok(x: np.ndarray, starts: np.ndarray, c1: np.ndarray) -> np.ndarray:
+    """The noise filters of codes(): >= 8 distinct values and no code in more than half of the points."""
+    if not len(starts):
+        return np.zeros(0, bool)
+    w = np.sort(np.lib.stride_tricks.sliding_window_view(x, W)[starts], 1)
+    distinct = 1 + (np.diff(w, axis=1) != 0).sum(1)
+    k = int(CLIP / BIN)
+    idx = (c1 + k) + (2 * k + 2) * np.arange(len(c1))[:, None]
+    top = np.bincount(idx.ravel(), minlength=len(c1) * (2 * k + 2)).reshape(len(c1), -1).max(1)
+    return (distinct >= 8) & (top <= W // 2)
+
+
+def fast_fingerprints(x: np.ndarray, stride: int, strict: bool = True):
+    """Like fingerprints(), vectorised and in blocks. strict=False skips the distinct / one-code filters (apply them
+    with _strict_ok to the windows that matter)."""
+    x = np.asarray(x, dtype=np.float64)
+    if len(x) < W:
+        e = np.zeros(0, np.uint64)
+        return np.zeros(0, np.int64), e, e, np.zeros((0, W), np.int64)
+    st_all = np.arange(0, len(x) - W + 1, stride)
+    S, H1, H2, C = [], [], [], []
+    for b in range(0, len(st_all), CHUNK):
+        st = st_all[b:b + CHUNK]
+        c1, c2, ok = _fast_codes(x, st)
+        if strict:
+            ok[ok] &= _strict_ok(x, st[ok], c1[ok])
+        S.append(st[ok]); H1.append(hashes(c1[ok])); H2.append(hashes(c2[ok])); C.append(c1[ok])
+    return np.concatenate(S), np.concatenate(H1), np.concatenate(H2), np.concatenate(C)
 
 
 def pearson(a: np.ndarray, b: np.ndarray) -> float:
@@ -108,7 +166,7 @@ class DB:
     def build(self, stride: int = BENCH_STRIDE) -> "DB":
         sid, st, h1, h2 = [], [], [], []
         for i, x in enumerate(self.values):
-            s, a, b = fingerprints(x.astype(np.float64), stride)
+            s, a, b, _ = fast_fingerprints(x.astype(np.float64), stride)
             sid.append(np.full(len(s), i, np.int64))
             st.append(s)
             h1.append(a)
@@ -126,8 +184,10 @@ class DB:
         lens = np.array([len(v) for v in self.values], np.int64)
         np.save(path / "values.npy", np.concatenate(self.values) if self.values else np.zeros(0, np.float32))
         np.save(path / "lengths.npy", lens)
-        for name, (h, s, t) in self.index.items():
-            np.savez(path / f"{name}.npz", h=h, sid=s, start=t)
+        for name, (h, s, t) in self.index.items():     # plain .npy: memory-mapped and shared by every worker
+            np.save(path / f"{name}_h.npy", h)
+            np.save(path / f"{name}_sid.npy", s)
+            np.save(path / f"{name}_start.npy", t)
         (path / "meta.json").write_text(json.dumps(self.meta), encoding="utf-8")
 
     @classmethod
@@ -141,37 +201,144 @@ class DB:
         db.meta = json.loads((path / "meta.json").read_text(encoding="utf-8"))
         db.index = {}
         for name in ("h1", "h2"):
-            z = np.load(path / f"{name}.npz")
-            db.index[name] = (z["h"], z["sid"], z["start"])
+            if not (path / f"{name}_h.npy").exists():        # a db saved as .npz before 2026-11-13: unpack once
+                z = np.load(path / f"{name}.npz")
+                for k in ("h", "sid", "start"):
+                    tmp = path / f"{name}_{k}.tmp.npy"
+                    np.save(tmp, z[k])
+                    tmp.replace(path / f"{name}_{k}.npy")
+            db.index[name] = tuple(np.load(path / f"{name}_{k}.npy", mmap_mode="r") for k in ("h", "sid", "start"))
+        db.path = path
         return db
+
+    _cache: dict = {}
+
+    @classmethod
+    def shared(cls, path: Path) -> "DB":
+        """One memory-mapped DB per process and path (the OS page cache shares the pages between workers)."""
+        key = str(Path(path).resolve())
+        if key not in cls._cache:
+            cls._cache[key] = cls.load(path)
+        return cls._cache[key]
 
     def candidates(self, name: str, h: np.ndarray) -> list[tuple[int, int, int]]:
         """[(query row, ref series, ref start)] for the query hashes h."""
+        q, sid, st = self.candidate_arrays(name, h)
+        return list(zip(q.tolist(), sid.tolist(), st.tolist()))
+
+    def candidate_arrays(self, name: str, h: np.ndarray, band: str | None = None):
+        """Vectorised: (query rows, ref series, ref starts). Queries are sorted before the lookup (sequential access into
+        the memory-mapped index). band: only references in that frequency band, or of unknown frequency."""
         ref, sid, st = self.index[name]
-        lo = np.searchsorted(ref, h, "left")
-        hi = np.minimum(np.searchsorted(ref, h, "right"), lo + MAX_CAND_PER_WINDOW)
-        out = []
-        for q in np.nonzero(hi > lo)[0]:
-            out += [(int(q), int(sid[k]), int(st[k])) for k in range(lo[q], hi[q])]
-        return out
+        e = np.zeros(0, np.int64)
+        if not len(h) or not len(ref):
+            return e, e, e
+        o = np.argsort(h, kind="stable")
+        hs = h[o]
+        ref = np.asarray(ref)                                # plain ndarray view of the memmap
+        lo_s = self._lower_bound(name, ref, hs)              # bucket index; the right edge only for the (rare) hits
+        hit = ref[np.minimum(lo_s, len(ref) - 1)] == hs
+        if not hit.any():
+            return e, e, e
+        q, lo = o[hit], lo_s[hit]
+        cnt = np.minimum(np.searchsorted(ref, hs[hit], "right"), lo + MAX_CAND_PER_WINDOW) - lo
+        qq = np.repeat(q, cnt)
+        k = np.repeat(lo - np.r_[0, np.cumsum(cnt)[:-1]], cnt) + np.arange(cnt.sum())
+        s_, t_ = np.asarray(sid[k], np.int64), np.asarray(st[k], np.int64)
+        if band is not None:
+            rb = self.bands()[s_]
+            keep = (rb == band) | (rb == "")
+            qq, s_, t_ = qq[keep], s_[keep], t_[keep]
+        o2 = np.lexsort((np.arange(len(qq)), qq))        # query order, as the old per-window loop
+        return qq[o2], s_[o2], t_[o2]
+
+    def _prefix(self, name: str, ref: np.ndarray) -> tuple[np.ndarray, int]:
+        """Bucket offsets of the sorted hashes by their top bits (about one hash per bucket): pre[b] = first index whose
+        hash starts with b. Saved next to the db (memory-mapped by every worker) the first time it is needed."""
+        cache = self.__dict__.setdefault("_pre", {})
+        if name not in cache:
+            bits = int(min(30, max(1, np.ceil(np.log2(max(len(ref), 2))))))
+            f = Path(self.path) / f"{name}_pre{bits}.npy" if getattr(self, "path", None) else None
+            if f is not None and f.exists():
+                pre = np.load(f, mmap_mode="r")
+            else:
+                cnt = np.zeros(1 << bits, np.int64)
+                for b in range(0, len(ref), 1 << 24):            # in blocks: never a full copy of a large index
+                    cnt += np.bincount((ref[b:b + (1 << 24)] >> np.uint64(64 - bits)).astype(np.int64), minlength=1 << bits)
+                pre = np.r_[0, np.cumsum(cnt)].astype(np.int64)
+                if f is not None:
+                    tmp = f.with_suffix(".tmp.npy")
+                    np.save(tmp, pre)
+                    tmp.replace(f)
+            cache[name] = (np.asarray(pre), bits)
+        return cache[name]
+
+    def _lower_bound(self, name: str, ref: np.ndarray, hs: np.ndarray) -> np.ndarray:
+        """searchsorted(ref, hs, 'left') through the bucket index: a few vectorised steps instead of a binary search."""
+        pre, bits = self._prefix(name, ref)
+        b = (hs >> np.uint64(64 - bits)).astype(np.int64)
+        lo, hi = pre[b].copy(), pre[b + 1]
+        act = np.nonzero(lo < hi)[0]
+        while len(act):                                       # advance while ref[lo] < h, inside the bucket
+            adv = ref[lo[act]] < hs[act]
+            act = act[adv]
+            lo[act] += 1
+            act = act[lo[act] < hi[act]]
+        return lo
 
     def freqs(self) -> set:
-        return {m.get("freq") for m in self.meta if m.get("freq")}
+        if getattr(self, "_freqs", None) is None:
+            self._freqs = {m.get("freq") for m in self.meta if m.get("freq")}
+        return self._freqs
+
+    def bands(self) -> np.ndarray:
+        """Frequency band of each reference series ("" when its frequency is unknown)."""
+        if getattr(self, "_bands", None) is None:
+            self._bands = np.array([freq_band(m.get("freq") or "") for m in self.meta], dtype=object)
+        return self._bands
 
 
-def match_series(x: np.ndarray, db: DB, skip=lambda meta: False) -> list[dict]:
-    """Verified matches of one series against db: [{start, ref, ref_start, r}] (one per dev window, best r)."""
+def freq_band(freq: str) -> str:
+    """Coarse band of a pandas frequency: sub-hourly / hourly / daily / weekly / monthly ("" unknown). Monthly and longer
+    are one band (a quarterly reference can hold a monthly copy aggregated, and calendar offsets have no fixed length)."""
+    if not freq:
+        return ""
+    try:
+        sec = pd.Timedelta(pd.tseries.frequencies.to_offset(freq)).total_seconds()
+    except (ValueError, TypeError):
+        f = str(freq).upper().lstrip("0123456789")
+        return "weekly" if f.startswith("W") else "daily" if f.startswith(("B", "C")) else "monthly"
+    for b, hi in (("sub-hourly", 3599), ("hourly", 86399), ("daily", 6 * 86400), ("weekly", 27 * 86400)):
+        if sec <= hi:
+            return b
+    return "monthly"
+
+
+def match_series(x: np.ndarray, db: DB, skip=lambda meta: False, freq: str | None = None) -> list[dict]:
+    """Verified matches of one series against db: [{start, ref, ref_start, r}] (one per dev window, best r).
+    freq: the frequency of x; references with a known frequency in another band are not looked up."""
     x = np.asarray(x, dtype=np.float64)
-    st, h1, h2 = fingerprints(x, 1)
-    best: dict[int, dict] = {}
+    st, h1, h2, c1 = fast_fingerprints(x, 1, strict=False)
+    band = (freq_band(freq) or None) if freq else None
+    Q, R, S = [], [], []
     for name, h in (("h1", h1), ("h2", h2)):
-        for q, ref, rs in db.candidates(name, h):
-            if skip(db.meta[ref]):
-                continue
-            s = int(st[q])
-            r = pearson(x[s:s + W], np.asarray(db.values[ref][rs:rs + W], dtype=np.float64))
-            if r > R_MIN and r > best.get(s, {}).get("r", -1):
-                best[s] = dict(start=s, ref=ref, ref_start=rs, r=r)
+        q, ref, rs = db.candidate_arrays(name, h, band)
+        Q.append(q)
+        R.append(ref)
+        S.append(rs)
+    q, ref, rs = np.concatenate(Q), np.concatenate(R), np.concatenate(S)
+    if not len(q):
+        return []
+    uq = np.unique(q)                        # strict noise filter, on the hit windows only
+    good = set(uq[_strict_ok(x, st[uq], c1[uq])].tolist())
+    best: dict[int, dict] = {}
+    for qi, r_, s_ in zip(q.tolist(), ref.tolist(), rs.tolist()):
+        if qi not in good or skip(db.meta[r_]):
+            continue
+        s = int(st[qi])
+        r = pearson(x[s:s + W], np.asarray(db.values[r_][s_:s_ + W], dtype=np.float64))
+        if r > R_MIN and r > best.get(s, {}).get("r", -1):
+            best[s] = dict(start=s, ref=r_, ref_start=s_, r=r)
     return list(best.values())
 
 

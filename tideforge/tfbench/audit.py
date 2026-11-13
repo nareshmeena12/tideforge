@@ -113,7 +113,7 @@ def audit_dataset(canon_dir: Path, db: A.DB, s: Settings) -> dict:
                 if len(x) < A.W:
                     continue
                 n = (len(x) - A.W) // A.BENCH_STRIDE + 1   # windows at the benchmark stride (see module docstring)
-                m = A.match_series(np.asarray(x, dtype=np.float64), db)
+                m = A.match_series(np.asarray(x, dtype=np.float64), db, freq=f)   # same frequency band only
                 old_windows += len(m)
                 share = min(len(m) / n, 1.0)
                 if f == freq and tc == meta["targets"][0] and best["windows"] == 0:
