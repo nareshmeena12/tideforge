@@ -101,3 +101,11 @@ def test_overrides_entries_valid():
         if e.get("skip") is not None and not str(e["skip"]).strip():
             errs.append(f"{did}.skip: needs a reason")
     assert not errs, "\n".join(errs)
+
+
+def test_shard_and_split_ids():
+    from tideforge.tfbench.run import SHARD_ID
+    for s in ("data/train-00001-of-00004.parquet/x", "ground/test.csv", "a/val/b", "test_x.parquet"):
+        assert SHARD_ID.search(s), s
+    for s in ("Val-de-Marne", "contest", "dev_17", "train_ids", "station_42"):
+        assert not SHARD_ID.search(s), s

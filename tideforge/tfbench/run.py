@@ -391,12 +391,18 @@ def step_audit(a, paths, s):
         TA.build_refs_db(paths.refs, db_dir, paths.data / "tmp" / "refs", benches)
     paths.audit.mkdir(parents=True, exist_ok=True)
     todo = []
+    ov_all = read_overrides(paths)
     for d in sorted(paths.canon.glob("*/data.parquet")):
         did = d.parent.name
         if a.only and did not in a.only:
             continue
+        why = unusable(paths, did, ov_all)
+        if why:
+            log.info("%s: not audited: %s", did, why)
+            continue
         out = paths.audit / f"{did}.json"
-        if out.exists() and not a.redo:
+        # a dataset rebuilt after its audit (newer data.parquet) is audited again
+        if out.exists() and not a.redo and out.stat().st_mtime >= d.stat().st_mtime:
             continue
         todo.append((str(d.parent), str(out)))
     log.info("audit: %d datasets", len(todo))
@@ -432,16 +438,45 @@ def release(a, paths, s) -> Path:
     return paths.data / "bench" / f"{s.version}{_sfx(a)}"
 
 
+# file shards (-00001-of-00004) or split files / folders (train.csv, test_x.parquet, /val/) in an id; plain words such as
+# a place "Val-de-Marne" do not match (a file extension or a path folder is required)
+SHARD_ID = re.compile(r"-of-\d{3,}|(^|[/_.\-])(train|test|val|valid|validation|dev)([_\-][^/]*)?\."
+                      r"(parquet|csv|tsv|json|jsonl|arrow|feather|npy|npz|h5|hdf5|nc|txt|pkl)(\.gz)?\b"
+                      r"|(^|/)(train|test|val|valid|validation)/", re.I)
+
+
+def unusable(paths, did: str, ov_all: dict) -> str | None:
+    """Why a built dataset is not used in v1.0.0 (None: usable): status not ok, skipped in overrides.yaml (built before
+    the skip), or series ids that are file shards / train-test-val splits (one series cut across files; v1.1)."""
+    f = paths.canon / did / "status.json"
+    st = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+    if st.get("status") != "ok":
+        return f"status {st.get('status')}"
+    if (ov_all.get(did) or {}).get("skip"):
+        return f"skipped in overrides.yaml: {ov_all[did]['skip']}"
+    import pyarrow.parquet as pq
+    ids = pq.read_table(paths.canon / did / "data.parquet", columns=["item_id"]).column(0).unique().to_pylist()
+    bad = [i for i in ids if SHARD_ID.search(str(i))]
+    if bad:
+        return f"shard / split file names in series ids ({len(bad)} of {len(ids)}, e.g. {bad[0]}); v1.1"
+    return None
+
+
 def passed(a, paths) -> dict:
     """Datasets built in A and passed by the audit -> {dataset_id: meta}."""
     out = {}
+    ov_all = read_overrides(paths)
     for d in sorted(paths.canon.glob("*/data.parquet")):
         did = d.parent.name
         if a.only and did not in a.only:
             continue
+        why = unusable(paths, did, ov_all)
+        if why:
+            log.info("%s: not used: %s", did, why)
+            continue
         au = paths.audit / f"{did}.json"
-        if not au.exists():
-            log.warning("%s: no audit result, not used", did)
+        if not au.exists() or au.stat().st_mtime < d.stat().st_mtime:
+            log.warning("%s: no audit result for the current build, not used", did)
             continue
         if json.loads(au.read_text(encoding="utf-8"))["flagged"]:
             continue
@@ -674,6 +709,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
+    ap.add_argument("--from", dest="from_step", choices=STEPS,
+                    help="all: start at this step (e.g. --from audit runs audit, report, then Milestone B)")
     ap.add_argument("--failed", action="store_true", help="canon --inspect: every dataset whose status.json is not ok / skipped")
     ap.add_argument("--redo-failed", help="canon: rebuild datasets whose status reason matches this regex (e.g. timeout)")
     ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
@@ -691,6 +728,8 @@ def main(argv=None) -> int:
             print(f"  {d}  ({why})")
         a.only = [d for d, _ in picks]
         steps = [x for x in STEPS if x != "select"]
+    if a.from_step and a.step == "all":
+        steps = steps[steps.index(a.from_step):]
     if a.no_upload:
         steps = [x for x in steps if x != "upload"]
     for step in steps:

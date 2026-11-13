@@ -235,6 +235,7 @@ def make_canon(paths: Paths, did, data, m):
          "length": {"min": int(lens.min()), "median": float(lens.median()), "max": int(lens.max())}}
     data.to_parquet(d / "data.parquet")
     (d / "meta.json").write_text(json.dumps(m))
+    (d / "status.json").write_text(json.dumps({"dataset_id": did, "status": "ok"}))
     paths.audit.mkdir(parents=True, exist_ok=True)
     (paths.audit / f"{did}.json").write_text(json.dumps({"dataset_id": did, "flagged": False, "dropped_series": []}))
 

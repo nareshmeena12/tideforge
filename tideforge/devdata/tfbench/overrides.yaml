@@ -519,3 +519,17 @@ gladcolor_hourly_population_us:
   id_from_path: '(?:^|/)(\d{5})\.csv(\.gz)?$'
   sum_rows: true
   note: "owner 2026-11-13: files year/month/<county FIPS>.csv.gz, rows = CBGs, columns = hours ('2022-01-01 00:00:00'); CBGs summed per county per hour, months concatenated: one hourly series per county (~3,142), real time"
+
+# ---- v1.0.0 fast path (owner 2026-11-13) ----
+autogluon_chronos_datasets_monash_m1_monthly_quarterly_yearly_monash_m3_monthly_quarterly_yearly:
+  skip: 'v1.0.0: mixes monthly, quarterly and yearly series under one monthly label; split by original frequency in v1.1'
+salesforce_lotsa_data_pems_bay:
+  skip: 'duplicate of witgaw_pems_bay (same PEMS-BAY sensors)'
+salesforce_lotsa_data_largest_2017:
+  skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
+salesforce_lotsa_data_largest_2018:
+  skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
+salesforce_lotsa_data_largest_2019:
+  skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
+salesforce_lotsa_data_largest_2020:
+  skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
