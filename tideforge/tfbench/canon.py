@@ -249,7 +249,10 @@ def main_table(parts: list[Part], sizes: dict, ov: dict) -> tuple[list[Part], li
 def _item_ids(df: pd.DataFrame, ids: list[str]) -> pd.Series:
     if len(ids) == 1:
         return df[ids[0]].astype("string").fillna("<NA>")
-    return df[ids].astype("string").fillna("<NA>").agg("|".join, axis=1)
+    out = df[ids[0]].astype("string").fillna("<NA>")            # vectorised: no per-row Python join
+    for c in ids[1:]:
+        out = out + "|" + df[c].astype("string").fillna("<NA>")
+    return out
 
 
 def enumerate_items(layout: str, parts: list[Part], r: dict, ov: dict) -> pd.DataFrame:
@@ -657,10 +660,15 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
             min_len = None
             kept, drops, hashes = [], defaultdict(list), set()
             reg_stats = defaultdict(int)
-            for c0 in range(0, len(items), s.max_series):
+            # chunks of the seeded order: max_series ids first, then 3x larger (at most 20k ids) each pass, so a dataset
+            # where most series fail the filters needs a few full reads of the files, not one per 1,000 ids
+            c0, size = 0, s.max_series
+            while c0 < len(items):
                 if len(kept) >= s.max_series:
                     break
-                chunk = items.iloc[c0:c0 + s.max_series]
+                chunk = items.iloc[c0:c0 + size]
+                c0 += size
+                size = min(size * 3, max(20_000, s.max_series))
                 if layout in ("long", "events"):
                     df = load_long(parts, r, chunk, ([] if events else r["target_cols"] + covs), static, events)
                 elif layout == "wide":
@@ -704,8 +712,12 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                 if min_len is None:
                     min_len = rules.min_length(freq, s)
                 vals = targets + [c for c in covs if c in df.columns]
-                for iid, g in df.groupby("item_id", sort=False):
-                    agg = {**(ov.get("agg") or {}), **({events["name"]: "sum"} if events else {})}
+                groups = df.groupby("item_id", sort=False).indices
+                for iid in chunk["item_id"]:                 # in the seeded order, not file order
+                    if iid not in groups:
+                        continue
+                    g = df.iloc[groups[iid]]
+                    agg ={**(ov.get("agg") or {}), **({events["name"]: "sum"} if events else {})}
                     x, st = regularise(g.drop(columns="item_id"), freq, vals, agg=agg, 
                                        fill_zero=bool(events or ov.get("fill_zero")),
                                        keep_last=s.max_points)

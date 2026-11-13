@@ -21,7 +21,7 @@ def test_pool_survives_dead_worker_timeout_and_errors():
     started = []
     jobs = [(k, (k,)) for k in ("a", "die", "b", "slow", "raise", "c")]
     t0 = time.monotonic()
-    res = {k: (ok, v) for k, ok, v in pool.run(job, jobs, 3, timeout_s=3, on_start=started.append, poll_s=0.2)}
+    res = {k: (ok, v) for k, ok, v in pool.run(job, jobs, 3, timeout_s=3, on_start=lambda k, pid: started.append(k), poll_s=0.2)}
     assert time.monotonic() - t0 < 25
     assert sorted(started) == sorted(k for k, _ in jobs)
     assert res["a"] == (True, {"kind": "a"}) and res["c"] == (True, {"kind": "c"})

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import signal
 import time
 import traceback
 from multiprocessing.connection import wait
@@ -20,7 +21,11 @@ from typing import Any, Callable, Iterator
 PAGE = os.sysconf("SC_PAGE_SIZE") if hasattr(os, "sysconf") else 4096
 
 
-def _child(conn, fn, args):
+def _child(conn, fn, args, fault_log=None):
+    if fault_log and hasattr(signal, "SIGUSR1"):     # kill -USR1 <pid> appends this worker's stack to the log
+        import faulthandler
+        f = open(fault_log, "a", encoding="utf-8")   # noqa: SIM115  kept open for the life of the worker
+        faulthandler.register(signal.SIGUSR1, file=f, all_threads=True)
     try:
         res = ("ok", fn(*args))
     except BaseException as e:  # noqa: BLE001  any error comes back as a failure, never kills the run
@@ -52,9 +57,10 @@ def default_mem_bytes(n: int) -> int | None:
 
 
 def run(fn: Callable, jobs: list[tuple[str, tuple]], n: int, timeout_s: float | None = None,
-        mem_bytes: int | None = None, on_start: Callable[[str], Any] | None = None,
-        poll_s: float = 1.0) -> Iterator[tuple[str, bool, Any]]:
-    """Yield (key, ok, result) as jobs finish; result is fn's return value, or the failure text when ok is False."""
+        mem_bytes: int | None = None, on_start: Callable[[str, int], Any] | None = None,
+        poll_s: float = 1.0, fault_log: str | None = None) -> Iterator[tuple[str, bool, Any]]:
+    """Yield (key, ok, result) as jobs finish; result is fn's return value, or the failure text when ok is False.
+    on_start(key, pid); fault_log: file a worker's stack is written to on SIGUSR1 (Linux)."""
     ctx = mp.get_context("fork" if hasattr(os, "fork") else "spawn")
     todo = list(jobs)[::-1]
     live: dict = {}                                   # conn -> (key, process, start time)
@@ -62,12 +68,12 @@ def run(fn: Callable, jobs: list[tuple[str, tuple]], n: int, timeout_s: float | 
         while todo and len(live) < max(n, 1):
             key, args = todo.pop()
             r, w = ctx.Pipe(duplex=False)
-            p = ctx.Process(target=_child, args=(w, fn, args), daemon=False)
+            p = ctx.Process(target=_child, args=(w, fn, args, fault_log), daemon=False)
             p.start()
             w.close()
             live[r] = (key, p, time.monotonic())
             if on_start:
-                on_start(key)
+                on_start(key, p.pid)
         ready = wait(list(live) + [p.sentinel for _, p, _ in live.values()], timeout=poll_s)
         now = time.monotonic()
         for conn in list(live):

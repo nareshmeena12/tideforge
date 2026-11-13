@@ -280,8 +280,13 @@ def step_canon(a, paths, s):
         return step_canon_inspect(a, paths, s)
     if getattr(a, "plan", False):
         return step_canon_plan(a, paths, s)
-    jobs = [j for j in canon_jobs(a, paths)
-            if a.redo or not (paths.canon / j[0]["dataset_id"] / "status.json").exists()]
+    def todo(did):
+        f = paths.canon / did / "status.json"
+        if a.redo or not f.exists():
+            return True
+        rf = getattr(a, "redo_failed", None)     # e.g. --redo-failed timeout: rerun datasets whose reason matches
+        return bool(rf) and bool(re.search(rf, json.loads(f.read_text(encoding="utf-8")).get("reason") or ""))
+    jobs = [j for j in canon_jobs(a, paths) if todo(j[0]["dataset_id"])]
     log.info("canon: %d datasets to build", len(jobs))
     rows = {row["dataset_id"]: row for row, _, _ in jobs}
     for did, ok, st in isolated(a, _canon_one, [(row["dataset_id"], (row, files, ov, s, str(paths.data)))
@@ -303,13 +308,24 @@ STARTED: dict[str, float] = {}
 def isolated(a, fn, jobs):
     """One process per dataset (pool.run): logs 'start <id>', a dead worker / timeout / memory cap fails that dataset only."""
     from tideforge.tfbench import pool
+    if getattr(a, "inproc", False):     # --inproc: one dataset after another in this process (for cProfile)
+        for key, args in jobs:
+            STARTED[key] = time.monotonic()
+            log.info("start %s (in process)", key)
+            try:
+                yield key, True, fn(*args)
+            except Exception as e:
+                yield key, False, f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
+        return
     n = a.jobs or 8
     mem_gb, tmin = getattr(a, "mem_gb", None), getattr(a, "timeout_min", 45.0)
     mem = int(mem_gb * 1e9) if mem_gb else pool.default_mem_bytes(n)
-    log.info("workers %d, timeout %s min, memory cap per dataset %s", n, tmin or "none",
-             f"{mem / 1e9:.1f} GB" if mem else "none")
-    yield from pool.run(fn, jobs, n, timeout_s=(tmin or 0) * 60 or None, mem_bytes=mem,
-                        on_start=lambda k: (STARTED.__setitem__(k, time.monotonic()), log.info("start %s", k)))
+    fault = next((h.baseFilename for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)), None)
+    log.info("workers %d, timeout %s min, memory cap per dataset %s; kill -USR1 <pid> writes a worker's stack to %s",
+             n, tmin or "none", f"{mem / 1e9:.1f} GB" if mem else "none", fault)
+    yield from pool.run(fn, jobs, n, timeout_s=(tmin or 0) * 60 or None, mem_bytes=mem, fault_log=fault,
+                        on_start=lambda k, pid: (STARTED.__setitem__(k, time.monotonic()),
+                                                 log.info("start %s (pid %d)", k, pid)))
 
 
 def _audit_one(canon_dir: str, db_dir: str, out: str, s: C.Settings) -> str:
@@ -614,6 +630,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
+    ap.add_argument("--redo-failed", help="canon: rebuild datasets whose status reason matches this regex (e.g. timeout)")
+    ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
     ap.add_argument("--timeout-min", type=float, default=45.0, help="canon: per-dataset time limit (0 = none)")
     ap.add_argument("--mem-gb", type=float, help="canon: per-dataset memory cap (default 90%% of the container limit / jobs)")
     a = ap.parse_args(argv)
