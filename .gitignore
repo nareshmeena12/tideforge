@@ -51,3 +51,6 @@ tideforge/devdata/hf_profile_files.csv
 Claude outputs/
 .venv/
 tideforge/devdata/tfbench/BUILD_REPORT_smoke.md
+
+# a build report copied to the repo root for review (built output, never committed)
+/BUILD_REPORT.md
