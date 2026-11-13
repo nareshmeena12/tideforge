@@ -316,7 +316,7 @@ def stratified_order(items: pd.DataFrame, seed: int) -> pd.DataFrame:
 
 # ---- loading ------------------------------------------------------------------------------------------------------------
 def _timestamps(d: pd.DataFrame, tcol: str) -> pd.Series:
-    return parse_time(d[tcol])
+    return parse_time(d[tcol], key=tcol)
 
 
 def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[str], events: dict | None = None):

@@ -19,20 +19,27 @@ FORMATS = ["ISO8601", "%m/%d/%Y", "%d/%m/%Y", "%m/%d/%Y %H:%M", "%d/%m/%Y %H:%M"
            "%B %d, %Y", "%d %B %Y", "%b %Y", "%B %Y", "%m/%Y", "%Y%m%d%H%M%S", "%Y%m%d %H:%M"]
 
 
-def guess_format(u: pd.Series, n: int = 500) -> str | None:
-    """The first format that reads >= 99% of a sample of distinct strings (None: no single format fits)."""
+_FMT: dict[str, str] = {}   # column key -> format that fitted its first batch (tried first on the next batches)
+
+
+def guess_format(u: pd.Series, n: int = 500, key: str | None = None) -> str | None:
+    """The first format that reads >= 99% of a sample of distinct strings (None: no single format fits). With a key
+    (the column being read batch by batch), the format found for its first batch is tried first: one parse per batch,
+    and the same reading of ambiguous d/m vs m/d dates in every batch."""
     sm = u.iloc[:: max(1, len(u) // n)][:n] if len(u) > n else u
-    for f in FORMATS:
+    for f in ([_FMT[key]] if key in _FMT else []) + FORMATS:
         try:
             ok = pd.to_datetime(sm, format=f, errors="coerce", utc=True).notna().mean()
         except (ValueError, TypeError):
             continue
         if ok >= 0.99:
+            if key is not None:
+                _FMT[key] = f
             return f
     return None
 
 
-def parse_strings(s: pd.Series) -> pd.Series:
+def parse_strings(s: pd.Series, key: str | None = None) -> pd.Series:
     """Strings -> UTC timestamps. Parses each distinct value once, with one explicit format guessed from a sample;
     only when no format fits are the distinct values read with format="mixed" (owner 2026-11-13: per-element dateutil
     on full columns stalled canon for hours)."""
@@ -41,7 +48,7 @@ def parse_strings(s: pd.Series) -> pd.Series:
     u = pd.Series(uniq, dtype="string")
     if len(u) == 0:
         return pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns, UTC]")
-    f = guess_format(u)
+    f = guess_format(u, key=key)
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -66,9 +73,17 @@ def years_to_time(v: pd.Series) -> pd.Series:
     return pd.Series(out, index=v.index)
 
 
-def parse_time(s: pd.Series) -> pd.Series:
+def parse_time(s: pd.Series, key: str | None = None) -> pd.Series:
     if pd.api.types.is_datetime64_any_dtype(s):
         out = s
+        if getattr(out.dt, "tz", None) is not None:
+            out = out.dt.tz_convert("UTC").dt.tz_localize(None)
+        if out.dtype != "datetime64[ns]":       # ms / us / s columns can hold dates outside the ns range (1615 quakes)
+            v = out.to_numpy()
+            ok = ~np.isnat(v) & (v >= np.datetime64("1678-01-02")) & (v <= np.datetime64("2262-04-10"))
+            a = np.full(len(v), np.datetime64("NaT", "ns"))
+            a[ok] = v[ok].astype("datetime64[ns]")
+            out = pd.Series(a, index=s.index)    # rows out of range become NaT: dropped and counted by canon
     elif pd.api.types.is_numeric_dtype(s):
         v = pd.to_numeric(s, errors="coerce")
         mx = v.abs().max()
@@ -80,7 +95,7 @@ def parse_time(s: pd.Series) -> pd.Series:
             unit = "s" if mx < 1e11 else "ms" if mx < 1e14 else "us" if mx < 1e17 else "ns"
             out = pd.to_datetime(v, unit=unit, errors="coerce")
     else:
-        out = parse_strings(s)
+        out = parse_strings(s, key)
     if getattr(out.dt, "tz", None) is not None:
         out = out.dt.tz_convert("UTC").dt.tz_localize(None)
     return out.astype("datetime64[ns]")

@@ -40,6 +40,12 @@ def test_large_dmy_column_is_fast_and_silent():
     assert (out[:9000].to_numpy() == days.to_numpy()).all()
 
 
+def test_datetime_ms_column_before_1678_becomes_nat():
+    t = pa.table({"t": pa.array([-11000000000000, 0], type=pa.timestamp("ms"))}).to_pandas()["t"]   # 1621, 1970
+    out = parse_time(t)
+    assert pd.isna(out[0]) and out[1] == pd.Timestamp("1970-01-01") and out.dtype == "datetime64[ns]"
+
+
 def test_numeric_years():
     out = parse_time(pd.Series([1990, 1991, None], dtype="float64"))
     assert list(out[:2]) == [pd.Timestamp("1990-01-01"), pd.Timestamp("1991-01-01")] and pd.isna(out[2])
