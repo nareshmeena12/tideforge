@@ -29,6 +29,7 @@ import pandas as pd
 import pyarrow as pa
 
 from tideforge.tfbench.readers import Part
+from tideforge.tfbench.timefreq import years_to_time
 
 TIME = "_time"
 SYN_START = pd.Timestamp("2000-01-01")
@@ -38,7 +39,7 @@ META_PATH = re.compile(r"(^|/|!)(metadata|meta|missing|docs?|documentation)/", r
 META_NAME = re.compile(r"(^|[_\-\s.])(readme|license|licence|citation|dictionary|codebook|data_?dictionary|schema|"
                        r"description|descriptions|variables|columns|metadata|changelog|notes?)([_\-\s.]|$)", re.I)
 NUM_TIME = re.compile(r"^(b?t?jd|hjd|mjd|bjd_?tdb|btjd|tbjd|jd_?obs|mjd_?obs|time|t|times|time_?s|time_?sec|seconds?|"
-                      r"secs?|elapsed(_\w+)?|time_?step|timestep|step|steps|t_?sec|time_?index|tick)$", re.I)
+                      r"secs?|elapsed(_\w+)?|time_?step|timestep|step|steps|t_?sec|time_?index|tick|year|years)$", re.I)
 UNNAMED = re.compile(r"^(Unnamed: ?\d+|index|level_0|__index_level_\d+__)$", re.I)
 HOUR = re.compile(r"^(hour|hr|hour_of_day|hora|heure|stunde)$", re.I)
 MINUTE = re.compile(r"^(minute|min|minute_of_hour)$", re.I)
@@ -215,7 +216,7 @@ def mmwr_week_end(year, week) -> pd.Series:
     four days in the year). Brazil's epidemiological weeks (semana epidemiológica) follow the same rule."""
     y = pd.to_numeric(pd.Series(year), errors="coerce")
     w = pd.to_numeric(pd.Series(week), errors="coerce")
-    jan1 = pd.to_datetime(y.astype("Int64").astype("string") + "-01-01", errors="coerce")
+    jan1 = years_to_time(y.where(y % 1 == 0))
     dow = (jan1.dt.dayofweek + 1) % 7                                  # Sunday = 0
     start = jan1 - pd.to_timedelta(dow, unit="D") + pd.to_timedelta(np.where(dow > 3, 7, 0), unit="D")
     return start + pd.to_timedelta((w - 1) * 7 + 6, unit="D")
@@ -292,7 +293,7 @@ def calendar_time(parts: list[Part], cal: dict) -> tuple[list[Part], str, list[s
             t = pd.to_datetime(dict(year=y, month=m.where((m >= 1) & (m <= 12)), day=1), errors="coerce")
         elif cal.get("fiscal_year"):
             ex = df[cal["fiscal_year"]].astype("string").str.extract(FISCAL)
-            t = pd.to_datetime(ex[0] + "-01-01", errors="coerce")
+            t = years_to_time(pd.to_numeric(ex[0], errors="coerce"))
         elif cal.get("yearweek"):
             ex = df[cal["yearweek"]].astype("string").str.extract(YEARWEEK)
             t = mmwr_week_end(ex[0], ex[1]) if rule == "mmwr" else iso_week_start(ex[0], ex[1])
@@ -325,6 +326,8 @@ def numeric_time(parts: list[Part], col: str) -> tuple[list[Part], dict] | None:
     v = pd.to_numeric(_first(parts[0], [col], 20000)[col], errors="coerce").dropna().to_numpy()
     if len(v) < 3:
         return None
+    if re.search(r"year", col, re.I) and (v % 1 == 0).all() and -20000 <= v.min() < 1678 and v.max() <= 2200:
+        return old_years(parts, col)
     if 1e9 <= np.nanmax(v) < 1e11 or (19000101 <= v.min() and v.max() <= 22001231) or (1000 <= v.min() and v.max() <= 2200
                                                                                         and (v % 1 == 0).all()):
         return None                                         # epoch seconds / yyyymmdd / years: parse_time reads these
@@ -354,6 +357,21 @@ def numeric_time(parts: list[Part], col: str) -> tuple[list[Part], dict] | None:
         out.append(_derived(p, [(TIME, pa.timestamp("ns"))], [col], fn))
     return out, {"synthetic_time": not real, "cadence_s": cad, "unit": "days" if days else "seconds",
                  "freq": pd.tseries.frequencies.to_offset(pd.Timedelta(seconds=cad)).freqstr}
+
+
+def old_years(parts: list[Part], col: str) -> tuple[list[Part], dict]:
+    """Integer years reaching before 1678 (pandas' ns range; tree rings, owner 2026-11-13): synthetic yearly clock,
+    every year shifted by the same offset so the latest year in the dataset is 2260. Relative positions and the yearly
+    step stay exact; years more than 582 years before the latest one fall outside the clock (NaT, dropped)."""
+    hi = max(np.nanmax(pd.to_numeric(t.column(0).to_pandas(), errors="coerce")) for p in parts for t in p.batches([col]))
+    shift = 2260 - int(hi)
+
+    def fn(df, state):
+        return {TIME: years_to_time(pd.to_numeric(df[col], errors="coerce") + shift).to_numpy(dtype="datetime64[ns]")}
+    return [_derived(p, [(TIME, pa.timestamp("ns"))], [col], fn) for p in parts], \
+        {"synthetic_time": True, "cadence_s": 365.25 * 86400, "unit": "years", "freq": "YS", "year_shift": shift,
+         "rule": "years before 1678 do not fit pandas' range: shifted so the latest year is 2260; years before "
+                 f"{1678 - shift} dropped"}
 
 
 # ---- (d) index only -----------------------------------------------------------------------------------------------------

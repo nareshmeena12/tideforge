@@ -12,22 +12,75 @@ import pandas as pd
 DAY = 86400
 
 
+# Tried in order on a sample of the distinct values; month-first before day-first (what format="mixed" did before).
+FORMATS = ["ISO8601", "%m/%d/%Y", "%d/%m/%Y", "%m/%d/%Y %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M:%S",
+           "%d/%m/%Y %H:%M:%S", "%m/%d/%y", "%d/%m/%y", "%d-%m-%Y", "%d.%m.%Y", "%d.%m.%Y %H:%M", "%d-%m-%Y %H:%M",
+           "%Y/%m/%d", "%Y/%m/%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y.%m.%d", "%Y%m%d", "%d-%b-%Y", "%d %b %Y", "%b %d, %Y",
+           "%B %d, %Y", "%d %B %Y", "%b %Y", "%B %Y", "%m/%Y", "%Y%m%d%H%M%S", "%Y%m%d %H:%M"]
+
+
+def guess_format(u: pd.Series, n: int = 500) -> str | None:
+    """The first format that reads >= 99% of a sample of distinct strings (None: no single format fits)."""
+    sm = u.iloc[:: max(1, len(u) // n)][:n] if len(u) > n else u
+    for f in FORMATS:
+        try:
+            ok = pd.to_datetime(sm, format=f, errors="coerce", utc=True).notna().mean()
+        except (ValueError, TypeError):
+            continue
+        if ok >= 0.99:
+            return f
+    return None
+
+
+def parse_strings(s: pd.Series) -> pd.Series:
+    """Strings -> UTC timestamps. Parses each distinct value once, with one explicit format guessed from a sample;
+    only when no format fits are the distinct values read with format="mixed" (owner 2026-11-13: per-element dateutil
+    on full columns stalled canon for hours)."""
+    s = s.astype("string").str.strip()
+    codes, uniq = pd.factorize(s)
+    u = pd.Series(uniq, dtype="string")
+    if len(u) == 0:
+        return pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns, UTC]")
+    f = guess_format(u)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        if f is not None:
+            p = pd.to_datetime(u, format=f, errors="coerce", utc=True)
+            bad = p.isna() & u.notna()
+            if bad.any():           # a few stragglers in another format: those only
+                p[bad] = pd.to_datetime(u[bad], format="mixed", errors="coerce", utc=True)
+        else:
+            p = pd.to_datetime(u, format="mixed", errors="coerce", utc=True)
+    vals = pd.DatetimeIndex(p).tz_convert(None).to_numpy(dtype="datetime64[ns]")   # naive UTC
+    out = np.where(codes >= 0, vals[np.clip(codes, 0, None)], np.datetime64("NaT", "ns"))
+    return pd.Series(out, index=s.index, dtype="datetime64[ns]")
+
+
+def years_to_time(v: pd.Series) -> pd.Series:
+    """Integer calendar years -> Jan 1, built directly (no string parsing); years outside 1678..2261 -> NaT."""
+    y = v.to_numpy(dtype="float64")
+    ok = np.isfinite(y) & (y >= 1678) & (y <= 2261)
+    out = np.full(len(y), np.datetime64("NaT"), dtype="datetime64[ns]")
+    out[ok] = (y[ok].astype("int64") - 1970).astype("datetime64[Y]").astype("datetime64[ns]")
+    return pd.Series(out, index=v.index)
+
+
 def parse_time(s: pd.Series) -> pd.Series:
     if pd.api.types.is_datetime64_any_dtype(s):
         out = s
     elif pd.api.types.is_numeric_dtype(s):
         v = pd.to_numeric(s, errors="coerce")
         mx = v.abs().max()
-        if mx == mx and 1000 <= v.min() and mx <= 2200 and (v.dropna() % 1 == 0).all():   # calendar years
-            out = pd.to_datetime(v.astype("Int64").astype(str) + "-01-01", errors="coerce")
+        if mx == mx and 1678 <= v.min() and mx <= 2200 and (v.dropna() % 1 == 0).all():   # calendar years
+            out = years_to_time(v)
         elif mx == mx and 19000101 <= v.min() and mx <= 22001231 and (v.dropna() % 1 == 0).all():  # yyyymmdd
             out = pd.to_datetime(v.astype("Int64").astype(str), format="%Y%m%d", errors="coerce")
         else:
             unit = "s" if mx < 1e11 else "ms" if mx < 1e14 else "us" if mx < 1e17 else "ns"
             out = pd.to_datetime(v, unit=unit, errors="coerce")
     else:
-        s = s.astype("string")
-        out = pd.to_datetime(s, errors="coerce", utc=True, format="mixed")
+        out = parse_strings(s)
     if getattr(out.dt, "tz", None) is not None:
         out = out.dt.tz_convert("UTC").dt.tz_localize(None)
     return out.astype("datetime64[ns]")

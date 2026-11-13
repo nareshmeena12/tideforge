@@ -405,7 +405,7 @@ def epoch_times(v) -> pd.Series:
         if 1e11 <= m < 1e14:
             return pd.Series(pd.to_datetime(a, unit="ms", errors="coerce"))
         raise Fail(f"nested: numeric time list is not epoch seconds or milliseconds (median {m:g})")
-    return pd.Series(pd.to_datetime(s, errors="coerce"))
+    return parse_time(s.astype("string"))
 
 
 def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, static: list[str]):

@@ -29,6 +29,7 @@ import logging
 import re
 import shutil
 import sys
+import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -165,7 +166,8 @@ def canon_jobs(a, paths):
         mine = man[ids.apply(lambda x: did in x)]
         files = [(str(paths.raw / slug(m["repo"]) / m["path"]), m["path"], int(m["bytes"])) for m in mine.to_dict("records")]
         out.append((row, files, ov_all.get(did, {}) or {}))
-    return out
+    # smallest raw size first: a few huge datasets cannot hold back the rest (owner 2026-11-13)
+    return sorted(out, key=lambda j: sum(f[2] for f in j[1]))
 
 
 def step_canon_plan(a, paths, s):
@@ -290,20 +292,24 @@ def step_canon(a, paths, s):
             out.mkdir(parents=True, exist_ok=True)
             (out / "status.json").write_text(json.dumps(st, indent=1), encoding="utf-8")
             shutil.rmtree(paths.data / "tmp" / did, ignore_errors=True)
-        log.info("%s: %s %s", st["dataset_id"], st["status"], st.get("reason") or
-                 f"{st.get('n_series')} series, {st.get('n_points')} points, {st.get('frequency')}")
+        log.info("%s: %s %s (%.1f min)", st["dataset_id"], st["status"], st.get("reason") or
+                 f"{st.get('n_series')} series, {st.get('n_points')} points, {st.get('frequency')}",
+                 (time.monotonic() - STARTED.pop(did, time.monotonic())) / 60)
+
+
+STARTED: dict[str, float] = {}
 
 
 def isolated(a, fn, jobs):
     """One process per dataset (pool.run): logs 'start <id>', a dead worker / timeout / memory cap fails that dataset only."""
     from tideforge.tfbench import pool
     n = a.jobs or 8
-    mem_gb, tmin = getattr(a, "mem_gb", None), getattr(a, "timeout_min", 60.0)
+    mem_gb, tmin = getattr(a, "mem_gb", None), getattr(a, "timeout_min", 45.0)
     mem = int(mem_gb * 1e9) if mem_gb else pool.default_mem_bytes(n)
     log.info("workers %d, timeout %s min, memory cap per dataset %s", n, tmin or "none",
              f"{mem / 1e9:.1f} GB" if mem else "none")
     yield from pool.run(fn, jobs, n, timeout_s=(tmin or 0) * 60 or None, mem_bytes=mem,
-                        on_start=lambda k: log.info("start %s", k))
+                        on_start=lambda k: (STARTED.__setitem__(k, time.monotonic()), log.info("start %s", k)))
 
 
 def _audit_one(canon_dir: str, db_dir: str, out: str, s: C.Settings) -> str:
@@ -608,7 +614,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-upload", action="store_true", help="stop after report_b")
     ap.add_argument("--plan", action="store_true", help="canon: report what the adapter would use, build nothing")
     ap.add_argument("--inspect", action="store_true", help="canon: raw-file view of every dataset --plan marks not built")
-    ap.add_argument("--timeout-min", type=float, default=60.0, help="canon: per-dataset time limit (0 = none)")
+    ap.add_argument("--timeout-min", type=float, default=45.0, help="canon: per-dataset time limit (0 = none)")
     ap.add_argument("--mem-gb", type=float, help="canon: per-dataset memory cap (default 90%% of the container limit / jobs)")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
