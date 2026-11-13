@@ -533,3 +533,5 @@ salesforce_lotsa_data_largest_2019:
   skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
 salesforce_lotsa_data_largest_2020:
   skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
+nju_zhangsq_rmisc_largest:
+  skip: 'v1.0.0: duplicate of LargeST (salesforce_lotsa_data_largest_2021 kept), on synthetic time'
