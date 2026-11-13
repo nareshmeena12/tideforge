@@ -331,6 +331,78 @@ def test_smoke_forces_locked_and_fev_loads(tmp_path):
     RUN.fev_check(rel)
 
 
+def exchange_like(n_series=8, n=10_000, seed=0, did="xr"):
+    """Like autogluon chronos exchange_rate as canon writes it: clean daily, categorical item_id, ms timestamps."""
+    r = np.random.default_rng(seed)
+    parts = [pd.DataFrame({"item_id": f"{did}_{k}", "timestamp": pd.date_range("1990-01-01", periods=n, freq="D"),
+                           "y": 1 + np.cumsum(r.normal(0, 0.005, n))}) for k in range(n_series)]
+    d = pd.concat(parts, ignore_index=True)
+    d["timestamp"] = d["timestamp"].astype("datetime64[ms]")
+    d["item_id"] = pd.Categorical(d["item_id"], categories=sorted(d["item_id"].unique()) + [f"{did}_unused"])
+    return d
+
+
+def test_exchange_rate_like_clean_data_produces_tasks(tmp_path):
+    t = all_tasks(tmp_path, exchange_like(), meta("xr", "D"))
+    assert {x["freq_config"] for x in t} == {"xr__d", "xr__wsun"}
+    rec = json.loads((tmp_path / "xr" / "subset.json").read_text())
+    assert all(v["horizons"]["short"]["series"] == 8 for v in rec["variants"])
+    assert rec["trimmed_rows"] == 0 and rec["input_series"] == 8
+
+
+def test_nan_padding_at_the_end_is_trimmed_not_fatal(tmp_path):
+    d = exchange_like(4, 3000).assign(item_id=lambda x: x["item_id"].astype(str))
+    d.loc[d.groupby("item_id").cumcount(ascending=False) < 200, "y"] = np.nan     # LOTSA-like NaN tail
+    d.loc[d.groupby("item_id").cumcount() < 50, "y"] = np.nan                      # and NaN head
+    t = all_tasks(tmp_path, d, meta("pad", "D"))
+    rec = json.loads((tmp_path / "pad" / "subset.json").read_text())
+    assert t and rec["trimmed_rows"] == 4 * 250
+    assert rec["variants"][0]["horizons"]["short"]["nan_in_eval"] == 0
+
+
+def test_zero_tasks_reasons(tmp_path):
+    t = all_tasks(tmp_path, long_df([60, 70], "D"), meta("tiny", "D"))
+    assert t == []
+    msg = TK.zero_reasons(json.loads((tmp_path / "tiny" / "subset.json").read_text()))
+    assert "2 series in" in msg and "too_short 2" in msg and "no series long enough" in msg
+
+
+def test_tasks_step_end_to_end_both_splits_logs_zero_and_isolates_failure(tmp_path, caplog):
+    paths = Paths(data=tmp_path / "data", small=tmp_path / "small")
+    paths.small.mkdir(parents=True)
+    ids = [f"xr{i}" for i in range(6)]
+    for i, did in enumerate(ids):
+        make_canon(paths, did, exchange_like(3, 2000, seed=i, did=did), meta(did, "D", domain=f"dom{i % 3}"))
+    make_canon(paths, "tiny9", long_df([60, 70], "D"), meta("tiny9", "D"))
+    make_canon(paths, "bad9", long_df([500], "D"), meta("bad9", "not-a-frequency"))   # fails in its tasks worker, alone
+    a = types.SimpleNamespace(only=None, jobs=3, redo=False, smoke=True, dry_run=True, max_gb=100.0)
+    import logging
+    caplog.set_level(logging.INFO, logger="tfbench")
+    for step in ("split", "crossdup", "tasks"):
+        getattr(RUN, f"step_{step}")(a, paths, S)
+    sp = json.loads((paths.data / "splits_smoke.json").read_text())["datasets"]
+    root = RUN.task_root(a, paths)
+    assert {sp[d]["split"] for d in ids} == {"tuning", "locked"}
+    assert all(json.loads((root / d / "tasks.json").read_text()) for d in ids)
+    assert json.loads((root / "tiny9" / "tasks.json").read_text()) == []
+    assert "tiny9: 0 tasks" in caplog.text and "too_short 2" in caplog.text
+    assert (root / "bad9" / "error.json").exists() and "bad9: failed" in caplog.text
+
+
+def test_failed_step_stops_run_all(monkeypatch):
+    called = []
+    for st in RUN.STEPS:
+        monkeypatch.setattr(RUN, f"step_{st}", lambda a, p, s, st=st: called.append(st))
+
+    def boom(a, p, s):
+        called.append("tasks")
+        raise RUN.StepFailed("BrokenProcessPool-like")
+    monkeypatch.setattr(RUN, "step_tasks", boom)
+    monkeypatch.setattr(RUN, "setup_logging", lambda paths, step: Path("x"))
+    assert RUN.main(["all", "--from", "split", "--no-upload"]) == 1
+    assert called == ["split", "crossdup", "tasks"]
+
+
 def test_no_upload_flag(monkeypatch):
     called = []
     for st in RUN.STEPS:

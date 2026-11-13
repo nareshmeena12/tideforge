@@ -72,7 +72,7 @@ def force_locked(path: Path, ids: list, n: int) -> dict:
 
 
 def _series(data: pd.DataFrame, targets: list[str]):
-    for iid, g in data.groupby("item_id", sort=False):
+    for iid, g in data.groupby("item_id", sort=False, observed=True):   # canon item_id is categorical
         for t in targets:
             yield str(iid), t, g[t].to_numpy(np.float64)
 

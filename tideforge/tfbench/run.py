@@ -544,16 +544,17 @@ def step_crossdup(a, paths, s):
         db.save(db_dir)
     todo = [d for d in tuning if a.redo or not (root / f"{d}.json").exists()]
     log.info("crossdup: %d locked datasets, %d tuning datasets to check", len(locked), len(todo))
-    with ProcessPoolExecutor(a.jobs or 8) as ex:
-        futs = [ex.submit(_crossdup_one, d, str(paths.data), str(db_dir), s.crossdup_share, str(root / f"{d}.json"))
-                for d in todo]
-        for f in as_completed(futs):
-            try:
-                d, n = f.result()
-                if n:
-                    log.info("%s: %d series copy a locked series", d, n)
-            except Exception as e:
-                log.error("crossdup failed: %s: %s", type(e).__name__, e)
+    bad = []
+    jobs = [(d, (d, str(paths.data), str(db_dir), s.crossdup_share, str(root / f"{d}.json"))) for d in todo]
+    for d, ok, res in isolated(a, _crossdup_one, jobs):
+        STARTED.pop(d, None)
+        if not ok:
+            bad.append(d)
+            log.error("%s: crossdup failed: %s", d, str(res).splitlines()[0][:300])
+        elif res[1]:
+            log.info("%s: %d series copy a locked series", d, res[1])
+    if bad:     # a tuning dataset without its crossdup result would keep copies of locked series
+        raise StepFailed(f"crossdup: {len(bad)} datasets failed: {', '.join(bad[:20])}")
 
 
 def crossdup_table(a, paths) -> pd.DataFrame:
@@ -563,22 +564,35 @@ def crossdup_table(a, paths) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["dataset_id", "item_id", "share", "matched"])
 
 
+class StepFailed(RuntimeError):
+    """A step did not finish for every dataset (run all stops; nothing downstream runs on a partial result)."""
+
+
+def _write_error(out: Path, did: str, err: str) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "error.json").write_text(json.dumps({"dataset_id": did, "error": err.splitlines()[0][:500],
+                                                "traceback": err[-2000:]}), encoding="utf-8")
+
+
 def _tasks_one(did, data_root, out, drops, ov, s):
+    """-> (n tasks, message); an exception fails this dataset only (pool.run, error.json written by the parent)."""
     from tideforge.tfbench import tasks as TK
     paths = C.Paths(data=Path(data_root))
-    try:
-        meta = json.loads((paths.canon / did / "meta.json").read_text(encoding="utf-8"))
-        data = _clean(paths, did)
-        data = data[~data["item_id"].astype(str).isin(set(drops))]
-        if data.empty:
-            raise ValueError("no series left after the audit and cross-dataset drops")
-        t = TK.build(data, meta, ov, s, Path(out))
-        return did, len(t), ""
-    except Exception as e:  # one dataset failing never stops the run
-        Path(out).mkdir(parents=True, exist_ok=True)
-        (Path(out) / "error.json").write_text(json.dumps({"dataset_id": did, "error": f"{type(e).__name__}: {e}",
-                                                          "traceback": traceback.format_exc()[-2000:]}), encoding="utf-8")
-        return did, 0, f"{type(e).__name__}: {str(e)[:300]}"
+    meta = json.loads((paths.canon / did / "meta.json").read_text(encoding="utf-8"))
+    import pyarrow.parquet as pq
+    n_canon = len(pq.read_table(paths.canon / did / "data.parquet", columns=["item_id"]).column(0).unique())
+    data = _clean(paths, did)
+    n_audit = int(data["item_id"].nunique())
+    data = data[~data["item_id"].astype(str).isin(set(drops))]
+    n_cd = int(data["item_id"].nunique())
+    pre = f"canon {n_canon} series, audit dropped {n_canon - n_audit}, crossdup dropped {n_audit - n_cd}"
+    if data.empty:
+        raise ValueError(f"no series left after the audit and cross-dataset drops ({pre})")
+    t = TK.build(data, meta, ov, s, Path(out))
+    if t:
+        return len(t), pre
+    rec = json.loads((Path(out) / "subset.json").read_text(encoding="utf-8"))
+    return 0, f"{pre}; {TK.zero_reasons(rec)}"
 
 
 def step_tasks(a, paths, s):
@@ -588,22 +602,31 @@ def step_tasks(a, paths, s):
     ov_all = read_overrides(paths)
     root = task_root(a, paths)
     todo = [d for d in ds if d in sp and (a.redo or not ((root / d / "tasks.json").exists() or (root / d / "error.json").exists()))]
-    if a.redo:
-        for d in todo:
-            shutil.rmtree(root / d, ignore_errors=True)
+    for d in todo:      # a dataset is redone from scratch (no stale tasks.json from a run that died half way)
+        shutil.rmtree(root / d, ignore_errors=True)
     log.info("tasks: %d datasets", len(todo))
-    n_fail = 0
-    with ProcessPoolExecutor(a.jobs or 8) as ex:
-        futs = [ex.submit(_tasks_one, d, str(paths.data), str(root / d), list(cd.loc[cd["dataset_id"] == d, "item_id"]),
-                          ov_all.get(d, {}) or {}, s) for d in todo]
-        for f in as_completed(futs):
-            d, n, err = f.result()
-            if err:
-                n_fail += 1
-                log.error("%s: failed: %s", d, err)
-            else:
-                log.info("%s: %d tasks", d, n)
-    log.info("tasks: %d failed of %d", n_fail, len(todo))
+    n_fail, zero = 0, []
+    jobs = [(d, (d, str(paths.data), str(root / d), list(cd.loc[cd["dataset_id"] == d, "item_id"]),
+                 ov_all.get(d, {}) or {}, s)) for d in todo]
+    for d, ok, res in isolated(a, _tasks_one, jobs):
+        mins = (time.monotonic() - STARTED.pop(d, time.monotonic())) / 60
+        if not ok:          # an error, a dead worker, the timeout or the memory cap: this dataset only
+            n_fail += 1
+            shutil.rmtree(root / d, ignore_errors=True)
+            _write_error(root / d, d, str(res))
+            log.error("%s: failed (%.1f min): %s", d, mins, str(res).splitlines()[0][:300])
+            continue
+        n, msg = res
+        if n:
+            log.info("%s: %d tasks (%.1f min; %s)", d, n, mins, msg)
+        else:
+            zero.append(d)
+            log.warning("%s: 0 tasks (%s split): %s", d, sp[d]["split"], msg)
+    log.info("tasks: %d failed, %d with 0 tasks, of %d%s", n_fail, len(zero), len(todo),
+             f"; 0 tasks: {', '.join(zero)}" if zero else "")
+    missing = [d for d in todo if not ((root / d / "tasks.json").exists() or (root / d / "error.json").exists())]
+    if missing:
+        raise StepFailed(f"tasks: {len(missing)} datasets have neither tasks.json nor error.json: {', '.join(missing[:20])}")
 
 
 def failures(a, paths) -> pd.DataFrame:
@@ -748,8 +771,8 @@ def main(argv=None) -> int:
     ap.add_argument("--failed", action="store_true", help="canon --inspect: every dataset whose status.json is not ok / skipped")
     ap.add_argument("--redo-failed", help="canon: rebuild datasets whose status reason matches this regex (e.g. timeout)")
     ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
-    ap.add_argument("--timeout-min", type=float, default=45.0, help="canon: per-dataset time limit (0 = none)")
-    ap.add_argument("--mem-gb", type=float, help="canon: per-dataset memory cap (default 90%% of the container limit / jobs)")
+    ap.add_argument("--timeout-min", type=float, default=45.0, help="canon, crossdup, tasks: per-dataset time limit (0 = none)")
+    ap.add_argument("--mem-gb", type=float, help="canon, crossdup, tasks: per-dataset memory cap (default 90%% of the container limit / jobs)")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
     steps = STEPS if a.step == "all" or a.smoke else [a.step]
@@ -771,7 +794,14 @@ def main(argv=None) -> int:
         a.redo = redo or (a.redo_b and step in STEPS_B)     # --redo-b: Milestone B fresh, audits kept
         f = setup_logging(paths, step)
         log.info("step %s (data %s, log %s)", step, paths.data, f)
-        globals()[f"step_{step}"](a, paths, s)
+        try:
+            globals()[f"step_{step}"](a, paths, s)
+        except SystemExit:
+            raise
+        except Exception as e:  # noqa: BLE001  a failed step stops run all; later steps never see a partial result
+            log.error("step %s failed, stopping (later steps not run): %s: %s\n%s", step, type(e).__name__, e,
+                      traceback.format_exc()[-3000:])
+            return 1
     return 0
 
 

@@ -7,6 +7,7 @@ variant. Inside one frequency variant and horizon, covariates on / off and joint
   - the short horizon keeps every series that has min_context + one H; medium / long tasks (owner 2026-11-12) get their
     own series file with only the series long enough for them (config <freq config>__medium / __long; the short file is
     reused when the series are the same), created when >= horizon_min_share (75%) of the variant's series qualify;
+  - leading / trailing rows where every target is NaN (padding) are trimmed first (trim_edges);
   - NaN is allowed in context only: per horizon file, series with NaN in any target inside that horizon's evaluation
     span (n_windows x H) are dropped; so are series whose in-sample seasonal-difference scale is zero (MASE undefined).
 Every drop is counted in the variant's record.
@@ -76,6 +77,39 @@ def eligible(df: pd.DataFrame, targets: list[str], R: int, m: int) -> tuple[pd.D
     return df[df["item_id"].isin(keep)], {"nan_in_eval": nan_eval, "zero_scale": zero_scale}
 
 
+def trim_edges(data: pd.DataFrame, targets: list[str]) -> tuple[pd.DataFrame, int]:
+    """Drop each series' leading and trailing rows where every target is NaN (padding, e.g. LOTSA): fev cuts the windows
+    from the end of a series, so a NaN tail would put every window on padding. -> (data, rows removed)."""
+    if data.empty:
+        return data, 0
+    data = data.sort_values(["item_id", "timestamp"], kind="stable")
+    fin = pd.Series(data[targets].notna().any(axis=1).to_numpy(), index=data.index)
+    g = fin.groupby(data["item_id"].to_numpy(), sort=False)
+    head = g.cummax()                                         # True from the first observed row on
+    tail = fin[::-1].groupby(data["item_id"].to_numpy()[::-1], sort=False).cummax()[::-1]
+    keep = (head & tail).to_numpy()
+    return data[keep], int((~keep).sum())
+
+
+def zero_reasons(record: dict) -> str:
+    """Why a dataset produced no task, from its subset.json record: counts per drop rule over every variant x horizon."""
+    n = {"too_short": 0, "nan_in_eval": 0, "zero_scale": 0}
+    skipped = []
+    for v in record.get("variants", []):
+        n["too_short"] += v.get("dropped_short", 0)
+        if v.get("skipped") and not v.get("horizons"):
+            skipped.append(f"{v['config']}: {v['skipped']}")
+        for cls, hr in (v.get("horizons") or {}).items():
+            for k in ("too_short", "nan_in_eval", "zero_scale"):
+                n[k] += hr.get(k, 0)
+            if hr.get("skipped"):
+                skipped.append(f"{v['config']}/{cls} (H={hr['H']}): {hr['skipped']}")
+    head = (f"{record.get('input_series', len(record.get('series', [])))} series in, "
+            f"{record.get('trimmed_rows', 0)} all-NaN edge rows trimmed, {len(record.get('variants', []))} variants; drops "
+            + ", ".join(f"{k} {v}" for k, v in n.items()))
+    return head + ("; " + "; ".join(skipped) if skipped else "")
+
+
 def intermittency(y: np.ndarray) -> float:
     f = y[np.isfinite(y)]
     return float((f == 0).mean()) if len(f) else 0.0
@@ -99,8 +133,13 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
         targets = targets[: s.max_channels]
     covs = {c: r for c, r in (meta.get("covariates") or {}).items() if c in data.columns}
     static = [c for c in meta.get("static", []) if c in data.columns]
+    if isinstance(data["item_id"].dtype, pd.CategoricalDtype):    # canon's fixed categories: no empty groups below
+        data = data.assign(item_id=data["item_id"].astype(str))
+    n_in = int(data["item_id"].nunique())
+    data, trimmed = trim_edges(data, targets)
     subset = sorted(map(str, data["item_id"].unique()))
-    record = {"dataset_id": did, "seed": meta.get("seed", s.seed), "series": subset, "variants": []}
+    record = {"dataset_id": did, "seed": meta.get("seed", s.seed), "series": subset, "input_series": n_in,
+              "trimmed_rows": trimmed, "variants": []}
     tasks = []
     for v in freq_variants(data, {**meta, "targets": targets, "covariates": covs, "static": static}, ov, s):
         alias, df = v["freq"], v["data"]

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -188,6 +189,10 @@ class DB:
             np.save(path / f"{name}_h.npy", h)
             np.save(path / f"{name}_sid.npy", s)
             np.save(path / f"{name}_start.npy", t)
+        self.path = path                                 # the prefix-bucket files, written here once (workers only read)
+        self.__dict__.pop("_pre", None)
+        for name, (h, _, _) in self.index.items():
+            self._prefix(name, np.asarray(h))
         (path / "meta.json").write_text(json.dumps(self.meta), encoding="utf-8")
 
     @classmethod
@@ -266,10 +271,13 @@ class DB:
                 for b in range(0, len(ref), 1 << 24):            # in blocks: never a full copy of a large index
                     cnt += np.bincount((ref[b:b + (1 << 24)] >> np.uint64(64 - bits)).astype(np.int64), minlength=1 << bits)
                 pre = np.r_[0, np.cumsum(cnt)].astype(np.int64)
-                if f is not None:
-                    tmp = f.with_suffix(".tmp.npy")
+                if f is not None:   # a db saved before save() wrote it: one temp name per process, the race is harmless
+                    tmp = f.with_name(f"{f.stem}.{os.getpid()}.tmp.npy")
                     np.save(tmp, pre)
-                    tmp.replace(f)
+                    try:
+                        tmp.replace(f)
+                    except OSError:                              # another worker's copy is in place (Windows lock)
+                        tmp.unlink(missing_ok=True)
             cache[name] = (np.asarray(pre), bits)
         return cache[name]
 
