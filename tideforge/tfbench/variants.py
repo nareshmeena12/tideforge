@@ -63,6 +63,8 @@ def targets_for(alias: str) -> list[str]:
 def aggregate(df: pd.DataFrame, src: str, dst: str, how: dict[str, str], coverage: float) -> pd.DataFrame:
     """One series (timestamp + value columns) on the src grid -> dst buckets; NaN where coverage is too low."""
     ratio = rules.freq_seconds(dst) / rules.freq_seconds(src)
+    if src.upper().endswith("B") and dst.startswith("W"):     # business days: 5 per week, not 7
+        ratio *= 5 / 7
     g = df.set_index("timestamp").resample(dst, label="left" if not dst.startswith("W") else "right",
                                            closed="left" if not dst.startswith("W") else "right")
     cnt = g.count()

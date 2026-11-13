@@ -46,6 +46,7 @@ def collect(task_root: Path) -> pd.DataFrame:
 def assign_tiers(df: pd.DataFrame, splits: dict, s: Settings) -> pd.DataFrame:
     df = df.copy()
     df["split"] = df["dataset_id"].map(lambda d: splits["datasets"][d]["split"])
+    df["source_group"] = df["dataset_id"].map(lambda d: splits["datasets"][d].get("source_group", d))
     df["tier_full"] = True
     df["tier_core"] = TI.core(df)
     df["tier_fast"] = False
@@ -118,7 +119,7 @@ def build(task_root: Path, canon: Path, splits: dict, out: Path, repo: str, s: S
     df["H"] = df["task"].map(lambda t: t["horizon"])
     df["task"] = df["task"].map(lambda t: t["task_name"])
     man = df.rename(columns={"dataset_id": "dataset"})
-    cols = ["task", "dataset", "config", "domain", "freq", "band", "horizon_class", "H", "variant", "multivariate", "split",
+    cols = ["task", "dataset", "source_group", "config", "domain", "freq", "band", "horizon_class", "H", "variant", "multivariate", "split",
             "tier_full", "tier_core", "tier_fast", "weight_full", "weight_core", "weight_fast", "n_series", "n_windows",
             "licence", "data_sha256", "task_sha256"]
     man = man[cols]

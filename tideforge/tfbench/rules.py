@@ -24,6 +24,8 @@ def freq_seconds(alias: str) -> float:
         n = int(m.group(1) or 1)
         base = m.group(2)[0]
         return n * {"M": 30.44, "Q": 91.31, "Y": 365.25, "A": 365.25}[base] * DAY
+    if re.fullmatch(r"\d*[BC]", a):                    # business / custom business days: one day per step
+        return int(re.match(r"(\d*)", a).group(1) or 1) * DAY
     if a.startswith("W") or re.fullmatch(r"\d*W(-\w+)?", a):
         n = re.match(r"(\d*)", a).group(1)
         return int(n or 1) * 7 * DAY

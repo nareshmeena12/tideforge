@@ -60,7 +60,7 @@ def test_horizon_table():
     assert HZ.seasonality("D") == 1 and HZ.seasonality("W-SUN") == 1 and HZ.seasonality("QS") == 4
 
 
-@pytest.mark.parametrize("freq,lengths", [("YS", list(range(18, 61, 3))), ("D", list(range(158, 301, 7)))])
+@pytest.mark.parametrize("freq,lengths", [("YS", list(range(18, 61, 2))), ("D", list(range(158, 301, 7)))])
 def test_every_series_that_fits_gets_a_window(tmp_path, freq, lengths):
     data = long_df(lengths, freq)
     ts = TK.build(data, meta("d", freq), {}, S, tmp_path / "d")
@@ -105,12 +105,16 @@ def test_medium_long_own_series_file(tmp_path):
 # ---- NaN, scale, aggregation, variants ---------------------------------------------------------------------------------
 def test_nan_only_in_context_and_zero_scale(tmp_path):
     data = long_df([400, 400, 400], "D")
-    data.loc[(data["item_id"] == "s0_1") & (data.index % 400 == 395), "y"] = np.nan    # NaN in the last window
-    data.loc[(data["item_id"] == "s0_0") & (data.index % 400 == 10), "y"] = np.nan     # NaN in context: kept
+    data = long_df([400, 400, 400, 400], "D")
+    i = data.groupby("item_id").cumcount().to_numpy()
+    data.loc[(data["item_id"] == "s0_1") & (i >= 390) & (i < 394), "y"] = np.nan   # 4 of 30 eval points (13%): dropped
+    data.loc[(data["item_id"] == "s0_3") & (i == 395), "y"] = np.nan                  # 1 of 30 (3%): kept, fev masks it
+    data.loc[(data["item_id"] == "s0_0") & (i == 10), "y"] = np.nan                   # NaN in context: kept
     data.loc[data["item_id"] == "s0_2", "y"] = np.r_[np.full(380, 5.0), walk(20, 1)]  # flat context, scale 0 (D: m=1)
-    all_tasks(tmp_path, data, meta("n", "D"))
+    all_tasks(tmp_path, data, meta("n", "D"), s=Settings(min_task_points=1))
     rec = json.loads((tmp_path / "n" / "subset.json").read_text())["variants"][0]["horizons"]["short"]
-    assert rec["series_ids"] == ["s0_0"] and rec["nan_in_eval"] == 1 and rec["zero_scale"] == 1
+    assert rec["series_ids"] == ["s0_0", "s0_3"] and rec["nan_in_eval"] == 1 and rec["zero_scale"] == 1
+    assert rec["masked_eval_nan"] == 1
 
 
 def test_aggregate_coverage_and_rules():
@@ -162,13 +166,13 @@ def test_multivariate_joint(tmp_path):
 
 def test_fev_loads_a_packaged_task(tmp_path):
     fev = pytest.importorskip("fev")
-    ts = all_tasks(tmp_path, long_df([300, 320], "D", covs=True), meta("f", "D", covs={"temp": "past", "is_holiday": "known"}))
+    ts = all_tasks(tmp_path, long_df([300, 320, 340, 360], "D", covs=True), meta("f", "D", covs={"temp": "past", "is_holiday": "known"}))
     t = dict(next(x for x in ts if x["variant"] == "cov")["task"])
     t.update(dataset_path=str(tmp_path / "f" / f"{t['dataset_config']}.parquet"), dataset_config=None)
     task = fev.Task(**t)
     w = list(task.iter_windows())
     past, fut = w[-1].get_input_data()
-    assert len(w) == t["num_windows"] and len(past) == 2 and "is_holiday" in fut.column_names
+    assert len(w) == t["num_windows"] and len(past) == 4 and "is_holiday" in fut.column_names
 
 
 # ---- split ----------------------------------------------------------------------------------------------------------------
@@ -248,7 +252,7 @@ def test_end_to_end(tmp_path, monkeypatch):
     pd.DataFrame({"catalog_row": [1], "dataset_id": ["x"], "keep": [True], "reason": ["ok"]}).to_csv(paths.selection, index=False)
     ids = [f"ds{i}" for i in range(8)]
     for i, did in enumerate(ids):
-        make_canon(paths, did, long_df([500, 520, 540], "D", seed=i, covs=(i % 2 == 0)),
+        make_canon(paths, did, long_df([500, 520, 540, 560], "D", seed=i, covs=(i % 2 == 0)),
                    meta(did, "D", covs={"temp": "past", "is_holiday": "known"} if i % 2 == 0 else {}))
     a = types.SimpleNamespace(only=None, jobs=2, redo=False, smoke=False, dry_run=True, max_gb=100.0)
     RUN.step_split(a, paths, S)
@@ -319,7 +323,7 @@ def test_smoke_forces_locked_and_fev_loads(tmp_path):
     paths.small.mkdir(parents=True)
     ids = [f"sm{i}" for i in range(4)]
     for i, did in enumerate(ids):
-        make_canon(paths, did, long_df([400, 420], "D", seed=i), meta(did, "D", domain=f"dom{i}"))
+        make_canon(paths, did, long_df([400, 420, 440, 460], "D", seed=i), meta(did, "D", domain=f"dom{i}"))
     a = types.SimpleNamespace(only=None, jobs=2, redo=False, smoke=True, dry_run=True, max_gb=100.0)
     for step in ("split", "crossdup", "tasks", "package"):
         getattr(RUN, f"step_{step}")(a, paths, S)

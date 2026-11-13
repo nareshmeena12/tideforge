@@ -506,11 +506,14 @@ def passed(a, paths) -> dict:
 def step_split(a, paths, s):
     from tideforge.tfbench import split as SP
     ds = passed(a, paths)
-    sp = SP.load_or_create(splits_path(a, paths), {d: m.get("domain") or "unknown" for d, m in ds.items()})
+    gf = C.TFB / "source_groups.yaml"
+    groups = yaml.safe_load(gf.read_text(encoding="utf-8")) if gf.exists() else {}
+    sp = SP.load_or_create(splits_path(a, paths), {d: m.get("domain") or "unknown" for d, m in ds.items()}, groups)
     if _sfx(a):   # smoke only, never the real splits.json: 2 datasets forced into locked so locked tasks are packaged
         sp = SP.force_locked(splits_path(a, paths), sorted(ds), 2)
     n = pd.Series([v["split"] for d, v in sp["datasets"].items() if d in ds]).value_counts().to_dict()
-    log.info("split: %s -> %s", n, splits_path(a, paths))
+    ng = len({v.get("source_group") for d, v in sp["datasets"].items() if d in ds})
+    log.info("split: %s datasets in %d source groups -> %s", n, ng, splits_path(a, paths))
 
 
 def _clean(paths, did):

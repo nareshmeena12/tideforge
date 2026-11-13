@@ -16,11 +16,11 @@ ROOT = Path(__file__).resolve().parents[2]
 OVERRIDES = ROOT / "tideforge" / "devdata" / "tfbench" / "overrides.yaml"
 SELECTION = ROOT / "tideforge" / "devdata" / "tfbench" / "selection.csv"
 
-REGEX = {"files", "table", "drop_parts", "drop_items", "id_from_path"}
+REGEX = {"files", "table", "drop_parts", "drop_items", "id_from_path", "targets_match"}
 STR = {"skip", "note", "time_col", "start_col", "strata", "freq", "event_step", "event_sum", "audit_only", "layout"}
 LISTS = {"id_cols", "targets", "covariates", "known", "static", "table_cols"}
 BOOLS = {"fill_zero", "synthetic_time", "sum_rows"}
-OTHER = {"calendar", "agg", "diff", "ref_ids"}
+OTHER = {"calendar", "agg", "diff", "ref_ids", "n_targets_match"}
 KEYS = REGEX | STR | LISTS | BOOLS | OTHER
 CAL_KEYS = {"year", "month", "week", "quarter", "day", "hour", "yyyymm", "yearweek", "fiscal_year", "week_rule"}
 

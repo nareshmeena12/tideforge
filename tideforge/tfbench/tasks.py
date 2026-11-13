@@ -8,8 +8,12 @@ variant. Inside one frequency variant and horizon, covariates on / off and joint
     own series file with only the series long enough for them (config <freq config>__medium / __long; the short file is
     reused when the series are the same), created when >= horizon_min_share (75%) of the variant's series qualify;
   - leading / trailing rows where every target is NaN (padding) are trimmed first (trim_edges);
-  - NaN is allowed in context only: per horizon file, series with NaN in any target inside that horizon's evaluation
-    span (n_windows x H) are dropped; so are series whose in-sample seasonal-difference scale is zero (MASE undefined).
+  - daily data never observed on weekends -> business days (B); covariates that are model outputs are dropped;
+  - NaN in the evaluation span (n_windows x H) is masked by fev's metrics (owner 2026-11-14): allowed in structurally
+    closed slots and up to eval_nan_max (10%) otherwise, each window keeps >= window_min_finite; near-constant contexts
+    are dropped (MASE undefined);
+  - tasks with n_series x n_windows x H < min_task_points, or a NaN / infinite / < 0.01 seasonal-naive score, are
+    dropped (record['dropped_tasks']).
 Every drop is counted in the variant's record.
 
 Per frequency variant x horizon: a target-only task; a with-covariates task when covariates exist (past + known_candidate
@@ -22,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -63,18 +68,104 @@ def pivot_wide(data: pd.DataFrame, s: Settings) -> tuple[pd.DataFrame, list[str]
     return p, names
 
 
-def eligible(df: pd.DataFrame, targets: list[str], R: int, m: int) -> tuple[pd.DataFrame, dict]:
-    keep, nan_eval, zero_scale = [], 0, 0
+def slots(ts: pd.Series, alias: str) -> np.ndarray:
+    """Calendar slot of each timestamp: time of day for sub-daily data, weekday for daily data, else one slot."""
+    b = rules.band(alias)
+    t = pd.DatetimeIndex(ts)
+    if b in ("subhourly", "hourly", "subdaily"):
+        return np.asarray(t.hour * 60 + t.minute)
+    if b == "daily":
+        return np.asarray(t.dayofweek)
+    return np.zeros(len(t), int)
+
+
+def closed_slot_set(fin: np.ndarray, sl: np.ndarray, share: float) -> set:
+    """Slots that are NaN on >= share of the context rows (a structural closure: nights, weekends)."""
+    if not len(sl):
+        return set()
+    u, inv = np.unique(sl, return_inverse=True)
+    nan_share = 1 - np.bincount(inv, weights=fin.astype(float), minlength=len(u)) / np.bincount(inv, minlength=len(u))
+    return set(u[nan_share >= share].tolist())
+
+
+def near_constant(y: np.ndarray, m: int, moves: float) -> bool:
+    """Zero seasonal-difference scale, or the context moves on fewer than `moves` of its finite seasonal steps."""
+    m = m if len(y) > m else 1
+    d = y[m:] - y[:-m]
+    d = d[np.isfinite(d)]
+    if not len(d) or not np.abs(d).mean():
+        return True
+    tol = 1e-12 * (float(np.nanmean(np.abs(y))) + 1e-12)
+    return bool((np.abs(d) > tol).mean() < moves)
+
+
+def eligible(df: pd.DataFrame, targets: list[str], R: int, m: int, alias: str = "D", H: int | None = None,
+             s: Settings | None = None) -> tuple[pd.DataFrame, dict]:
+    """Series kept for one horizon file. NaN in the evaluation span (last R points) is allowed (fev masks it): NaN in
+    structurally closed slots, plus up to s.eval_nan_max of the span otherwise, and every window of H points keeps
+    >= s.window_min_finite finite values. Near-constant contexts are dropped (MASE undefined or meaningless)."""
+    s = s or Settings()
+    H = H or R
+    keep, n = [], {"nan_in_eval": 0, "zero_scale": 0, "masked_eval_nan": 0, "closed_eval_nan": 0}
     for iid, g in df.groupby("item_id", sort=False):
         y = g[targets].to_numpy(np.float64)
-        if np.isnan(y[-R:]).any():
-            nan_eval += 1
+        ctx_n = len(y) - R
+        fin = np.isfinite(y)
+        sl = slots(g["timestamp"], alias)
+        ok, masked, closed = True, 0, 0
+        for k in range(y.shape[1]):
+            shut = closed_slot_set(fin[:ctx_n, k], sl[:ctx_n], s.closed_slot_nan) if ctx_n > 0 else set()
+            ev_fin = fin[ctx_n:, k]
+            ev_closed = np.isin(sl[ctx_n:], list(shut)) if shut else np.zeros(len(ev_fin), bool)
+            unexpected = int((~ev_fin & ~ev_closed).sum())
+            w = (len(ev_fin) // H) * H
+            wins = ev_fin[len(ev_fin) - w:].reshape(-1, H) if w else ev_fin[None, :]
+            if unexpected > s.eval_nan_max * len(ev_fin) or (wins.mean(axis=1) < s.window_min_finite).any():
+                ok = False
+                break
+            masked += unexpected
+            closed += int((~ev_fin & ev_closed).sum())
+        if not ok:
+            n["nan_in_eval"] += 1
             continue
-        if any(seasonal_scale(y[:-R, k], m) == 0 for k in range(y.shape[1])):
-            zero_scale += 1
+        if any(near_constant(y[:ctx_n, k], m, s.near_constant_moves) for k in range(y.shape[1])):
+            n["zero_scale"] += 1
             continue
+        n["masked_eval_nan"] += masked
+        n["closed_eval_nan"] += closed
         keep.append(iid)
-    return df[df["item_id"].isin(keep)], {"nan_in_eval": nan_eval, "zero_scale": zero_scale}
+    return df[df["item_id"].isin(keep)], n
+
+
+# owner 2026-11-14: covariates that are other models' forecasts, or the target itself shifted (a leak), are never used
+MODEL_OUTPUT = re.compile(r"chronos|bolt|gbm|lightgbm|xgb|moirai|timesfm|prophet|arima|persistence|(^|[_\s-])seed\d*"
+                          r"|(^|[_\s-])pred(s|ict|iction|ictions|icted)?($|[_\s-])|_pred$|(^|_)lag_?\d|rolling_|ewma_"
+                          r"|target_next|next_day", re.I)
+
+
+def model_output_cols(covs: list[str], targets: list[str]) -> list[str]:
+    """Covariates named like model outputs (chronos, bolt, gbm, persistence, seed, pred, lag_k, rolling_), and
+    forecast / fcst columns that share a name token with a target (a forecast of the target)."""
+    from tideforge.devdata.hf_derive import tokens
+    tt = {t for c in targets for t in tokens(c) if len(t) > 2}
+    out = []
+    for c in covs:
+        tk = set(tokens(c))
+        if MODEL_OUTPUT.search(c) or (tk & {"forecast", "fcst", "forecasted", "predicted"} and tk & tt):
+            out.append(c)
+    return out
+
+
+def business_days(data: pd.DataFrame, targets: list[str], alias: str, s: Settings) -> tuple[pd.DataFrame, str, int]:
+    """Daily data that is (almost) never observed on Saturday / Sunday (trading days) -> the business-day calendar B:
+    weekend rows removed. -> (data, alias, rows removed)."""
+    if alias != "D" or data.empty:
+        return data, alias, 0
+    wk = np.asarray(pd.DatetimeIndex(data["timestamp"]).dayofweek) >= 5
+    fin = data[targets].notna().any(axis=1).to_numpy()
+    if not wk.any() or wk.all() or fin[wk].mean() > 1 - s.weekend_nan or fin[~wk].mean() < 0.5:
+        return data, alias, 0
+    return data[~wk], "B", int(wk.sum())
 
 
 def trim_edges(data: pd.DataFrame, targets: list[str]) -> tuple[pd.DataFrame, int]:
@@ -110,6 +201,22 @@ def zero_reasons(record: dict) -> str:
     return head + ("; " + "; ".join(skipped) if skipped else "")
 
 
+def baseline_filter(tasks: list[dict], out: Path, s: Settings, record: dict) -> list[dict]:
+    """Drop tasks whose seasonal-naive MASE or WQL is NaN / infinite, or whose MASE is below s.min_baseline_mase (a
+    near-zero in-sample scale); each drop is recorded in record['dropped_tasks']."""
+    from tideforge.tfbench.baseline import score
+    keep = []
+    for t in tasks:
+        r = score(Path(out) / f"{t['config']}.parquet", t["task"])
+        why = ("seasonal naive " + r["flag"]) if r["flag"] else (
+            f"seasonal naive MASE {r['MASE']:.4f} < {s.min_baseline_mase}" if r["MASE"] < s.min_baseline_mase else "")
+        if why:
+            record["dropped_tasks"].append({"task": t["task"]["task_name"], "why": why})
+        else:
+            keep.append(t)
+    return keep
+
+
 def intermittency(y: np.ndarray) -> float:
     f = y[np.isfinite(y)]
     return float((f == 0).mean()) if len(f) else 0.0
@@ -137,9 +244,15 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
         data = data.assign(item_id=data["item_id"].astype(str))
     n_in = int(data["item_id"].nunique())
     data, trimmed = trim_edges(data, targets)
+    leak = model_output_cols(list(covs), targets)
+    covs = {c: r for c, r in covs.items() if c not in leak}
+    data, native, n_weekend = business_days(data, targets, meta["frequency"], s)
+    meta = {**meta, "frequency": native}
     subset = sorted(map(str, data["item_id"].unique()))
     record = {"dataset_id": did, "seed": meta.get("seed", s.seed), "series": subset, "input_series": n_in,
-              "trimmed_rows": trimmed, "variants": []}
+              "trimmed_rows": trimmed, "dropped_covariates_model_output": leak,
+              "calendar": "business days (weekend rows removed)" if native == "B" else "as built",
+              "weekend_rows_removed": n_weekend, "variants": [], "dropped_tasks": []}
     tasks = []
     for v in freq_variants(data, {**meta, "targets": targets, "covariates": covs, "static": static}, ov, s):
         alias, df = v["freq"], v["data"]
@@ -166,10 +279,14 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
                 continue
             d = df[df["item_id"].isin(ok.index)]
             nw = HZ.n_windows(ok.to_numpy(), H, s)
-            d, drops = eligible(d, targets, nw * H, m)
+            d, drops = eligible(d, targets, nw * H, m, alias, H, s)
             hr.update(drops)
             if d.empty:
                 hr["skipped"] = "no series left after the NaN / scale rules"
+                continue
+            n_ser = int(d["item_id"].nunique()) * len(targets)
+            if n_ser * nw * H < s.min_task_points:
+                hr["skipped"] = f"task too small: {n_ser} series x {nw} windows x H {H} < {s.min_task_points}"
                 continue
             vcols = targets + [c for c in covs if c in d.columns]
             vcols = [c for c in vcols if c in targets or d[c].notna().any()]
@@ -217,6 +334,7 @@ def build(data: pd.DataFrame, meta: dict, ov: dict, s: Settings, out: Path, data
         else:
             rec["skipped"] = rec.get("skipped") or "short horizon has no series"
         record["variants"].append(rec)
+    tasks = baseline_filter(tasks, out, s, record)
     for t in tasks:
         t["task_sha256"] = task_sha(t["task"])
     (out / "tasks.json").write_text(json.dumps(tasks, indent=1, default=str), encoding="utf-8")

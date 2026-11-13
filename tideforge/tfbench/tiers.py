@@ -3,7 +3,8 @@
 full: every task. core: one task per (dataset, frequency variant): medium horizon if it exists else short, covariates on
 where the variant has them, univariate. fast: fast_n[split] core tasks, seeded, stratified by (domain, band, horizon):
 strata are visited round-robin in a seeded order, a seeded random task from each, until the quota is reached.
-weights: in each tier and split every source dataset has weight 1, shared equally by its tasks.
+weights: in each tier and split every source group has weight 1 (owner 2026-11-14), shared equally by its datasets and
+then by each dataset's tasks (no source_group column: every dataset is its own group).
 """
 from __future__ import annotations
 
@@ -40,4 +41,6 @@ def fast(tasks: pd.DataFrame, core_mask, n: int, seed: int) -> pd.Series:
 def weights(tasks: pd.DataFrame, mask) -> pd.Series:
     t = tasks[mask]
     cnt = t.groupby("dataset_id")["dataset_id"].transform("size")
-    return (1.0 / cnt).reindex(tasks.index)
+    g = t["source_group"] if "source_group" in t else t["dataset_id"]
+    n_ds = t.groupby(g)["dataset_id"].transform("nunique")
+    return (1.0 / (cnt * n_ds)).reindex(tasks.index)

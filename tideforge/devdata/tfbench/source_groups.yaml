@@ -1,0 +1,109 @@
+# tfbench source groups (owner 2026-11-14, BUILD_REPORT review). A group = the same underlying source published under
+# different repos / resolutions. Each group lies wholly in one split and has weight 1 per tier and split (its datasets
+# share it equally). Groups that share a dataset are merged (union), so a multi-source collection joins every group it
+# contains. Key = group name, value = dataset_ids (selection.csv). Datasets not listed form a group of their own.
+
+london_smart_meters:      # London smart meters / LCL (UK Power Networks Low Carbon London)
+  - autogluon_chronos_datasets_monash_london_smart_meters
+  - salesforce_lotsa_data_london_smart_meters_with_missing
+  - salesforce_lotsa_data_lcl
+  - ai_iot_energybench_lcl
+  - nju_zhangsq_rmisc_smartmeteruk30m
+  - nju_zhangsq_rmisc_smartmeteruk60m
+  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
+ideal:
+  - salesforce_lotsa_data_ideal
+  - jainam03_rescast_100k_ideal
+uber_tlc:
+  - autogluon_chronos_datasets_uber_tlc_hourly_uber_tlc_daily
+  - salesforce_lotsa_data_uber_tlc_daily
+  - salesforce_lotsa_data_uber_tlc_hourly
+wind_farms:
+  - autogluon_chronos_datasets_wind_farms_hourly_wind_farms_daily
+  - salesforce_lotsa_data_wind_farms_with_missing
+  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
+taxi_nyc:
+  - autogluon_chronos_datasets_taxi_30min_taxi_1h
+  - salesforce_lotsa_data_taxi_30min
+pedestrian_counts:
+  - autogluon_chronos_datasets_monash_pedestrian_counts
+  - salesforce_lotsa_data_pedestrian_counts
+  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
+traffic_sf:               # Caltrans PeMS road occupancy (Monash traffic)
+  - autogluon_chronos_datasets_monash_traffic
+  - salesforce_lotsa_data_traffic_hourly
+rideshare:
+  - autogluon_chronos_datasets_monash_rideshare
+  - salesforce_lotsa_data_rideshare_with_missing
+nn5:
+  - autogluon_chronos_datasets_monash_nn5_weekly_nn5
+  - salesforce_lotsa_data_nn5_daily_with_missing
+dominick:
+  - autogluon_chronos_datasets_dominick
+  - nju_zhangsq_rmisc_dominick
+bdg2:                     # Building Data Genome 2 (Bear and the other BDG-2 sites)
+  - salesforce_lotsa_data_bdg_2_bear
+  - salesforce_lotsa_data_bdg_2_fox
+  - salesforce_lotsa_data_bdg_2_panther
+  - salesforce_lotsa_data_bdg_2_rat
+  - alwaysbyx_bear_data
+  - fidel_ts_bear_room
+  - nju_zhangsq_rmisc_buildingsbenchrealcsv
+covid_mobility:           # Google COVID-19 community mobility
+  - salesforce_lotsa_data_covid_mobility
+  - epi_eval_global_mobility
+weather_monash:
+  - autogluon_chronos_datasets_monash_weather
+  - salesforce_lotsa_data_weather
+# ---- found in the selection (same source under different repos) ------------------------------------------------------
+cif_2016:
+  - autogluon_chronos_datasets_monash_cif_2016
+  - salesforce_lotsa_data_cif_2016_12
+wikipedia_pageviews:      # Wikimedia pageviews (Kaggle web traffic is Wikipedia pageviews)
+  - autogluon_chronos_datasets_wiki_daily_100k
+  - salesforce_lotsa_data_wiki_rolling_nips
+  - salesforce_lotsa_data_kaggle_web_traffic_weekly
+  - salesforce_lotsa_data_extended_web_traffic_with_missing
+  - jeremycochoy_wikimedia_pageview_timeseries
+  - epi_eval_wikipedia_pageviews
+  - sovai_wikipedia_views_default
+  - nevirim_wikipedia_attention_13lang
+  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
+sunspot:
+  - salesforce_lotsa_data_sunspot_with_missing
+  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
+pems:                     # Caltrans PeMS detectors (PEMS03/04/07/08, LargeST, LA loops)
+  - salesforce_lotsa_data_pems03
+  - salesforce_lotsa_data_pems04
+  - salesforce_lotsa_data_pems07
+  - salesforce_lotsa_data_pems08
+  - salesforce_lotsa_data_largest_2021
+  - salesforce_lotsa_data_los_loop
+  - nju_zhangsq_rmisc_pemscalifornia
+smart_meters_aus:
+  - nju_zhangsq_rmisc_smartmeteraus30m
+  - nju_zhangsq_rmisc_smartmeteraus60m
+weatherbench:
+  - autogluon_chronos_datasets_weatherbench_daily
+  - autogluon_chronos_datasets_weatherbench_hourly_2m_temperature
+  - autogluon_chronos_datasets_weatherbench_weekly
+velib_paris:
+  - adrien97_velib_monitoring_historical
+  - angelosaadeh_velib
+  - danipaez_velib_tft_default
+omni_solar_wind:          # NASA OMNI solar-wind parameters
+  - juliensimon_omni_solar_wind_parameters
+  - juliensimon_solar_wind
+  - nasa_ibm_ai4science_surya_bench_solarwind
+  - snowsadh_goes_omni_electron_flux_forecasting
+beijing_air_quality:      # KDD Cup 2018 / UCI Beijing stations
+  - salesforce_lotsa_data_beijing_air_quality
+  - salesforce_lotsa_data_china_air_quality
+quito_bench:
+  - hq_bench_quitobench_hour_min
+  - hq_bench_quitobench_hour_min_r577
+  - hq_bench_quito_corpus_hour
+  - hq_bench_quito_corpus_min
+oil_well_nk:
+  - arailym_tleubayeva_nk_oil_well_sensor_monitoring_v2
+  - arailym_tleubayeva_nk_oil_well_sensor_monitoring_v2_train_test

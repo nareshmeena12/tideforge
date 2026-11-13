@@ -33,6 +33,29 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
         L += ["## Audit code version per dataset (audit_code in audit/<dataset_id>.json)",
               ", ".join(f"{r.datasets} {r.audit_code}" for r in audit_versions.itertuples()) + ".",
               _md(audit_versions)]
+    L += ["## Leakage audit: note for v1.1",
+          "The datasets the audit flagged stay excluded in v1.0.0. Many of the matches behind the flags look spurious: "
+          "smooth or monotone windows (trends, slow seasonal curves) z-normalise to near-identical shapes, so unrelated "
+          "series hash alike. v1.1 will count a match only when several windows match the same reference series at a "
+          "consistent offset (same lag between the dev and the reference window).", ""]
+    if "source_group" in m:
+        g = m[m["tier_full"]].groupby(["split", "source_group"]).agg(datasets=("dataset", "nunique"),
+                                                                     tasks=("task", "size"), weight=("weight_full", "sum"))
+        multi = g[g["datasets"] > 1].reset_index()
+        L += ["## Source groups (one split per group, weight 1 per group per tier and split)",
+              f"Groups: {m['source_group'].nunique()} ({len(multi)} with more than one dataset).", _md(multi)]
+    recs = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(Path(task_root).glob("*/subset.json"))]
+    cal = [dict(dataset=r["dataset_id"], weekend_rows_removed=r.get("weekend_rows_removed", 0)) for r in recs
+           if str(r.get("calendar", "")).startswith("business")]
+    L += ["## Business-day calendar (daily data never observed on weekends: weekend rows removed, frequency B)",
+          _md(pd.DataFrame(cal, columns=["dataset", "weekend_rows_removed"]))]
+    mo = [dict(dataset=r["dataset_id"], columns=", ".join(r["dropped_covariates_model_output"])) for r in recs
+          if r.get("dropped_covariates_model_output")]
+    L += ["## Covariates dropped: other models' forecasts or the shifted target (chronos, bolt, gbm, persistence, seed, "
+          "pred, lag_k, rolling_)", _md(pd.DataFrame(mo, columns=["dataset", "columns"]))]
+    dt_ = [dict(dataset=r["dataset_id"], **x) for r in recs for x in r.get("dropped_tasks", [])]
+    L += ["## Tasks dropped: seasonal-naive score NaN / infinite or MASE < 0.01",
+          _md(pd.DataFrame(dt_, columns=["dataset", "task", "why"]))]
     L += ["## Cross-dataset copies dropped from tuning (z-normalised window hashes, > 10% of windows)",
           f"Series dropped: {len(crossdup)}.", _md(crossdup.groupby(["dataset_id", "matched"]).size()
                                                    .reset_index(name="series") if not crossdup.empty else crossdup)]
@@ -43,16 +66,20 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
             agg = ", ".join(f"{k}:{a}" for k, a in (v.get("agg") or {}).items()) or "native"
             if not v.get("horizons"):
                 vr.append(dict(config=v["config"], horizon="", agg=agg, series=0, too_short=v.get("dropped_short", 0),
-                               nan_in_eval=0, zero_scale=0, skipped=v.get("skipped", "")))
+                               nan_in_eval=0, zero_scale=0, masked_eval_nan=0, closed_eval_nan=0,
+                               skipped=v.get("skipped", "")))
             for cls, hr in (v.get("horizons") or {}).items():
                 vr.append(dict(config=hr.get("config", v["config"]), horizon=f"{cls} (H={hr['H']})", agg=agg,
                                series=hr.get("series", 0),
                                too_short=hr.get("too_short", 0) + (v.get("dropped_short", 0) if cls == "short" else 0),
                                nan_in_eval=hr.get("nan_in_eval", 0), zero_scale=hr.get("zero_scale", 0),
+                               masked_eval_nan=hr.get("masked_eval_nan", 0), closed_eval_nan=hr.get("closed_eval_nan", 0),
                                skipped=hr.get("skipped", "")))
     vr = pd.DataFrame(vr)
     L += ["## Series per frequency variant and horizon (drops counted per horizon; aggregation rule per column, for "
-          "review)", _md(vr)]
+          "review). nan_in_eval: series dropped (> 10% unexpected NaN in the eval span or a window < 10% finite); "
+          "zero_scale: near-constant context; masked_eval_nan / closed_eval_nan: NaN points kept in eval spans (masked by "
+          "fev's metrics), outside / inside structurally closed slots", _md(vr)]
     b = baseline.merge(man[["task", "split", "band", "horizon_class"]], on="task", how="left")
     fl = b[b["flag"].fillna("") != ""]
     L += ["## Seasonal naive baseline",

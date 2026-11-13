@@ -54,6 +54,17 @@ class Settings:
     quantile_levels: tuple = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     fast_n: dict = field(default_factory=lambda: {"tuning": 150, "locked": 50})
     crossdup_share: float = 0.10                       # cross-dataset copies: the audit's series rule
+    # owner 2026-11-14 (BUILD_REPORT review): NaN in the evaluation span is masked by fev's metrics (nanmean over y_true,
+    # fev 0.10), so a series may keep up to eval_nan_max of unexpected NaN there; NaN in structurally closed slots
+    # (a time-of-day / weekday slot that is NaN on >= closed_slot_nan of the context) does not count; every window keeps
+    # >= window_min_finite of its points.
+    eval_nan_max: float = 0.10
+    closed_slot_nan: float = 0.90
+    window_min_finite: float = 0.10
+    near_constant_moves: float = 0.05                  # series whose context moves on < 5% of its seasonal steps: dropped
+    min_task_points: int = 100                         # a task needs n_series x n_windows x H >= this
+    min_baseline_mase: float = 0.01                    # tasks whose seasonal-naive MASE is below this are dropped
+    weekend_nan: float = 0.98                          # daily data with >= 98% NaN on Sat / Sun -> business days (B)
     version: str = "v1.0.0"
     max_gb: float = 100.0
 

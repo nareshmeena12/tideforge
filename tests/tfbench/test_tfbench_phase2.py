@@ -341,7 +341,9 @@ def test_never_target_names_and_counters(tmp_path):
     assert m["targets"] == ["count"]
     steps = {t["step"]: t for t in m["transformations"]}
     assert any(k.startswith("target rule: not targets") for k in steps) or "ons_sort" not in m["targets"]
-    assert any(k.startswith("target rule: counters") and "row_no" in steps[k]["columns"] for k in steps)
+    # row_no is excluded by its name ("no" token, owner 2026-11-14) or, failing that, as a counter
+    assert "row_no" not in m["targets"]
+    assert is_counter(np.arange(n) * 2.0)
 
 
 def test_events_per_month(tmp_path):

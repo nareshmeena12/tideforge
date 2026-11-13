@@ -12,7 +12,8 @@ Steps: open tables -> pick the main table (the schema group with most bytes) -> 
 Override keys (per dataset_id): skip, files (regex on repo file paths: only these are opened, so big archives that are
 not needed are never extracted), layout, table (regex on part names), table_cols (parts must have all these columns),
 drop_parts, drop_items (regex on item_id), time_col, calendar ({year, month | week | quarter, day, hour} / {yyyymm} /
-{yearweek} / {fiscal_year} column names, week_rule mmwr | iso; see layouts.py), id_cols, targets, covariates, known,
+{yearweek} / {fiscal_year} column names, week_rule mmwr | iso; see layouts.py), id_cols, targets, targets_match (regex on
+numeric column names; n_targets_match, default 1), covariates, known,
 static, strata, freq, start_col, event_step, event_sum, agg {col: sum|mean}, fill_zero (missing grid steps = 0),
 diff ([source columns] to difference, or false; default: the cumulative rule, see cumulative_rule), synthetic_time, note. Tables without a time column: see layouts.py.
 """
@@ -101,9 +102,29 @@ NOT_TARGET = re.compile(
     r"|^(id|sort|rank)[_\s]", re.I)                                     # id_..., sort_...
 
 
+# owner 2026-11-14: name tokens that mark an id, clock, counter, setpoint, sort key, reporting count or age group
+NOT_TARGET_TOKENS = {"hour", "hours", "time", "num", "number", "id", "setpoint", "sort", "sortorder", "reported",
+                     "grp", "agegrp", "agegroup", "since", "lag", "rolling", "ewma", "index", "idx", "cycle", "step"}
+MEASURE_TOKENS = {"per", "wait", "max", "min", "mean", "avg", "travel", "delay", "duration", "total", "spent", "response",
+                  "latency", "elapsed", "run", "uptime", "down", "downtime", "queue"}
+LAG_TABLE = re.compile(r"^[xy]_t[+-]\d+", re.I)          # pre-windowed lag tables (x_t-11_d0, y_t+1_d0)
+ROW_NO = re.compile(r"(^|_)(row|serial|seq|record|line)_?no($|_)", re.I)   # row_no, serial_no (not the pollutant no2)
+
+
+def is_bad_target(name: str) -> bool:
+    tk = D.tokens(str(name))
+    bad = set(tk) & NOT_TARGET_TOKENS
+    if bad <= {"hour", "hours", "time"} and set(tk) & MEASURE_TOKENS:     # wait_time_max, price_per_hour: measures
+        bad = set()
+    return bool(NOT_TARGET.search(str(name)) or LAG_TABLE.match(str(name)) or ROW_NO.search(str(name)) or bad
+                or ("age" in tk and set(tk) & {"group", "start", "span", "grp"})
+                or (len(tk) == 1 and tk[0] in {"mo", "dy", "hr", "yr", "doy", "dow", "month", "months", "year", "day"}))
+
+
 def never_target(names: list[str]) -> tuple[list[str], list[str]]:
-    """(kept, removed): id / index / record / sort / rank / secs / time / timestamp / epoch columns are never targets."""
-    out = [c for c in names if NOT_TARGET.search(str(c))]
+    """(kept, removed): id / index / record / sort / rank / secs / time / timestamp / epoch columns, and names with an
+    hour / time / num / id / setpoint / sort / reported / age-group / lag token, are never targets."""
+    out = [c for c in names if is_bad_target(c)]
     return [c for c in names if c not in out], out
 
 
@@ -129,17 +150,28 @@ def drop_counters(series: dict[str, list]) -> list[str]:
 
 def roles_for(schema: pa.Schema, ov: dict) -> tuple[dict, str, str]:
     cols = cols_of(schema)
+    if ov.get("targets_match"):     # overrides.yaml: targets = numeric columns whose name matches (first n_targets_match)
+        rx = re.compile(ov["targets_match"])
+        hit = [c.name for c in cols if c.kind in ("num", "list_num") and rx.search(c.name)]
+        if not hit:
+            raise Fail(f"targets_match {ov['targets_match']!r}: no numeric column matches "
+                       f"({[c.name for c in cols if c.kind in ('num', 'list_num')][:30]})")
+        ov = {**ov, "targets": hit[: int(ov.get("n_targets_match", 1))]}
     r = D.assign_roles(cols)
     if "targets" not in ov:          # owner 2026-11-13: id / clock / sort columns are never targets (logged in meta)
         kept, out = never_target(r["target_cols"])
         if out:
             log.info("target rule: %s not targets (id / clock / sort name)", out)
             r["value_cols"] = [c for c in r.get("value_cols", []) if c not in out]
+            good = [c for c in r["value_cols"] if c not in out and not is_bad_target(c)]
+            if not kept and str(r.get("target_rule", "")).startswith("first numeric") and good:
+                kept = good[:1]           # the first value column that is not an id / clock / setpoint name
+                r["target_rule"] = "first numeric value column that is not an id / clock / setpoint / count name"
             if not kept:     # the profiler's only pick was a sort / id column: the other value columns are the targets
                 num = {c.name for c in cols if c.kind in ("num", "bool")}
                 kept = [c for c in dict.fromkeys(r["value_cols"] + r["covariate_cols"]) if c in num and c not in out
                         and c not in r["id_cols"] and c != r["time_col"] and not CALENDAR.search(c)
-                        and not NOT_TARGET.search(c)]
+                        and not is_bad_target(c)]
             r["target_cols"], r["not_target"] = kept, out
             r["covariate_cols"] = [c for c in r["covariate_cols"] if c not in out]
     layout, rule, _ = D.decide_layout(cols, r)

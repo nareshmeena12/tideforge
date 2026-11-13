@@ -71,6 +71,7 @@ time_hd_anonymous_high_dimensional_time_series:
   note: "draft: drop the benchmark and simulated sets"
 
 yuiseki_un_wpp_wpp2024:
+  targets: [PopTotal]   # owner 2026-11-14: AgeGrpStart / AgeGrpSpan are age-group bounds, not targets
   drop_parts: '(?i)projection|life.?expect|e0'
   drop_items: '(?i)projection|life.?expect'
   note: "draft: drop projection variants (2024-2100) and life-expectancy tables (fev)"
@@ -468,6 +469,7 @@ jainam03_rescast_100k_ecobee:
   note: "Indoor Temp flagged as non-decreasing by the check; not a running total (owner 2026-11-13)"
 
 narendersingh007_india_solar_benchmark_dataset:
+  targets: [ALLSKY_SFC_SW_DWN]   # owner 2026-11-14: MO is the month; the solar target is the irradiance
   diff: false
   note: "solar MO flagged by the check; not a running total (owner 2026-11-13)"
 
@@ -535,3 +537,131 @@ salesforce_lotsa_data_largest_2020:
   skip: 'LargeST: only largest_2021 is kept (same sensors, other years)'
 nju_zhangsq_rmisc_largest:
   skip: 'v1.0.0: duplicate of LargeST (salesforce_lotsa_data_largest_2021 kept), on synthetic time'
+
+# ---- targets set by the owner's BUILD_REPORT review (2026-11-14) -------------------------------------------
+
+hexquant_stocks_daily_price:
+  targets: [close]
+  note: "owner 2026-11-14: open picked by the rule; close is the price series"
+
+jwigginton_timeseries_1mn_sp500_default:
+  targets: [close]
+  note: "owner 2026-11-14: open picked by the rule; close is the price series"
+
+thecharttruth_etf_data_prices:
+  targets: [close]
+  note: "owner 2026-11-14: open picked by the rule; close is the price series"
+
+yadavsaurabh_us_stocks_and_search_trends:
+  targets: [Close]
+  note: "owner 2026-11-14: Open picked by the rule; Close is the price series"
+
+dar4huggingface_sniim_mexico_sample:
+  targets: ['Precio Frec']
+  note: "owner 2026-11-14: the most frequent (modal) price, not the minimum"
+
+notadib_usa_corn_belt_crop_yield:
+  targets_match: '(?i)yield'
+  note: "owner 2026-11-14: crop yield (VAP_1 was picked by the rule)"
+
+alexroz_carbonfluxbench:
+  targets_match: '(?i)(^|_)(nee|fc|co2_flux|flux)($|_)'
+  note: "owner 2026-11-14: the CO2 flux, not dewpoint"
+
+khajlk_copenhagen_air_quality_hourly:
+  targets_match: '(?i)^(pm2_?5|pm25|no2|pm10|o3)'
+  note: "owner 2026-11-14: a pollutant (pm2.5 first), not temperature"
+
+roshangupta007_yieldformer_de_data:
+  targets: [yield_dt_per_ha]
+  note: "owner 2026-11-14: crop yield, not humidity"
+
+skywalker1910_skynet_aqi_panel:
+  targets_match: '(?i)^(aqi|pm2_?5|pm25)'
+  note: "owner 2026-11-14: the AQI / PM2.5, not boundary-layer height"
+
+nju_zhangsq_rmisc_occupancydetection:
+  targets: [CO2]
+  note: "owner 2026-11-14: Occupancy is a 0/1 label; CO2 is the occupancy signal"
+
+nju_zhangsq_rmisc_metrotraffic:
+  targets: [traffic_volume]
+  note: "owner 2026-11-14: traffic, not temperature"
+
+fuel_prices_eu_european_fuel_prices:
+  targets: [mean_eur]
+  note: "owner 2026-11-14: n is the station count"
+
+nju_zhangsq_rmisc_tetuanpowerconsumption:
+  targets: ['Zone 1 Power Consumption', 'Zone 2  Power Consumption', 'Zone 3  Power Consumption']
+  note: "owner 2026-11-14: power, not temperature"
+
+gft_ttm4hvac_source_all_train:
+  targets: ['HVAC Power Consumption (W)']
+  note: "owner 2026-11-14: HVAC power, not outdoor temperature"
+
+kpubdata_seoul_apartment_trades:
+  targets: [deal_amount_10k_krw]
+  note: "owner 2026-11-14: the trade price, not the floor area"
+
+afhubbard_gpu_prices:
+  targets: [price_per_hour]
+  note: "owner 2026-11-14: price, not the GPU count"
+
+emperor_mew_ooni_censorship_historical:
+  targets: [anomaly_count]
+  note: "owner 2026-11-14: censorship anomalies, not the measurement count"
+
+nju_zhangsq_rmisc_bts:
+  targets_match: '(?i)^air_temperature_sensor'
+  note: "owner 2026-11-14: a sensor, not a setpoint (MASE 0)"
+
+thanna94_us_building_permits:
+  targets: [Total_Units]
+  note: "owner 2026-11-14: Months_Reported is a reporting count"
+
+nju_zhangsq_rmisc_opsd_when2heat:
+  targets_match: '(?i)_heat_demand_total$'
+  note: "owner 2026-11-14: heat demand, not a heat-pump COP"
+
+nju_zhangsq_rmisc_opsd_household:
+  targets_match: '(?i)_grid_import$'
+  note: "owner 2026-11-14: household grid import, not one appliance"
+
+venvoo_openrouter_uptime:
+  targets: [up1d]
+  note: "owner 2026-11-14: uptime share, not a status code"
+
+emulated_inc_sci_airport_low_ceiling_visibility:
+  targets: [vis_mi]
+  note: "owner 2026-11-14: visibility; forecast_hour is a lead time"
+
+matanzig_disney_theme_park_queue_dynamics:
+  targets: [WAIT_TIME_MAX]
+  note: "owner 2026-11-14: queue wait; DEB_TIME_HOUR is the clock"
+
+nju_zhangsq_rmisc_era5hourlysinglelevels:
+  targets: [t2m]
+  note: "owner 2026-11-14: 2 m temperature, not the 100 m wind component"
+
+dhivakarnaidusunkari_mandi_india_daily_prices_2001_2026:
+  targets: [Modal_Price]
+  note: "owner 2026-11-14: the modal price, not the minimum"
+
+donny_guo_airline_delay:
+  targets: [arr_delay]
+  note: "owner 2026-11-14: the delay; op_carrier_fl_num is the flight number"
+
+mihnathul_celljar:
+  targets: [voltage_V]
+  note: "owner 2026-11-14: cell voltage, not the applied current"
+
+olaflaitinen_baku_metro_station_flow:
+  covariates: []
+  note: "owner 2026-11-14: lag_* / rolling_* / ewma_* and target_next_day_entries are the target itself (leak)"
+
+witgaw_pems_bay:
+  skip: "pre-windowed lag table (x_t-11_d0 ... y_t+12_d1), not raw speeds; LOTSA pems* remain (owner 2026-11-14)"
+
+witgaw_metr_la:
+  skip: "pre-windowed lag table (x_t-11_d0 ... y_t+12_d1), not raw speeds (owner 2026-11-14)"
