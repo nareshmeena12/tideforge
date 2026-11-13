@@ -24,6 +24,7 @@ import logging
 import re
 import shutil
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -321,6 +322,7 @@ def _timestamps(d: pd.DataFrame, tcol: str) -> pd.Series:
 
 def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[str], events: dict | None = None):
     want = set(chunk["item_id"])
+    cats = pd.Index(sorted(map(str, want)))
     by_part = set(chunk["part"])
     tcol = r["time_col"]
     need = list(dict.fromkeys([tcol] + r["id_cols"] + cols_val + static + ([events["sum"]] if events and events.get("sum") else [])))
@@ -335,6 +337,8 @@ def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[s
             if r["id_cols"]:
                 d["item_id"] = _item_ids(d, r["id_cols"])
                 d = d[d["item_id"].isin(want)]
+                # fixed categories: one small code per row instead of a Python string (memory; concat keeps them)
+                d["item_id"] = pd.Categorical(d["item_id"].astype(str), categories=cats)
             else:
                 d["item_id"] = chunk.loc[chunk["part"] == pi, "item_id"].iloc[0]
             if d.empty:
@@ -344,7 +348,7 @@ def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[s
                 d["timestamp"] = d["timestamp"].dt.floor(events["step"]) if not events["step"].upper().endswith(("S", "E")) \
                     and not events["step"].upper().startswith("W") else d["timestamp"]
                 v = d[events["sum"]].astype(float) if events.get("sum") else pd.Series(1.0, index=d.index)
-                d = d.assign(_v=v).groupby(["item_id", "timestamp"], as_index=False)["_v"].sum()
+                d = d.assign(_v=v).groupby(["item_id", "timestamp"], as_index=False, observed=True)["_v"].sum()
                 d = d.rename(columns={"_v": events["name"]})
             else:
                 d = d[["item_id", "timestamp"] + cols_val + static]
@@ -353,7 +357,7 @@ def load_long(parts, r, chunk: pd.DataFrame, cols_val: list[str], static: list[s
         return pd.DataFrame(columns=["item_id", "timestamp"] + cols_val + static)
     df = pd.concat(out, ignore_index=True)
     if events is not None:
-        df = df.groupby(["item_id", "timestamp"], as_index=False)[events["name"]].sum()
+        df = df.groupby(["item_id", "timestamp"], as_index=False, observed=True)[events["name"]].sum()
     return df
 
 
@@ -411,8 +415,27 @@ def epoch_times(v) -> pd.Series:
     return parse_time(s.astype("string"))
 
 
-def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, static: list[str]):
-    """One row per series: target list (1-D, or 2-D = several channels -> target_0..k), start + freq or a time list."""
+def _nested_rows(p: Part, cols: list[str], keys) -> Iterator[tuple[int, dict]]:
+    """Stream the part in batches and yield (row index, row) for the wanted row indices only (never the whole part)."""
+    want = set(int(k) for k in keys)
+    off = 0
+    for t in p.batches(cols):
+        n = t.num_rows
+        hit = [k - off for k in sorted(k for k in want if off <= k < off + n)]
+        if hit:
+            for k, row in zip(hit, t.take(pa.array(hit, type=pa.int64())).to_pylist()):
+                yield k + off, row
+            want.difference_update(k + off for k in hit)
+        off += n
+        if not want:
+            break
+
+
+def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, static: list[str],
+                keep_last: int | None = None):
+    """One row per series: target list (1-D, or 2-D = several channels -> target_0..k), start + freq or a time list.
+    Rows are streamed and only the sampled ones decoded; each series keeps its last keep_last + 1 points (the +1 for a
+    differenced first step), as the regular grid would anyway (owner 2026-11-13: LOTSA parts went over 30 GB)."""
     start, tlist = nested_time(parts[0].schema, ov)
     tgt = nested_target(parts[0].schema, r, tlist)
     list_cov = [c for c in r["covariate_cols"] if c not in (tgt, tlist)]
@@ -423,9 +446,9 @@ def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, st
     for pi, g in chunk.groupby("part"):
         p = parts[int(pi)]
         cols = [c for c in dict.fromkeys([tgt, start, tlist, fcol] + list_cov + static) if c and c in p.schema.names]
-        t = p.read(cols).take(pa.array(np.asarray(g["key"], dtype=np.int64)))
-        d = t.to_pylist()
-        for iid, row in zip(g["item_id"], d):
+        id_of = dict(zip((int(k) for k in g["key"]), g["item_id"]))
+        for k, row in _nested_rows(p, cols, id_of):
+            iid = id_of[k]
             y = np.asarray(row[tgt], dtype=np.float64) if row[tgt] is not None else np.zeros(0)
             if y.ndim == 2 and y.shape[0] > y.shape[1]:
                 y = y.T
@@ -473,6 +496,8 @@ def load_nested(parts, r, chunk: pd.DataFrame, ov: dict, ds_freq: str | None, st
                         x[f"{c}_{k}"] = a[k, :n]
             for c in static:
                 x[c] = row.get(c)
+            if keep_last and len(x) > keep_last + 1:
+                x = x.iloc[len(x) - keep_last - 1:]
             out.append(x)
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame(columns=["item_id", "timestamp", "target"])
 
@@ -532,7 +557,7 @@ def cumulative_rule(ov: dict, names: dict, covs: list[str], mono: list[str]) -> 
 
 def series_by_col(df: pd.DataFrame, cols: list[str], n: int = 200) -> dict[str, list]:
     out = {c: [] for c in cols}
-    for _, g in list(df.groupby("item_id", sort=False))[:n]:
+    for _, g in list(df.groupby("item_id", sort=False, observed=True))[:n]:
         g = g.sort_values("timestamp")
         for c in cols:
             out[c].append(pd.to_numeric(g[c], errors="coerce").to_numpy(dtype=np.float64))
@@ -674,7 +699,8 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                 elif layout == "wide":
                     df = load_wide(parts, r, chunk, covs)
                 else:
-                    df = load_nested(parts, r, chunk, ov, freq or _alias_from_profile(row), static)
+                    df = load_nested(parts, r, chunk, ov, freq or _alias_from_profile(row), static,
+                                     keep_last=s.max_points)
                 if df.empty:
                     continue
                 n_nat = int(df["timestamp"].isna().sum())
@@ -709,14 +735,14 @@ def build_dataset(row: dict, files: list[tuple[Path, str, int]], ov: dict, s: Se
                         mono = monotone_cols(series_by_col(df, targets))
                         cum = cumulative_rule(ov, src, [c for c in covs if c in df.columns], mono)
                 if not freq:
-                    freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id")["timestamp"])
+                    freq, freq_share, _ = infer_freq(g for _, g in df.groupby("item_id", observed=True)["timestamp"])
                     if not freq:      # this chunk has only one-stamp series: try the next chunk
                         reg_stats["chunks without a frequency"] += 1
                         continue
                 if min_len is None:
                     min_len = rules.min_length(freq, s)
                 vals = targets + [c for c in covs if c in df.columns]
-                groups = df.groupby("item_id", sort=False).indices
+                groups = df.groupby("item_id", sort=False, observed=True).indices
                 for iid in chunk["item_id"]:                 # in the seeded order, not file order
                     if iid not in groups:
                         continue

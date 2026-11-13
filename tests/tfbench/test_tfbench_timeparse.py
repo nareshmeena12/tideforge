@@ -61,3 +61,12 @@ def test_years_before_1678_get_a_synthetic_yearly_clock(tmp_path):
     assert t.loc[t.year == 2000, "_time"].iloc[0] == pd.Timestamp("2260-01-01")
     assert t.loc[t.year == 1418, "_time"].iloc[0] == pd.Timestamp("1678-01-01")
     assert t.loc[t.year < 1418, "_time"].isna().all()
+
+
+def test_nested_rows_streams_only_wanted_rows(tmp_path):
+    from tideforge.tfbench.canon import _nested_rows
+    f = tmp_path / "n.parquet"
+    pq.write_table(pa.table({"target": [list(range(i, i + 5)) for i in range(1000)]}), f, row_group_size=100)
+    p = open_parts(f, tmp_path / "w", "n.parquet")[0]
+    got = dict(_nested_rows(p, ["target"], [999, 3, 512]))
+    assert sorted(got) == [3, 512, 999] and got[512]["target"][0] == 512

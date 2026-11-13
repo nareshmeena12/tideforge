@@ -69,8 +69,13 @@ class Part:
 def _parquet(path: Path, name: str) -> Part:
     pf = pq.ParquetFile(path)
 
+    sch = pf.schema_arrow
+
     def gen(cols):
-        for b in pq.ParquetFile(path).iter_batches(batch_size=BATCH_ROWS, columns=cols):
+        # list columns (nested LOTSA: one whole series per row): small batches, so a batch is not GBs of lists
+        lists = any(pa.types.is_list(sch.field(c).type) or pa.types.is_large_list(sch.field(c).type)
+                    for c in (cols or sch.names) if c in sch.names)
+        for b in pq.ParquetFile(path).iter_batches(batch_size=256 if lists else BATCH_ROWS, columns=cols):
             yield pa.Table.from_batches([b])
     return Part(name, pf.schema_arrow, gen)
 
