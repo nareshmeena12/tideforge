@@ -61,11 +61,12 @@ class Settings:
     eval_nan_max: float = 0.10
     closed_slot_nan: float = 0.90
     window_min_finite: float = 0.10
-    near_constant_moves: float = 0.05                  # series whose context moves on < 5% of its seasonal steps: dropped
+    near_constant_distinct: int = 2                    # context with zero seasonal scale or <= this many distinct values: dropped
+                                                       # (owner 2026-11-14: intermittent count series must survive)
     min_task_points: int = 100                         # a task needs n_series x n_windows x H >= this
     min_baseline_mase: float = 0.01                    # tasks whose seasonal-naive MASE is below this are dropped
     weekend_nan: float = 0.98                          # daily data with >= 98% NaN on Sat / Sun -> business days (B)
-    version: str = "v1.0.0"
+    version: str = "v1.1.0"                            # run --version overrides it
     max_gb: float = 100.0
 
 

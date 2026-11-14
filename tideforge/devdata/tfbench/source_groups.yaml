@@ -1,7 +1,8 @@
 # tfbench source groups (owner 2026-11-14, BUILD_REPORT review). A group = the same underlying source published under
 # different repos / resolutions. Each group lies wholly in one split and has weight 1 per tier and split (its datasets
 # share it equally). Groups that share a dataset are merged (union), so a multi-source collection joins every group it
-# contains. Key = group name, value = dataset_ids (selection.csv). Datasets not listed form a group of their own.
+# contains (thuml UTSD bundles whose parts exist separately are skipped in overrides.yaml, so they do not merge
+# groups; owner 2026-11-14). Key = group name, value = dataset_ids (selection.csv). Datasets not listed form a group of their own.
 
 london_smart_meters:      # London smart meters / LCL (UK Power Networks Low Carbon London)
   - autogluon_chronos_datasets_monash_london_smart_meters
@@ -10,7 +11,6 @@ london_smart_meters:      # London smart meters / LCL (UK Power Networks Low Car
   - ai_iot_energybench_lcl
   - nju_zhangsq_rmisc_smartmeteruk30m
   - nju_zhangsq_rmisc_smartmeteruk60m
-  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
 ideal:
   - salesforce_lotsa_data_ideal
   - jainam03_rescast_100k_ideal
@@ -21,14 +21,12 @@ uber_tlc:
 wind_farms:
   - autogluon_chronos_datasets_wind_farms_hourly_wind_farms_daily
   - salesforce_lotsa_data_wind_farms_with_missing
-  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
 taxi_nyc:
   - autogluon_chronos_datasets_taxi_30min_taxi_1h
   - salesforce_lotsa_data_taxi_30min
 pedestrian_counts:
   - autogluon_chronos_datasets_monash_pedestrian_counts
   - salesforce_lotsa_data_pedestrian_counts
-  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
 traffic_sf:               # Caltrans PeMS road occupancy (Monash traffic)
   - autogluon_chronos_datasets_monash_traffic
   - salesforce_lotsa_data_traffic_hourly
@@ -68,10 +66,8 @@ wikipedia_pageviews:      # Wikimedia pageviews (Kaggle web traffic is Wikipedia
   - epi_eval_wikipedia_pageviews
   - sovai_wikipedia_views_default
   - nevirim_wikipedia_attention_13lang
-  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
 sunspot:
   - salesforce_lotsa_data_sunspot_with_missing
-  - thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot
 pems:                     # Caltrans PeMS detectors (PEMS03/04/07/08, LargeST, LA loops)
   - salesforce_lotsa_data_pems03
   - salesforce_lotsa_data_pems04

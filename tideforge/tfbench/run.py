@@ -23,6 +23,7 @@ Logs: devdata/tfbench/logs/<step>-<UTC time>.log. Smoke keeps its own splits, ta
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime as dt
 import json
 import logging
@@ -776,8 +777,11 @@ def main(argv=None) -> int:
     ap.add_argument("--inproc", action="store_true", help="canon: run datasets in this process, no workers (cProfile)")
     ap.add_argument("--timeout-min", type=float, default=45.0, help="canon, crossdup, tasks: per-dataset time limit (0 = none)")
     ap.add_argument("--mem-gb", type=float, help="canon, crossdup, tasks: per-dataset memory cap (default 90%% of the container limit / jobs)")
+    ap.add_argument("--version", help="release version for package / report_b / upload (default: Settings.version)")
     a = ap.parse_args(argv)
     paths, s = C.Paths(), C.Settings()
+    if a.version:
+        s = dataclasses.replace(s, version=a.version)
     steps = STEPS if a.step == "all" or a.smoke else [a.step]
     if a.smoke:
         setup_logging(paths, "smoke")

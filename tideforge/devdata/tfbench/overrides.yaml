@@ -665,3 +665,9 @@ witgaw_pems_bay:
 
 witgaw_metr_la:
   skip: "pre-windowed lag table (x_t-11_d0 ... y_t+12_d1), not raw speeds (owner 2026-11-14)"
+
+thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_web_traffic_sunspot:
+  skip: "bundle of sources already present (London smart meters, wind farms, pedestrian counts, web traffic, sunspot) (owner 2026-11-14)"
+
+thuml_utsd_era5_surface_era5_pressure:
+  skip: "bundle of sources already present (ERA5 single levels: nju_zhangsq_rmisc_era5hourlysinglelevels, weatherbench) (owner 2026-11-14)"

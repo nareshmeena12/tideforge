@@ -122,7 +122,7 @@ def test_forecast_of_the_target_dropped():
 def test_small_tasks_and_near_constant_series_dropped(tmp_path):
     n = 400
     ts = pd.date_range("2020-01-01", periods=n, freq="D")
-    steps = np.repeat(np.arange(n // 100), 100).astype(float)                # a step every 100 days: near constant
+    steps = np.repeat(np.arange(n // 100) % 2, 100).astype(float)            # 2 distinct values: near constant
     d = pd.DataFrame({"item_id": "a", "timestamp": ts, "y": steps})
     assert TK.build(d, meta("k", "D"), {}, Settings(min_task_points=1), tmp_path / "k") == []
     assert rec(tmp_path, "k")["variants"][0]["horizons"]["short"]["zero_scale"] == 1
@@ -130,6 +130,51 @@ def test_small_tasks_and_near_constant_series_dropped(tmp_path):
     d = pd.DataFrame({"item_id": "b", "timestamp": ts, "y": np.cumsum(r.normal(size=n))})   # 1 x 1 x 30 < 100
     assert TK.build(d, meta("s", "D"), {}, S, tmp_path / "s") == []
     assert "task too small" in rec(tmp_path, "s")["variants"][0]["horizons"]["short"]["skipped"]
+
+
+def test_intermittent_series_survive(tmp_path):
+    """80% zeros, Poisson counts otherwise: not near constant, the series and its task are kept."""
+    r = np.random.default_rng(5)
+    parts = []
+    for k in range(4):
+        n = 600
+        y = np.where(r.random(n) < 0.8, 0.0, r.poisson(4, n) + 1.0)
+        parts.append(pd.DataFrame({"item_id": f"i{k}", "timestamp": pd.date_range("2020-01-01", periods=n, freq="D"),
+                                   "y": y}))
+    d = pd.concat(parts, ignore_index=True)
+    assert (d["y"] == 0).mean() > 0.75
+    t = TK.build(d, meta("ic", "D"), {}, S, tmp_path / "ic")
+    h = rec(tmp_path, "ic")["variants"][0]["horizons"]["short"]
+    assert t and h["series"] == 4 and h["zero_scale"] == 0
+
+
+def test_two_value_series_dropped():
+    assert TK.near_constant(np.tile([0.0, 1.0, 1.0], 100), 7)
+    assert not TK.near_constant(np.tile([0.0, 1.0, 2.0], 100), 7)
+
+
+def test_thuml_bundle_does_not_merge_groups():
+    import yaml
+    from tideforge.tfbench import config as C
+    base = C.TFB
+    gm = SP.group_map(yaml.safe_load((base / "source_groups.yaml").read_text(encoding="utf-8")))
+    assert not any(d.startswith("thuml_utsd_") for d in gm)
+    assert gm["salesforce_lotsa_data_lcl"] == "london_smart_meters"
+    assert gm["salesforce_lotsa_data_sunspot_with_missing"] == "sunspot"
+    ov = yaml.safe_load((base / "overrides.yaml").read_text(encoding="utf-8"))
+    assert "already present" in ov["thuml_utsd_london_smart_meters_wind_farms_aus_electricity_demand_pedestrian_counts_"
+                                   "web_traffic_sunspot"]["skip"]
+
+
+def test_version_flag_with_from_split(monkeypatch, tmp_path):
+    from tideforge.tfbench import run as RN
+    seen = []
+    for st in RN.STEPS:
+        monkeypatch.setattr(RN, f"step_{st}", lambda a, p, s, st=st: seen.append((st, s.version)), raising=False)
+    monkeypatch.setattr(RN, "setup_logging", lambda paths, step: tmp_path / f"{step}.log")
+    assert RN.main(["all", "--from", "split", "--no-upload", "--redo-b", "--version", "v1.1.0"]) == 0
+    assert seen[0][0] == "split" and "upload" not in [x for x, _ in seen] and {v for _, v in seen} == {"v1.1.0"}
+    assert Settings().version == "v1.1.0"
 
 
 def test_baseline_filter_drops_tiny_mase(tmp_path):

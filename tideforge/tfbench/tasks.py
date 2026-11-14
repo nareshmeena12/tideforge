@@ -88,15 +88,15 @@ def closed_slot_set(fin: np.ndarray, sl: np.ndarray, share: float) -> set:
     return set(u[nan_share >= share].tolist())
 
 
-def near_constant(y: np.ndarray, m: int, moves: float) -> bool:
-    """Zero seasonal-difference scale, or the context moves on fewer than `moves` of its finite seasonal steps."""
+def near_constant(y: np.ndarray, m: int, max_distinct: int = 2) -> bool:
+    """Zero seasonal-difference scale, or at most `max_distinct` distinct finite values in the context. Intermittent
+    series (mostly zeros) are kept (owner 2026-11-14); tasks with a degenerate baseline go by baseline_filter."""
     m = m if len(y) > m else 1
     d = y[m:] - y[:-m]
     d = d[np.isfinite(d)]
     if not len(d) or not np.abs(d).mean():
         return True
-    tol = 1e-12 * (float(np.nanmean(np.abs(y))) + 1e-12)
-    return bool((np.abs(d) > tol).mean() < moves)
+    return len(np.unique(y[np.isfinite(y)])) <= max_distinct
 
 
 def eligible(df: pd.DataFrame, targets: list[str], R: int, m: int, alias: str = "D", H: int | None = None,
@@ -128,7 +128,7 @@ def eligible(df: pd.DataFrame, targets: list[str], R: int, m: int, alias: str = 
         if not ok:
             n["nan_in_eval"] += 1
             continue
-        if any(near_constant(y[:ctx_n, k], m, s.near_constant_moves) for k in range(y.shape[1])):
+        if any(near_constant(y[:ctx_n, k], m, s.near_constant_distinct) for k in range(y.shape[1])):
             n["zero_scale"] += 1
             continue
         n["masked_eval_nan"] += masked
