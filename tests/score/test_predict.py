@@ -160,3 +160,21 @@ def test_affine_edge_cases():
     assert np.isnan(z).all()
     z, c, s = affine([0, 0, 0, 0, 1, 0, 0, 3.0])                # intermittent: MAD 0 -> std
     assert np.isclose(s, np.std([0, 0, 0, 0, 1, 0, 0, 3.0]))
+
+
+def test_rescale_never_reuses_raw_shards(setup, tiny_ckpt):
+    """Shards written with rescale off (or by any scorer before SCORER_VERSION 2) are never reused with rescale on under the
+    same model id and output folder, and the pre-bae302f fingerprint (no tag, no scorer version) is not either path's."""
+    import hashlib
+    import json
+    specs, caches, raw, tmp = setup
+    _, st0 = PR.run(caches, raw, "off", tmp / "same", "tiny")
+    assert st0["shards"] > 0 and st0["reused"] == 0
+    res = Ft3(tiny_ckpt, device="cpu", name="tiny", model=raw.model)
+    _, st1 = PR.run(caches, res, "off", tmp / "same", "tiny")
+    assert st1["reused"] == 0 and st1["shards"] == st0["shards"]
+    _, st2 = PR.run(caches, res, "off", tmp / "same", "tiny")
+    assert st2["reused"] == st1["shards"]                                     # same variant: resume still works
+    old = hashlib.sha256(json.dumps({"tasks": [(c.name, c.info["n_rows"]) for c in caches], "model": "tiny", "mode": "off"},
+                                    sort_keys=True).encode()).hexdigest()[:12]
+    assert old not in {PR.fingerprint(caches, "tiny", "off", t) for t in ("rescale", "raw", "")}

@@ -22,11 +22,16 @@ from pathlib import Path
 import numpy as np
 
 
+# Bump whenever what a shard holds changes, so older shards are never reused. 2 = bae302f+ (Ft3 rescale, float64 shards);
+# every shard written before has a fingerprint without "scorer", so it can never match.
+SCORER_VERSION = 2
+
+
 def fingerprint(caches, model_id: str, mode: str, tag: str = "") -> str:
-    k = {"tasks": [(c.name, c.info["n_rows"]) for c in caches], "model": model_id, "mode": mode}
-    if tag:                                   # predictor variant (Ft3 rescale off = "raw"); "" keeps the earlier fingerprints
-        k["tag"] = tag
-    key = json.dumps(k, sort_keys=True)
+    """Prediction-cache key: tasks, model id, mode, the predictor's variant tag (Ft3: "rescale" / "raw"; others "") and
+    SCORER_VERSION."""
+    key = json.dumps({"tasks": [(c.name, c.info["n_rows"]) for c in caches], "model": model_id, "mode": mode, "tag": tag,
+                      "scorer": SCORER_VERSION}, sort_keys=True)
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 

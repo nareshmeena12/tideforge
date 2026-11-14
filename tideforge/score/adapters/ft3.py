@@ -76,7 +76,10 @@ class Ft3(Predictor):
         self._tok = None
         self.log = log
         self.rescale = rescale
-        self.fp_tag = "" if rescale else "raw"        # part of the prediction-cache fingerprint (predict.fingerprint)
+
+    @property
+    def fp_tag(self) -> str:                      # part of the prediction-cache fingerprint (predict.fingerprint)
+        return "rescale" if self.rescale else "raw"
 
     def groups_ok(self, horizon: int) -> bool:
         return self.groups and -(-horizon // self.pl) <= int(getattr(self.model, "max_pass_patches", 32))
