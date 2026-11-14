@@ -382,6 +382,48 @@ fev rows go to $TF_ROOT/looks_pending.md; a job fails if the non-covariate tasks
 
 ---
 
+## I. tfbench scorer (`tideforge.score`)
+
+**I1. Fetch** (login node, internet; once per version, ~minutes; HF_TOKEN exported, never printed)
+```
+python -m tideforge.score.run fetch --version v1.1.0          # -> $TF_DATA/tfbench_release/v1.1.0
+```
+fev-bench data for the reproduction is already in `$TF_ROOT/eval_t0` (R1's fev runs). If not:
+`python -m tideforge.score.run fetch --fev-bench --eval-root $TF_ROOT/eval_t0`.
+
+**I2. Check job** (batch, shared QOS, 1 GPU, 04:00:00 asked; needs I1)
+```
+python -m tideforge.score.slurm check
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/score_check.sbatch
+```
+Steps, in order:
+1. The profiler of the old fev path (ft3_main, ON and OFF).
+2. The new scorer on fev-bench with ft3_main, `--groups both`. ON should give 43.78 and OFF 42.09, within ~0.1. The old board's value is the "with the reference models" line.
+3. Seasonal naive and ft3_main on the tfbench fast and full tiers.
+
+The first tfbench run builds the window cache under `$TF_DATA/tfbench_release/v1.1.0/_cache/`, and later runs reuse it.
+- **Paste back:** the end of `score_check-<job>.out`, i.e. profile.md and every stats.json (windows/s, cache GiB, peak RSS, batch budget), plus the two fev-bench skill lines.
+- **Unblocks:** trusting tfbench numbers, and the time estimates.
+
+**I3. Score a checkpoint** (1 GPU; `--groups auto` = ON for group-attention checkpoints)
+```
+python -m tideforge.score.slurm score --model $TF_ROOT/runs/<run>/final.pt --model-id <id> --tier full
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/score_<id>_full.sbatch
+python -m tideforge.score.run compare $TF_ROOT/results/tfbench/<a>/v1.1.0/full_tuning/groups_on $TF_ROOT/results/tfbench/<b>/v1.1.0/full_tuning/groups_on
+```
+- **Locked:** only with `--locked`, for final reporting. The run is added to `results/tfbench/locked_ledger.csv` (commit it) and to `$TF_ROOT/looks_pending.md`.
+
+**Colab (L4 / T4)**
+```
+!git clone <repo> && cd tideforge && pip install -e . fev
+import os; os.environ["HF_TOKEN"] = "<token>"       # from Colab secrets; never printed
+!python -m tideforge.score.run fetch --version v1.1.0 --release-root /content/tfb
+!python -m tideforge.score.run score --model /content/final.pt --model-id x --tier fast --release-root /content/tfb --out /content/res
+```
+T4 has no bf16, so ft3_core runs fp16 there, as the old scorer did.
+
+---
+
 ## Dependencies at a glance
 
 ```

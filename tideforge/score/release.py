@@ -29,8 +29,12 @@ class LockedError(PermissionError):
 
 
 def default_release_root() -> Path:
-    r = os.environ.get("TF_ROOT")
-    return Path(r) / "tfbench_release" if r else REPO / "data" / "tfbench_release"
+    """$TF_DATA/tfbench_release (persistent CFS on Perlmutter), else $TF_ROOT/tfbench_release, else data/ in the repo."""
+    for v in ("TF_DATA", "TF_ROOT"):
+        r = os.environ.get(v)
+        if r and r != "FILL_IN":
+            return Path(r) / "tfbench_release"
+    return REPO / "data" / "tfbench_release"
 
 
 def fetch(version: str, root: Path | None = None, repo: str | None = None) -> Path:

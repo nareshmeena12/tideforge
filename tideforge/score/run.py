@@ -1,6 +1,6 @@
 """tfbench scorer CLI (one GPU; also fev-bench through the same pipeline).
 
-  python -m tideforge.score.run fetch --version v1.1.0                    # login node: release -> $TF_ROOT/tfbench_release/v1.1.0
+  python -m tideforge.score.run fetch --version v1.1.0                    # login node: release -> $TF_DATA/tfbench_release/v1.1.0
   python -m tideforge.score.run fetch --fev-bench --eval-root R           # login node: fev-bench data into R's HF cache
   python -m tideforge.score.run score --model <ckpt.pt|seasonal_naive> --tier fast|core|full [--locked] [--version v1.1.0]
                                       [--groups auto|on|off|both] [--batch-size N] [--model-id ID] [--out DIR]
