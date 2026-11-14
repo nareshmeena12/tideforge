@@ -101,3 +101,29 @@ def test_resume_after_crash(setup, monkeypatch):
     assert st["reused"] >= 1
     for n in full:
         assert np.array_equal(full[n], again[n])
+
+
+def test_readonly_inputs_with_nan(tiny_ckpt):
+    """The window cache hands out read-only memmap views; forecast_groups fills NaN in place (Perlmutter: 'assignment
+    destination is read-only'). The adapter must pass copies and leave the inputs untouched, in both paths."""
+    pred = Ft3(tiny_ckpt, device="cpu", name="tiny")
+    rng = np.random.default_rng(0)
+
+    def ro(n, nan=True):
+        x = rng.normal(size=n).astype(np.float32)
+        if nan:
+            x[n // 2: n // 2 + 3] = np.nan
+        x.setflags(write=False)
+        return x
+    tg = [[ro(200), ro(200)], [ro(150)]]
+    past = [[ro(200)], [ro(150)]]
+    known = [[(ro(200), ro(24))], [(ro(150), ro(24))]]        # NaN in the known future: forecast_groups forward-fills it
+    assert pred.groups, "tiny_ckpt must have group attention, or forecast_groups is never reached"
+    every = [x for g in tg for x in g] + [x for g in known for c in g for x in c]
+    before = [x.copy() for x in every]
+    out = pred.predict(tg, 24, past_covariates=past, known_covariates=known)
+    assert len(out) == 2 and all(np.isfinite(q).all() for q in out)
+    q = pred.predict([ro(200), ro(120)], 24)
+    assert np.isfinite(q).all()
+    for a, b in zip(every, before):
+        np.testing.assert_array_equal(a, b)

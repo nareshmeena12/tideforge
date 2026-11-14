@@ -19,6 +19,19 @@ MAX_CTX = 8192
 SAFETY = 0.6                    # share of free memory the budget may use
 
 
+def _writable(x):
+    """Writable copies of every array in x (nested lists / tuples / dicts kept). The window cache hands out read-only
+    memory-mapped views, and ft3_core.forecast_groups fills NaN in place (f[i] = last); forecast_left_padded gets copies
+    too in case it does the same."""
+    if isinstance(x, np.ndarray):
+        return np.array(x, copy=True)
+    if isinstance(x, (list, tuple)):
+        return type(x)(_writable(v) for v in x)
+    if isinstance(x, dict):
+        return {k: _writable(v) for k, v in x.items()}
+    return x
+
+
 class Ft3(Predictor):
     def __init__(self, path, device=None, batch_size: int | None = None, model=None, name: str | None = None, log=print):
         import torch
@@ -93,7 +106,7 @@ class Ft3(Predictor):
         for L in sorted(set(Lp.tolist())):
             idx = np.flatnonzero(Lp == L)
             bs = self.batch_size or max(1, self.tokens() // (L + hp))
-            ser = [contexts[i] for i in idx]
+            ser = [_writable(contexts[i]) for i in idx]
             _, q = self._retry(lambda n: self.C.forecast_left_padded(self.model, ser, horizon, self.device, max_ctx=C,
                                                                      batch_size=n), bs)
             out[idx] = q
@@ -101,7 +114,7 @@ class Ft3(Predictor):
 
     def _groups(self, targets, past, known, horizon):
         pl, C = self.pl, self.max_context
-        groups = [dict(targets=t, past=p, known=k) for t, p, k in zip(targets, past, known)]
+        groups = [dict(targets=_writable(t), past=_writable(p), known=_writable(k)) for t, p, k in zip(targets, past, known)]
         Lc = max((min(C, len(np.asarray(x))) for g in targets for x in g), default=pl)
         W = (-(-Lc // pl) + -(-horizon // pl)) * pl
         rows = self.batch_size or max(1, self.tokens() // W)

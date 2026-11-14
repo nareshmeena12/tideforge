@@ -20,6 +20,10 @@ export FEV_LOG="${FEV_LOG:-$TF_REF/fev_log_ft3.txt}"
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=8
 export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1            # compute nodes: never touch the network
+# Hugging Face caches on $SCRATCH: datasets' file locks fail on the home file system from compute nodes (flock error 524)
+export HF_HOME="${HF_HOME:-$SCRATCH/tideforge/hf}"
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
+mkdir -p "$HF_DATASETS_CACHE"
 
 # tf_require VAR ...: stop with a message if any of the named variables is still FILL_IN
 tf_require() {
