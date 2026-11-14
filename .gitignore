@@ -54,3 +54,7 @@ tideforge/devdata/tfbench/BUILD_REPORT_smoke.md
 
 # a build report copied to the repo root for review (built output, never committed)
 /BUILD_REPORT.md
+
+# tfbench scorer outputs (the locked ledger is committed)
+results/tfbench/*
+!results/tfbench/locked_ledger.csv

@@ -108,7 +108,8 @@ def fevbench_tasks(eval_root: Path) -> list[dict]:
     return out
 
 
-def ledger_append(row: dict, path: Path = LEDGER) -> None:
+def ledger_append(row: dict, path: Path | None = None) -> None:
+    path = Path(path or LEDGER)
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
     with path.open("a", newline="", encoding="utf-8") as f:
