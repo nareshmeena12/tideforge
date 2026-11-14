@@ -24,8 +24,22 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-TASKS = ["thermobench_thermobench_pure__5min/medium", "thermobench_thermobench_pure__h/medium",
-         "datonic_world_development_indicators_default__ys/short", "juliensimon_goes_xray_flux__min/medium"]
+# manifest task names are <dataset config>/<horizon class>/<target column or "joint">
+TASKS = ["thermobench_thermobench_pure__5min/medium/target", "thermobench_thermobench_pure__h/medium/target",
+         "datonic_world_development_indicators_default__ys/short/target", "juliensimon_goes_xray_flux__min/medium/target"]
+def match(want: list[str], names) -> tuple[list[str], list[str]]:
+    """Requested names -> (manifest task names, requests that matched nothing). A request matches a task exactly, or as the
+    prefix before its last "/" (".../medium" selects every target of that task)."""
+    names = list(names)
+    hit, miss = [], []
+    for w in want:
+        m = [n for n in names if n == w or n.rsplit("/", 1)[0] == w]
+        hit += [n for n in m if n not in hit]
+        if not m:
+            miss.append(w)
+    return hit, miss
+
+
 VARIANTS = [("raw_bf16", False, False), ("raw_fp32", False, True), ("res_bf16", True, False), ("res_fp32", True, True)]
 
 
@@ -68,9 +82,9 @@ def run(a) -> int:
     from tideforge.score.adapters.ft3 import Ft3
     from tideforge.score.adapters.naive import SeasonalNaive
     rel = RL.Release(Path(a.release_root or RL.default_release_root()) / a.version)
-    want = [t for t in a.tasks.split(",") if t]
-    specs = [s for s in rel.tasks(a.tier, "tuning") if s["row"]["task"] in want]
-    missing = sorted(set(want) - {s["row"]["task"] for s in specs})
+    allspecs = rel.tasks(a.tier, "tuning")
+    names, missing = match([t for t in a.tasks.split(",") if t], [s["row"]["task"] for s in allspecs])
+    specs = [s for s in allspecs if s["row"]["task"] in names]
     if missing:
         print(f"not in {a.version} {a.tier}: {missing}", flush=True)
     if not specs:
