@@ -1,0 +1,103 @@
+"""Batching changes nothing: the pooled engine gives the old per-task scorer's forecasts (score_twins.fev_predictions for
+groups OFF, score_groups.fev_groups_predictions for groups ON), on CPU in fp32 with a tiny random group model, for a plain,
+a covariate (numeric past, numeric + string known), a univariate-targets and a joint task; batch size 1 equals the default
+batch; a crashed run resumes to the same result."""
+import numpy as np
+import pytest
+import torch
+
+from tideforge.eval import thirdparty
+from tideforge.score import predict as PR
+from tideforge.score import release as RL
+from tideforge.score import windows as W
+from tideforge.score.adapters.ft3 import Ft3
+from tideforge.score.adapters.naive import SeasonalNaive
+
+TOL = 2e-4          # fp32 on CPU, different batch composition / packing: float noise only
+
+
+@pytest.fixture
+def setup(release, tmp_path, tiny_ckpt):
+    specs = RL.Release(release).tasks("full", "tuning")
+    caches = W.build(specs, tmp_path / "cache", workers=1)
+    return specs, caches, Ft3(tiny_ckpt, device="cpu", name="tiny"), tmp_path
+
+
+def old_q(spec, cache, model, mode):
+    """The old scorer's quantiles for this task, as (R, D, Q, H) in cache row order."""
+    import fev
+    S_, G, C = thirdparty.score_twins(), thirdparty.score_groups(), thirdparty.ft3_core()
+    t = fev.Task(**spec["kw"])
+    t.load_full_dataset(num_proc=0)
+    cpu = torch.device("cpu")
+    if mode == "off":
+        s, i = S_.fev_inputs(t)
+        pr = S_.fev_predictions(model, t, s, i, cpu, C.forecast_left_padded)
+    else:
+        pr = G.fev_groups_predictions(model, t, cpu, C.forecast_groups, C.forecast_left_padded, S_.fill_season, S_.MAX_CTX,
+                                      S_.BATCH)
+    levels = [str(x) for x in t.quantile_levels]
+    rows = []
+    for w in pr:
+        n = len(next(iter(w.values())))
+        for k in range(n):
+            rows.append([[w[col][k][lv] for lv in levels] for col in cache.info["target_columns"]])
+    return np.asarray(rows, dtype=np.float64)
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_pooled_equals_old_scorer(setup, mode):
+    specs, caches, pred, tmp = setup
+    q, st = PR.run(caches, pred, mode, tmp / "out", "tiny")
+    assert st["series"] > 0
+    for s, c in zip(specs, caches):
+        ref = old_q(s, c, pred.model, mode)
+        assert ref.shape == q[c.name].shape, c.name
+        np.testing.assert_allclose(q[c.name], ref, rtol=TOL, atol=TOL * 10, err_msg=f"{c.name} {mode}")
+    by = {c.name: c for c in caches}
+    assert PR.use_groups(by["c__d/short/joint"], pred, "on") and PR.use_groups(by["b__h/short/cov"], pred, "on")
+    assert not PR.use_groups(by["b__h/short/target"], pred, "on") and not PR.use_groups(by["c__d/short/joint"], pred, "off")
+
+
+def test_joint_univariate_model_scores_each_target(setup):
+    specs, caches, _, tmp = setup
+    by = {c.name: c for c in caches}
+    nv = SeasonalNaive("fev")
+    assert not PR.use_groups(by["c__d/short/joint"], nv, "on")
+    q, _ = PR.run(caches, nv, "on", tmp / "nv", "naive")
+    c = by["c__d/short/joint"]
+    from tideforge.score.adapters.naive import fev_naive
+    for r in range(c.info["n_rows"]):
+        for d in range(2):
+            assert np.allclose(q[c.name][r, d, 4], fev_naive(c.past(r, d), c.info["horizon"], c.info["seasonality"]))
+
+
+def test_batch_size_one_equals_default(setup, tiny_ckpt):
+    specs, caches, pred, tmp = setup
+    one = Ft3(tiny_ckpt, device="cpu", batch_size=1)
+    for mode in ("off", "on"):
+        a, _ = PR.run(caches, pred, mode, tmp / "a", "tiny")
+        b, _ = PR.run(caches, one, mode, tmp / "b", "tiny1")
+        for n in a:
+            np.testing.assert_allclose(a[n], b[n], rtol=TOL, atol=TOL * 10)
+
+
+def test_resume_after_crash(setup, monkeypatch):
+    specs, caches, pred, tmp = setup
+    full, _ = PR.run(caches, pred, "off", tmp / "ref", "tiny", chunk_points=500)
+    calls = {"n": 0}
+    orig = pred.predict
+
+    def crash(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise KeyboardInterrupt("node died")
+        return orig(*a, **k)
+    monkeypatch.setattr(pred, "predict", crash)
+    with pytest.raises(KeyboardInterrupt):
+        PR.run(caches, pred, "off", tmp / "crash", "tiny", chunk_points=500)
+    monkeypatch.setattr(pred, "predict", orig)
+    again, st = PR.run(caches, pred, "off", tmp / "crash", "tiny", chunk_points=500)
+    assert st["reused"] >= 1
+    for n in full:
+        assert np.array_equal(full[n], again[n])

@@ -22,6 +22,7 @@ class Predictor:
     quantile_levels = QL
     max_context: int | None = None
     groups = False
+    needs_season = False                 # True: predict's season argument matters (the engine groups calls by it)
 
     def groups_ok(self, horizon: int) -> bool:
         return self.groups

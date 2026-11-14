@@ -22,6 +22,7 @@ def fev_naive(past: np.ndarray, H: int, season: int) -> np.ndarray:
 
 class SeasonalNaive(Predictor):
     groups = False
+    needs_season = True                  # the engine calls predict once per seasonality
 
     def __init__(self, kind: str = "tfbench"):
         if kind not in ("fev", "tfbench"):
