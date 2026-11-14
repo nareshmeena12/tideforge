@@ -425,6 +425,7 @@ Steps, in order:
 3. The full tier, groups OFF, with rescale off and on for each model.
 
 - **Paste back:** the end of `score_rescale-<job>.out` (diag tables, fev-bench skill lines, and the count and names of tasks with rel MASE > 20, before and after).
+- **Done 2026-11-15 (86fbf3f):** the fix holds. The 1e-3 std floor was the cause (bf16 = fp32). fev-bench gives 43.84 ON / 42.09 OFF, and the fast tier gives ft3_main MASE skill 27.42 (was 17.89) with 0 tasks above 20. Details in [docs/notes/tfbench_scale_fix_20261115.md](notes/tfbench_scale_fix_20261115.md).
 
 **Colab (L4 / T4)**
 ```
