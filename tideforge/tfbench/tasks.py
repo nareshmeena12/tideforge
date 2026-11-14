@@ -198,6 +198,9 @@ def zero_reasons(record: dict) -> str:
     head = (f"{record.get('input_series', len(record.get('series', [])))} series in, "
             f"{record.get('trimmed_rows', 0)} all-NaN edge rows trimmed, {len(record.get('variants', []))} variants; drops "
             + ", ".join(f"{k} {v}" for k, v in n.items()))
+    dropped = [f"{x['task']}: {x['why']}" for x in record.get("dropped_tasks", [])]
+    if dropped:
+        skipped.append(f"{len(dropped)} tasks dropped by the baseline filter ({'; '.join(dropped[:5])})")
     return head + ("; " + "; ".join(skipped) if skipped else "")
 
 

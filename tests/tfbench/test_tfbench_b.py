@@ -392,6 +392,26 @@ def test_tasks_step_end_to_end_both_splits_logs_zero_and_isolates_failure(tmp_pa
     assert "tiny9: 0 tasks" in caplog.text and "too_short 2" in caplog.text
     assert (root / "bad9" / "error.json").exists() and "bad9: failed" in caplog.text
 
+    # stale folder from an earlier build (dataset no longer in splits.json): ignored by package and report_b, then removed
+    import shutil
+    shutil.copytree(root / ids[0], root / "gone1")
+    (root / "gone2").mkdir()
+    (root / "gone2" / "error.json").write_text(json.dumps({"dataset_id": "gone2", "error": "old"}))
+    RUN.step_package(a, paths, S)
+    rel = RUN.release(a, paths, S)
+    man = pd.read_csv(rel / "manifest.csv")
+    assert "gone1" not in set(man["dataset"]) and set(ids) <= set(man["dataset"])
+    assert "ignoring 1 stale task folders" in caplog.text and "gone1" in caplog.text
+    assert "gone2" not in set(RUN.failures(a, paths)["dataset_id"])
+    from tideforge.tfbench import report_b as RB
+    bl = pd.DataFrame(columns=["task", "MASE", "WQL", "SQL", "series_windows", "flag"])
+    txt = RB.write(tmp_path / "R.md", rel, "", bl, root, RUN.crossdup_table(a, paths), RUN.failures(a, paths),
+                   datasets=RUN.current_datasets(a, paths), splits=json.loads((paths.data / "splits_smoke.json").read_text()),
+                   version="v1.1.0")
+    zero = txt.split("## Datasets with 0 tasks")[1].split("##")[0]
+    assert "tiny9" in zero and "too_short 2" in zero and "gone1" not in txt
+    assert RUN.clear_stale(a, paths) == ["gone1", "gone2"] and not (root / "gone1").exists()
+
 
 def test_failed_step_stops_run_all(monkeypatch):
     called = []

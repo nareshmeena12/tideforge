@@ -11,7 +11,11 @@ from tideforge.tfbench.report import _md
 
 
 def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task_root: Path, crossdup: pd.DataFrame,
-          failures: pd.DataFrame, audit_versions: pd.DataFrame | None = None) -> str:
+          failures: pd.DataFrame, audit_versions: pd.DataFrame | None = None, datasets: set[str] | None = None,
+          splits: dict | None = None, version: str = "") -> str:
+    from tideforge.tfbench.tasks import zero_reasons
+    subset_files = [f for f in sorted(Path(task_root).glob("*/subset.json"))
+                    if datasets is None or f.parent.name in datasets]
     man = pd.read_csv(Path(release) / "manifest.csv")
     tags = pd.read_csv(Path(release) / "tags.csv")
     m = man.merge(tags[["task", "covariates"]], on="task", how="left")
@@ -29,12 +33,20 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
         L += [f"## Tasks (full tier) by {title}", _md(g)]
     if not failures.empty:
         L += ["## Datasets that failed in Milestone B", _md(failures)]
+    zr = []
+    for f in subset_files:
+        tj = f.parent / "tasks.json"
+        if tj.exists() and not json.loads(tj.read_text(encoding="utf-8")):
+            r = json.loads(f.read_text(encoding="utf-8"))
+            sp = ((splits or {}).get("datasets", {}).get(f.parent.name) or {}).get("split", "")
+            zr.append(dict(dataset=f.parent.name, split=sp, reasons=zero_reasons(r).replace("|", "/")))
+    L += [f"## Datasets with 0 tasks ({len(zr)})", _md(pd.DataFrame(zr, columns=["dataset", "split", "reasons"]))]
     if audit_versions is not None and not audit_versions.empty:
         L += ["## Audit code version per dataset (audit_code in audit/<dataset_id>.json)",
               ", ".join(f"{r.datasets} {r.audit_code}" for r in audit_versions.itertuples()) + ".",
               _md(audit_versions)]
     L += ["## Leakage audit: note for v1.1",
-          "The datasets the audit flagged stay excluded in v1.0.0. Many of the matches behind the flags look spurious: "
+          f"The datasets the audit flagged stay excluded in {version or 'this release'}. Many of the matches behind the flags look spurious: "
           "smooth or monotone windows (trends, slow seasonal curves) z-normalise to near-identical shapes, so unrelated "
           "series hash alike. v1.1 will count a match only when several windows match the same reference series at a "
           "consistent offset (same lag between the dev and the reference window).", ""]
@@ -44,7 +56,7 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
         multi = g[g["datasets"] > 1].reset_index()
         L += ["## Source groups (one split per group, weight 1 per group per tier and split)",
               f"Groups: {m['source_group'].nunique()} ({len(multi)} with more than one dataset).", _md(multi)]
-    recs = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(Path(task_root).glob("*/subset.json"))]
+    recs = [json.loads(f.read_text(encoding="utf-8")) for f in subset_files]
     cal = [dict(dataset=r["dataset_id"], weekend_rows_removed=r.get("weekend_rows_removed", 0)) for r in recs
            if str(r.get("calendar", "")).startswith("business")]
     L += ["## Business-day calendar (daily data never observed on weekends: weekend rows removed, frequency B)",
@@ -60,7 +72,7 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
           f"Series dropped: {len(crossdup)}.", _md(crossdup.groupby(["dataset_id", "matched"]).size()
                                                    .reset_index(name="series") if not crossdup.empty else crossdup)]
     vr = []
-    for f in sorted(Path(task_root).glob("*/subset.json")):
+    for f in subset_files:
         r = json.loads(f.read_text(encoding="utf-8"))
         for v in r["variants"]:
             agg = ", ".join(f"{k}:{a}" for k, a in (v.get("agg") or {}).items()) or "native"

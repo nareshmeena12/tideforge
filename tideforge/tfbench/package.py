@@ -35,9 +35,12 @@ def sha256_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def collect(task_root: Path) -> pd.DataFrame:
+def collect(task_root: Path, datasets: set[str] | None = None) -> pd.DataFrame:
+    """Tasks of every dataset folder under task_root (only those in `datasets` when given: stale folders ignored)."""
     rows = []
     for f in sorted(Path(task_root).glob("*/tasks.json")):
+        if datasets is not None and f.parent.name not in datasets:
+            continue
         for t in json.loads(f.read_text(encoding="utf-8")):
             rows.append({**{k: v for k, v in t.items() if k != "tags"}, **t["tags"], "_dir": str(f.parent)})
     return pd.DataFrame(rows)
@@ -82,10 +85,14 @@ def card(df: pd.DataFrame, metas: dict, repo: str, version: str) -> str:
     return "\n".join(L)
 
 
-def build(task_root: Path, canon: Path, splits: dict, out: Path, repo: str, s: Settings) -> pd.DataFrame:
-    df = collect(task_root)
+def build(task_root: Path, canon: Path, splits: dict, out: Path, repo: str, s: Settings,
+          datasets: set[str] | None = None) -> pd.DataFrame:
+    df = collect(task_root, datasets)
     if df.empty:
         raise RuntimeError("no tasks to package")
+    unknown = sorted(set(df["dataset_id"]) - set(splits["datasets"]))
+    if unknown:
+        raise RuntimeError(f"tasks for datasets not in splits.json: {', '.join(unknown[:20])}")
     df = assign_tiers(df, splits, s)
     metas = {d: json.loads((Path(canon) / d / "meta.json").read_text(encoding="utf-8")) for d in df["dataset_id"].unique()}
     out = Path(out)

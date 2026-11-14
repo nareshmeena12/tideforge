@@ -599,12 +599,33 @@ def _tasks_one(did, data_root, out, drops, ov, s):
     return 0, f"{pre}; {TK.zero_reasons(rec)}"
 
 
+def current_datasets(a, paths) -> set[str]:
+    """Datasets of the current build: passed the audit and present in the current splits.json. Task folders of any
+    other dataset are stale (an earlier build) and never packaged or reported."""
+    sp = json.loads(splits_path(a, paths).read_text(encoding="utf-8"))["datasets"]
+    return {d for d in passed(a, paths) if d in sp}
+
+
+def clear_stale(a, paths) -> list[str]:
+    """Delete task folders of datasets not in the current build; -> their names (logged)."""
+    root = task_root(a, paths)
+    cur = current_datasets(a, paths)
+    stale = sorted(f.name for f in root.iterdir() if f.is_dir() and f.name not in cur) if root.exists() else []
+    for d in stale:
+        shutil.rmtree(root / d, ignore_errors=True)
+    if stale:
+        log.warning("tasks: removed %d stale task folders (dataset not in the current splits.json / audit): %s",
+                    len(stale), ", ".join(stale))
+    return stale
+
+
 def step_tasks(a, paths, s):
     ds = passed(a, paths)
     sp = json.loads(splits_path(a, paths).read_text(encoding="utf-8"))["datasets"]
     cd = crossdup_table(a, paths)
     ov_all = read_overrides(paths)
     root = task_root(a, paths)
+    clear_stale(a, paths)
     todo = [d for d in ds if d in sp and (a.redo or not ((root / d / "tasks.json").exists() or (root / d / "error.json").exists()))]
     for d in todo:      # a dataset is redone from scratch (no stale tasks.json from a run that died half way)
         shutil.rmtree(root / d, ignore_errors=True)
@@ -634,7 +655,9 @@ def step_tasks(a, paths, s):
 
 
 def failures(a, paths) -> pd.DataFrame:
-    rows = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(task_root(a, paths).glob("*/error.json"))]
+    cur = current_datasets(a, paths)
+    rows = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(task_root(a, paths).glob("*/error.json"))
+            if f.parent.name in cur]
     cols = ["dataset_id", "error"]
     return pd.DataFrame(rows)[cols] if rows else pd.DataFrame(columns=cols)
 
@@ -644,7 +667,13 @@ def step_package(a, paths, s):
     from tideforge.tfbench import package as PK
     sp = json.loads(splits_path(a, paths).read_text(encoding="utf-8"))
     rel = release(a, paths, s)
-    man = PK.build(task_root(a, paths), paths.canon, sp, rel, os.environ.get("TF_BENCH_REPO", "TF_BENCH_REPO"), s)
+    cur = current_datasets(a, paths)
+    stale = sorted(f.parent.name for f in task_root(a, paths).glob("*/tasks.json") if f.parent.name not in cur)
+    if stale:
+        log.warning("package: ignoring %d stale task folders (not in the current splits.json / audit): %s", len(stale),
+                    ", ".join(stale))
+    man = PK.build(task_root(a, paths), paths.canon, sp, rel, os.environ.get("TF_BENCH_REPO", "TF_BENCH_REPO"), s,
+                   datasets=cur)
     bad = PK.check_manifest(rel)
     for b in bad:
         log.error("manifest: %s", b)
@@ -707,8 +736,10 @@ def step_report_b(a, paths, s):
     bl.to_csv(rel / "baseline.csv", index=False)
     ra = report.write(paths.data / f"BUILD_REPORT_A{_sfx(a)}.md", pd.read_csv(paths.selection), paths.canon,
                       paths.audit / "audit.csv")
+    sp = json.loads(splits_path(a, paths).read_text(encoding="utf-8"))
     report_b.write(rel / "BUILD_REPORT.md", rel, ra, bl, task_root(a, paths), crossdup_table(a, paths), failures(a, paths),
-                   audit_versions(paths, set(pd.read_csv(rel / "manifest.csv")["dataset"])))
+                   audit_versions(paths, set(pd.read_csv(rel / "manifest.csv")["dataset"])),
+                   datasets=current_datasets(a, paths), splits=sp, version=s.version)
     shutil.copyfile(rel / "BUILD_REPORT.md", paths.small / f"BUILD_REPORT{_sfx(a)}.md")
     flagged = int((bl["flag"].fillna("") != "").sum())
     log.info("report_b: %d tasks scored, %d flagged -> %s", len(bl), flagged, rel / "BUILD_REPORT.md")
