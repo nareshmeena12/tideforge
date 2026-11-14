@@ -412,6 +412,19 @@ cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/score_<id>_full.sbatch
 python -m tideforge.score.run compare $TF_ROOT/results/tfbench/<a>/v1.1.0/full_tuning/groups_on $TF_ROOT/results/tfbench/<b>/v1.1.0/full_tuning/groups_on
 ```
 - **Locked:** only with `--locked`, for final reporting. The run is added to `results/tfbench/locked_ledger.csv` (commit it) and to `$TF_ROOT/looks_pending.md`.
+- **Rescale:** on by default for ft3 checkpoints (each series mapped to (y − median) / MAD in float64 before the model). `--rescale off` is the old scorer's path; its results go under `<model_id>_raw`.
+
+**I4. Scale fix check** (1 GPU, 04:00:00 asked; needs I1, and `git pull` for the rescale commit)
+```
+python -m tideforge.score.slurm rescale --models ft3_main=$FT3_MAIN_CKPT,r11=<path to r11 final.pt>
+cd $TF_ROOT/logs && sbatch $TF_ROOT/jobs/score_rescale.sbatch
+```
+Steps, in order:
+1. `diag_scale` on the 4 exploding tasks for each model: per-series context stats, the model's input scale, forecast min / max, and rel MASE for raw / rescaled × bf16 / fp32.
+2. fev-bench with ft3_main, rescale on, `--groups both`. It must stay within ~0.1 of 43.78 / 42.09.
+3. The full tier, groups OFF, with rescale off and on for each model.
+
+- **Paste back:** the end of `score_rescale-<job>.out` (diag tables, fev-bench skill lines, and the count and names of tasks with rel MASE > 20, before and after).
 
 **Colab (L4 / T4)**
 ```

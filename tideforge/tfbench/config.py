@@ -64,7 +64,8 @@ class Settings:
     near_constant_distinct: int = 2                    # context with zero seasonal scale or <= this many distinct values: dropped
                                                        # (owner 2026-11-14: intermittent count series must survive)
     min_task_points: int = 100                         # a task needs n_series x n_windows x H >= this
-    min_baseline_mase: float = 0.01                    # tasks whose seasonal-naive MASE is below this are dropped
+    min_baseline_mase: float = 0.05                    # tasks whose seasonal-naive MASE is below this are dropped
+                                                       # (v1.2, owner 2026-11-14: was 0.01; afhubbard_gpu_prices__12h at 0.027)
     weekend_nan: float = 0.98                          # daily data with >= 98% NaN on Sat / Sun -> business days (B)
     version: str = "v1.1.0"                            # run --version overrides it
     max_gb: float = 100.0

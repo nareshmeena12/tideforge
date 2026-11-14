@@ -29,6 +29,7 @@ def test_score_both_modes_outputs(release, tmp_path, tiny_ckpt, monkeypatch):
         assert set(df["source_group"]) == {"g1", "c"} and set(df["cov_split"]) == {"covariate", "non-covariate"}
         st = json.loads((d / "stats.json").read_text())
         assert st["windows"] > 0 and st["windows_per_s"] > 0 and st["cache_gib"] >= 0
+        assert st["rescale"] is True and st["n_rel_MASE_gt20"] == len(st["tasks_rel_MASE_gt20"])
         md = (d / "summary.md").read_text()
         assert "By covariate vs non-covariate tasks" in md and "95% CI" in md
         assert pd.read_csv(d / "failure_map.csv")["task"].iloc[0] in set(df["task"])

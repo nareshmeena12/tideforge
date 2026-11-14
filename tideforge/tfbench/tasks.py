@@ -12,7 +12,7 @@ variant. Inside one frequency variant and horizon, covariates on / off and joint
   - NaN in the evaluation span (n_windows x H) is masked by fev's metrics (owner 2026-11-14): allowed in structurally
     closed slots and up to eval_nan_max (10%) otherwise, each window keeps >= window_min_finite; near-constant contexts
     are dropped (MASE undefined);
-  - tasks with n_series x n_windows x H < min_task_points, or a NaN / infinite / < 0.01 seasonal-naive score, are
+  - tasks with n_series x n_windows x H < min_task_points, or a NaN / infinite / < min_baseline_mase (0.05 from v1.2) seasonal-naive score, are
     dropped (record['dropped_tasks']).
 Every drop is counted in the variant's record.
 

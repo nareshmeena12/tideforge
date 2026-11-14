@@ -112,8 +112,9 @@ def cmd_score(a) -> int:
     caches = W.build(specs, cache_root, ctx=a.ctx, workers=a.workers, log=lambda s: print(s, flush=True))
     t_cache = time.time() - t0
     cache_bytes = sum(c.info["bytes"] for c in caches)
-    mid = a.model_id or model_id_of(a.model)
-    pred = AD.get(a.model, device=a.device, batch_size=a.batch_size, naive_kind=naive_kind)
+    raw = a.rescale == "off" and a.model not in ("seasonal_naive", "naive")
+    mid = a.model_id or (model_id_of(a.model) + ("_raw" if raw else ""))
+    pred = AD.get(a.model, device=a.device, batch_size=a.batch_size, naive_kind=naive_kind, rescale=not raw)
     pred.name = mid
     modes = {"auto": ["on" if pred.groups else "off"], "on": ["on"], "off": ["off"], "both": ["on", "off"]}[a.groups]
     if not pred.groups:
@@ -142,7 +143,9 @@ def cmd_score(a) -> int:
                      predict_wall_s=round(t_pred, 1), cache_s=round(t_cache, 1), cache_gib=round(cache_bytes / 2 ** 30, 3),
                      windows_per_s=round(n_win / max(t_pred, 1e-9), 1), series_per_s_model=round(
                          st["series"] / max(st["model_s"], 1e-9), 1), shards_reused=st["reused"], peak_rss_gib=peak_rss_gb(),
-                     batch_tokens=getattr(pred, "_tok", None), total_s=round(time.time() - t_start, 1))
+                     batch_tokens=getattr(pred, "_tok", None), total_s=round(time.time() - t_start, 1),
+                     rescale=getattr(pred, "rescale", None), n_rel_MASE_gt20=int((df["rel_MASE"] > 20).sum()),
+                     tasks_rel_MASE_gt20=df.loc[df["rel_MASE"] > 20, "task"].tolist())
         extra = ""
         if a.fev_bench:
             extra, res = fevbench_board(Path(a.eval_root), caches, sc, naive, mid)
@@ -153,7 +156,7 @@ def cmd_score(a) -> int:
         s, used, dropped = AG.skill(df)
         summaries[mode] = (s, df)
         print(f"{mid} groups {mode.upper()}: skill {100 * s:.2f} on {used} tasks ({dropped} not finite), "
-              f"{stats['windows_per_s']} windows/s -> {d}", flush=True)
+              f"{stats['n_rel_MASE_gt20']} tasks with rel MASE > 20, {stats['windows_per_s']} windows/s -> {d}", flush=True)
         if a.fev_bench:
             print("  " + ", ".join(f"{k}: {100 * v:.2f}" for k, v in res.items()), flush=True)
     if a.locked or a.fev_bench:
@@ -215,6 +218,9 @@ def main(argv=None) -> int:
     s.add_argument("--fev-bench", action="store_true", help="score fev-bench (any fev task list) instead of tfbench")
     s.add_argument("--eval-root", help="--fev-bench: the old scorer's evaluation root (data, HF cache, reference CSVs)")
     s.add_argument("--groups", default="auto", choices=["auto", "on", "off", "both"])
+    s.add_argument("--rescale", default="on", choices=["on", "off"],
+                   help="ft3 models: map each series to (y - median) / MAD in float64 before the model (default on); off = "
+                        "the old scorer's path, results under <model_id>_raw")
     s.add_argument("--batch-size", type=int, help="series (univariate) / rows (groups) per forward; default from free GPU memory")
     s.add_argument("--device")
     s.add_argument("--ctx", type=int, default=8192)

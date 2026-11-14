@@ -22,8 +22,11 @@ from pathlib import Path
 import numpy as np
 
 
-def fingerprint(caches, model_id: str, mode: str) -> str:
-    key = json.dumps({"tasks": [(c.name, c.info["n_rows"]) for c in caches], "model": model_id, "mode": mode}, sort_keys=True)
+def fingerprint(caches, model_id: str, mode: str, tag: str = "") -> str:
+    k = {"tasks": [(c.name, c.info["n_rows"]) for c in caches], "model": model_id, "mode": mode}
+    if tag:                                   # predictor variant (Ft3 rescale off = "raw"); "" keeps the earlier fingerprints
+        k["tag"] = tag
+    key = json.dumps(k, sort_keys=True)
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 
@@ -60,8 +63,8 @@ def _shards(units, sizes, chunk_points):
 
 
 def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int = 300_000_000, log=print) -> tuple[dict, dict]:
-    """-> ({task name: q (R, D, Q, H) float32}, stats)."""
-    d = Path(out_dir) / "preds" / mode / fingerprint(caches, model_id, mode)
+    """-> ({task name: q (R, D, Q, H) float64}, stats). Shards are float64: forecasts at ~1e12 need more than float32."""
+    d = Path(out_dir) / "preds" / mode / fingerprint(caches, model_id, mode, getattr(pred, "fp_tag", ""))
     d.mkdir(parents=True, exist_ok=True)
     Q = len(pred.quantile_levels)
     by_h: dict[tuple[int, str], list] = {}
@@ -107,11 +110,11 @@ def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int
             stats["model_s"] += t2 - t1
             stats["shards"] += 1
             tmp = f.with_suffix(".tmp.npz")
-            np.savez(tmp, t=tt, r=rr, d=dd, q=np.asarray(q, np.float32))
+            np.savez(tmp, t=tt, r=rr, d=dd, q=np.asarray(q, np.float64))
             os.replace(tmp, f)
             log(f"  {mode} H={H} {kind} shard {k}: {n_series} series, prep {t1 - t0:.1f}s, model {t2 - t1:.1f}s "
                 f"({n_series / max(t2 - t1, 1e-9):.0f} series/s)")
-    q_all = {c.name: np.full((c.info["n_rows"], len(c.info["target_columns"]), Q, c.info["horizon"]), np.nan, np.float32)
+    q_all = {c.name: np.full((c.info["n_rows"], len(c.info["target_columns"]), Q, c.info["horizon"]), np.nan, np.float64)
              for c in caches}
     for f in sorted(d.glob("H*.npz")):
         z = np.load(f)

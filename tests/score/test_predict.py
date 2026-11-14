@@ -20,7 +20,7 @@ TOL = 2e-4          # fp32 on CPU, different batch composition / packing: float 
 def setup(release, tmp_path, tiny_ckpt):
     specs = RL.Release(release).tasks("full", "tuning")
     caches = W.build(specs, tmp_path / "cache", workers=1)
-    return specs, caches, Ft3(tiny_ckpt, device="cpu", name="tiny"), tmp_path
+    return specs, caches, Ft3(tiny_ckpt, device="cpu", name="tiny", rescale=False), tmp_path     # the old scorer's path
 
 
 def old_q(spec, cache, model, mode):
@@ -74,7 +74,7 @@ def test_joint_univariate_model_scores_each_target(setup):
 
 def test_batch_size_one_equals_default(setup, tiny_ckpt):
     specs, caches, pred, tmp = setup
-    one = Ft3(tiny_ckpt, device="cpu", batch_size=1)
+    one = Ft3(tiny_ckpt, device="cpu", batch_size=1, rescale=False)
     for mode in ("off", "on"):
         a, _ = PR.run(caches, pred, mode, tmp / "a", "tiny")
         b, _ = PR.run(caches, one, mode, tmp / "b", "tiny1")
@@ -127,3 +127,36 @@ def test_readonly_inputs_with_nan(tiny_ckpt):
     assert np.isfinite(q).all()
     for a, b in zip(every, before):
         np.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("a,b", [(1e12, 3e12), (1e-6, 2e-6), (50.0, -7.0)])
+def test_rescale_is_scale_invariant(tiny_ckpt, a, b):
+    """Rescale on: forecasting a * y + b gives a * forecast(y) + b (a > 0), on both paths, for
+    the extreme scales that broke the raw path (thermobench ~1e12, GOES / WDI ~1e-6)."""
+    pred = Ft3(tiny_ckpt, device="cpu", name="tiny")
+    rng = np.random.default_rng(1)
+    y = [np.sin(np.arange(n) / 5) + 0.1 * rng.normal(size=n) for n in (300, 200)]
+    y[0][40:45] = np.nan
+    fut = rng.normal(size=24)
+
+    def lin(q):
+        q = a * q + b
+        return np.sort(q, axis=-2)
+    q0 = pred.predict(y, 24)
+    q1 = pred.predict([a * v + b for v in y], 24)
+    np.testing.assert_allclose(q1, lin(q0), rtol=1e-4, atol=1e-4 * abs(a))
+    g0 = pred.predict([y], 24, past_covariates=[[y[1]]], known_covariates=[[(y[0], fut)]])
+    g1 = pred.predict([[a * v + b for v in y]], 24, past_covariates=[[y[1]]], known_covariates=[[(y[0], fut)]])
+    np.testing.assert_allclose(g1[0], lin(g0[0]), rtol=1e-4, atol=1e-4 * abs(a))
+
+
+def test_affine_edge_cases():
+    from tideforge.score.adapters.ft3 import affine
+    z, c, s = affine([5.0, 5.0, 5.0])
+    assert c == 5.0 and s > 0 and np.all(z == 0)
+    z, c, s = affine([0.0, 0.0])
+    assert s == 1.0
+    z, c, s = affine([np.nan, np.nan])
+    assert np.isnan(z).all()
+    z, c, s = affine([0, 0, 0, 0, 1, 0, 0, 3.0])                # intermittent: MAD 0 -> std
+    assert np.isclose(s, np.std([0, 0, 0, 0, 1, 0, 0, 3.0]))

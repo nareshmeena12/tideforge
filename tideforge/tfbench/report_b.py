@@ -66,7 +66,8 @@ def write(path: Path, release: Path, report_a: str, baseline: pd.DataFrame, task
     L += ["## Covariates dropped: other models' forecasts or the shifted target (chronos, bolt, gbm, persistence, seed, "
           "pred, lag_k, rolling_)", _md(pd.DataFrame(mo, columns=["dataset", "columns"]))]
     dt_ = [dict(dataset=r["dataset_id"], **x) for r in recs for x in r.get("dropped_tasks", [])]
-    L += ["## Tasks dropped: seasonal-naive score NaN / infinite or MASE < 0.01",
+    from tideforge.tfbench.config import Settings
+    L += [f"## Tasks dropped: seasonal-naive score NaN / infinite or MASE < {Settings().min_baseline_mase}",
           _md(pd.DataFrame(dt_, columns=["dataset", "task", "why"]))]
     L += ["## Cross-dataset copies dropped from tuning (z-normalised window hashes, > 10% of windows)",
           f"Series dropped: {len(crossdup)}.", _md(crossdup.groupby(["dataset_id", "matched"]).size()

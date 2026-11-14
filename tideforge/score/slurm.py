@@ -5,6 +5,9 @@ not the file). One GPU per job (shared QOS); everything runs offline (fetch firs
         the first GPU job: (1) the profiler of the old fev path on fev-bench with ft3_main, modes ON and OFF; (2) the new
         scorer on fev-bench with ft3_main, --groups both (the reproduction: ON should give 43.78, OFF 42.09, within ~0.1);
         (3) seasonal naive and ft3_main on the tfbench fast and full tiers (timings, cache size).
+    python -m tideforge.score.slurm rescale [--models ft3_main=$FT3_MAIN_CKPT,r11=/path/r11.pt] [--time 04:00:00]
+        the scale fix check: diag_scale on the 4 exploding tasks per model, fev-bench with rescale on (ft3_main), full tier
+        groups OFF with rescale off and on per model (tasks with rel MASE > 20 before / after).
     python -m tideforge.score.slurm score --model CKPT [--model-id ID] [--tier full] [--groups auto] [--locked] [--time 01:00:00]
 """
 from __future__ import annotations
@@ -56,6 +59,31 @@ echo "$(date) score_check JOB DONE"
 """
 
 
+def rescale_body(models: list[tuple[str, str]]) -> str:
+    """Scale fix check: the 4-task diagnostic per model; fev-bench (ft3_main, rescale on, groups both: must stay within ~0.1
+    of 43.78 / 42.09); the full tier groups OFF with rescale off and on per model (tasks with rel MASE > 20, before / after)."""
+    S = "python -m tideforge.score.run score"
+    L = []
+    for mid, ck in models:
+        L.append(f'run python -m tideforge.score.diag_scale --ckpt "{ck}" --model-id {mid}')
+    L.append(f'run {S} --model "$FT3_MAIN_CKPT" --model-id ft3_main --fev-bench --eval-root "{EVAL_ROOT}" --groups both '
+             f'--experiment tfbench-scorer --why "rescale check: fev-bench must stay at 43.78 / 42.09"')
+    for mid, ck in models:
+        for r, suf in (("off", "_raw"), ("on", "")):
+            L.append(f'run {S} --model "{ck}" --model-id {mid}{suf} --tier full --groups off --rescale {r}')
+    for mid, _ in models:
+        L.append(f'echo "=== diag {mid}"; cat "$TF_ROOT/results/diag_scale/{mid}/diag_scale.md"')
+    L.append('for m in on off; do echo "=== fev-bench groups $m"; grep -E \'"skill|rescale\' '
+             '"$TF_ROOT/results/tfbench/ft3_main/fev-bench/fev-bench_fev-bench/groups_$m/stats.json"; done')
+    for mid, _ in models:
+        for suf in ("_raw", ""):
+            L.append(f'echo "=== {mid}{suf} full OFF"; python -c "import json,sys; s=json.load(open(sys.argv[1])); '
+                     f'print(s[\'n_rel_MASE_gt20\'], s[\'tasks_rel_MASE_gt20\'])" '
+                     f'"$TF_ROOT/results/tfbench/{mid}{suf}/v1.1.0/full_tuning/groups_off/stats.json"')
+    L.append('echo "$(date) score_rescale JOB DONE"')
+    return "\n".join(L) + "\n"
+
+
 def score_body(a) -> str:
     extra = f" --model-id {a.model_id}" if a.model_id else ""
     extra += " --locked" if a.locked else ""
@@ -69,6 +97,9 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check")
     c.add_argument("--time", default="04:00:00")
+    r = sub.add_parser("rescale")
+    r.add_argument("--models", default="ft3_main=$FT3_MAIN_CKPT", help="id=checkpoint,...")
+    r.add_argument("--time", default="04:00:00")
     s = sub.add_parser("score")
     s.add_argument("--model", required=True)
     s.add_argument("--model-id")
@@ -77,18 +108,24 @@ def main(argv=None) -> int:
     s.add_argument("--version", default="v1.1.0")
     s.add_argument("--locked", action="store_true")
     s.add_argument("--time", default="01:00:00")
-    for p in (c, s):
+    for p in (c, r, s):
         p.add_argument("--out")
     a = ap.parse_args(argv)
     root, account = os.environ.get("TF_ROOT"), os.environ.get("NERSC_ACCOUNT")
     if not account:
         raise SystemExit("NERSC_ACCOUNT is not set (source scripts/perlmutter/env.sh)")
-    name = "score_check" if a.cmd == "check" else f"score_{a.model_id or Path(a.model).stem}_{a.tier}" + ("_locked" if a.locked else "")
+    name = {"check": "score_check", "rescale": "score_rescale"}.get(a.cmd) or f"score_{a.model_id or Path(a.model).stem}_{a.tier}" + ("_locked" if a.locked else "")
     if not a.out and not root:
         raise SystemExit("TF_ROOT is not set and no --out given")
     p = Path(a.out) if a.out else Path(root) / "jobs" / f"{name}.sbatch"
     p.parent.mkdir(parents=True, exist_ok=True)
-    body = check_body() if a.cmd == "check" else score_body(a)
+    if a.cmd == "rescale":
+        models = [tuple(x.split("=", 1)) for x in a.models.split(",") if x]
+        if any(len(m) != 2 or not re.fullmatch(r"[\w.-]+", m[0]) for m in models):
+            raise SystemExit("--models: id=checkpoint,... (ids: letters, digits, _ . -)")
+        body = rescale_body(models)
+    else:
+        body = check_body() if a.cmd == "check" else score_body(a)
     p.write_bytes((header(name, a.time, account) + body).encode("utf-8"))
     print(f"wrote {p}\nsubmit: cd $TF_ROOT/logs && sbatch {p}")
     return 0
