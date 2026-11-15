@@ -129,8 +129,8 @@ def cmd_score(a) -> int:
         if not (n >= 1 and 0 <= k < n):
             raise SystemExit(f"--part {a.part}: k/n with 0 <= k < n")
         part = (k, n)
-    qn, _ = PR.run(caches, nv, "off", out_root / "_naive" / version / f"{tier}_{split}_{naive_kind}", f"naive_{naive_kind}",
-                   log=lambda s: None, only=part)
+    nd = out_root / "_naive" / version / f"{tier}_{split}_{naive_kind}"
+    qn, _ = PR.run(caches, nv, "off", nd, f"naive_{naive_kind}", log=lambda s: None, only=part)
     if part:
         for mode in modes:
             d = base / f"groups_{mode}"
@@ -138,8 +138,10 @@ def cmd_score(a) -> int:
             _, st = PR.run(caches, pred, mode, d, mid, log=lambda s: print(s, flush=True), only=part)
             print(f"{mid} groups {mode.upper()} part {a.part}: {st['shards']} shards computed, {st['reused']} reused, "
                   f"{st['skipped']} left to other parts (no scoring; run without --part to score)", flush=True)
+            print(f"PART_SHARDS {mode} {st['shards']} {st['shards'] + st['reused'] + st['skipped']}", flush=True)
         return 0
-    naive = {c.name: MT.score_task(c, qn[c.name]) for c in caches}
+    plog = lambda s: print(s, flush=True)                                 # noqa: E731
+    naive = MT.score_many(caches, qn, a.workers, plog, "seasonal naive", nd / "scores.json")
     summaries = {}
     for mode in modes:
         d = base / f"groups_{mode}"
@@ -147,7 +149,7 @@ def cmd_score(a) -> int:
         t1 = time.time()
         q, st = PR.run(caches, pred, mode, d, mid, log=lambda s: print(s, flush=True))
         t_pred = time.time() - t1
-        sc = {c.name: MT.score_task(c, q[c.name]) for c in caches}
+        sc = MT.score_many(caches, q, a.workers, plog, f"{mid} groups {mode.upper()}")
         df = AG.task_table(specs, caches, sc, naive, mode)
         df.to_csv(d / "tasks.csv", index=False)
         AG.failure_map(df).to_csv(d / "failure_map.csv", index=False)

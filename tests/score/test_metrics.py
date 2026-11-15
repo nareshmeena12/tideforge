@@ -77,3 +77,21 @@ def test_naive_matches_fev_and_build_report(caches):
 def test_refuses_metrics_needing_more_past():
     with pytest.raises(NotImplementedError):
         MT.metric_objects({"task_name": "t", "eval_metric": "RMSSE", "extra_metrics": []})
+
+
+def test_score_many_pool_and_store(release, tmp_path):
+    """Pool = serial, and the store file serves the second call without rescoring."""
+    from tideforge.score import metrics as MT
+    from tideforge.score import predict as PR
+    from tideforge.score import release as RL
+    from tideforge.score import windows as W
+    from tideforge.score.adapters.naive import SeasonalNaive
+    caches = W.build(RL.Release(release).tasks("full", "tuning"), tmp_path / "c", workers=1)
+    q, _ = PR.run(caches, SeasonalNaive("tfbench"), "off", tmp_path / "p", "naive", log=lambda s: None)
+    serial = {c.name: MT.score_task(c, q[c.name]) for c in caches}
+    logs = []
+    pooled = MT.score_many(caches, q, workers=2, log=logs.append, label="n", store=tmp_path / "scores.json")
+    assert pooled == serial and any("/" in s for s in logs)
+    logs.clear()
+    again = MT.score_many(caches, q, workers=2, log=logs.append, label="n", store=tmp_path / "scores.json")
+    assert again == serial and logs[0].startswith(f"scoring n: 0 tasks ({len(caches)} from scores.json)")

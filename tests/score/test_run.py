@@ -98,15 +98,25 @@ def test_parts_in_parallel_then_final_equals_one_run(release, tmp_path, tiny_ckp
     import subprocess
     import sys
     from tideforge.score import predict as PR
-    env = dict(os.environ, TF_ROOT=str(tmp_path / "tfroot"), TF_SCORE_CHUNK="400")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("HF_")}     # earlier tests set HF caches in-process
+    env.update(TF_ROOT=str(tmp_path / "tfroot"), TF_SCORE_CHUNK="1")        # one unit per shard; default HF cache (a
+    # cache under the pytest temp folder makes the datasets lock path exceed the Windows 260-character limit)
     common = ["--release-root", str(release.parent), "--version", release.name, "--tier", "full", "--workers", "1",
               "--device", "cpu", "--n-boot", "20", "--model", str(tiny_ckpt), "--model-id", "tiny", "--groups", "both"]
 
     def cli(out, *extra):
         return [sys.executable, "-m", "tideforge.score.run", "score", *common, "--out", str(out), *extra]
     assert subprocess.run(cli(tmp_path / "one"), env=env).returncode == 0
-    ps = [subprocess.Popen(cli(tmp_path / "parts", "--part", f"{k}/2"), env=env) for k in range(2)]
-    assert [p.wait() for p in ps] == [0, 0]
+    ps = [subprocess.Popen(cli(tmp_path / "parts", "--part", f"{k}/2"), env=env, stdout=subprocess.PIPE, text=True)
+          for k in range(2)]
+    outs = [p.communicate()[0] for p in ps]
+    assert [p.returncode for p in ps] == [0, 0]
+    for mode in ("on", "off"):
+        got = [[ln.split()[2:] for ln in o.splitlines() if ln.startswith(f"PART_SHARDS {mode} ")][0] for o in outs]
+        total = int(got[0][1])
+        assert total >= 4 and all(int(g[1]) == total for g in got), got
+        assert all(int(g[0]) >= 1 for g in got) and sum(int(g[0]) for g in got) == total, got
+    assert not any(ln.lstrip().startswith("scoring ") for o in outs for ln in o.splitlines())   # no naive / model metrics
     base = tmp_path / "parts" / "tiny" / release.name / "full_tuning"
     assert not (base / "groups_on" / "tasks.csv").exists()                     # parts do not score
     r = subprocess.run(cli(tmp_path / "parts"), env=env, capture_output=True, text=True)
