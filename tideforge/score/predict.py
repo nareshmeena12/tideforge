@@ -10,6 +10,11 @@ Units, per task:
 Units are sorted (task, row, target) and cut into shards of at most `chunk_points` context points; each shard is one call
 to the predictor and one file preds/<mode>/<fingerprint>/H<h>_<kind>_<k>.npz (task, row, target, q). A crashed run
 continues from the shards that exist.
+
+only=(k, n) (run.py --part k/n) computes only the shards whose sequence number (counted over all horizons and kinds, in the fixed order) is
+k mod n, in the same fingerprint folder as the full run, and returns (None, stats) without assembling. Shards are written
+as <shard>.<pid>.tmp and renamed, so parts and reruns never see each other's partial files; assembly reads only the
+finished H*_<5 digits>.npz files. A normal run afterwards reuses every shard.
 """
 from __future__ import annotations
 
@@ -67,7 +72,11 @@ def _shards(units, sizes, chunk_points):
     return out
 
 
-def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int = 300_000_000, log=print) -> tuple[dict, dict]:
+SHARD_GLOB = "H*_[0-9][0-9][0-9][0-9][0-9].npz"
+
+
+def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int | None = None, log=print,
+        only: tuple[int, int] | None = None) -> tuple[dict | None, dict]:
     """-> ({task name: q (R, D, Q, H) float64}, stats). Shards are float64: forecasts at ~1e12 need more than float32."""
     d = Path(out_dir) / "preds" / mode / fingerprint(caches, model_id, mode, getattr(pred, "fp_tag", ""))
     d.mkdir(parents=True, exist_ok=True)
@@ -80,12 +89,18 @@ def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int
         else:
             by_h.setdefault((H, "plain"), []).extend((t, r, k) for r in range(c.info["n_rows"])
                                                     for k in range(len(c.info["target_columns"])))
-    stats = dict(series=0, model_s=0.0, prep_s=0.0, shards=0, reused=0)
+    stats = dict(series=0, model_s=0.0, prep_s=0.0, shards=0, reused=0, skipped=0)
+    chunk_points = chunk_points or int(float(os.environ.get("TF_SCORE_CHUNK", 3e8)))  # points per shard (env: tests)
+    seq = -1
     for (H, kind), units in sorted(by_h.items()):
         sizes = [min(int(caches[u[0]].r_end[u[1]] - caches[u[0]].r_start[u[1]]), pred.max_context or 10 ** 12)
                  * (len(caches[u[0]].info["target_columns"]) if kind == "group" else 1) for u in units]
         for k, part in enumerate(_shards(units, sizes, chunk_points)):
             f = d / f"H{H}_{kind}_{k:05d}.npz"
+            seq += 1
+            if only is not None and seq % only[1] != only[0]:
+                stats["skipped"] += 1
+                continue
             n_series = len(part) if kind == "plain" else sum(len(caches[t].info["target_columns"]) for t, _ in part)
             stats["series"] += n_series
             if f.exists():
@@ -114,14 +129,17 @@ def run(caches, pred, mode: str, out_dir: Path, model_id: str, chunk_points: int
             stats["prep_s"] += t1 - t0
             stats["model_s"] += t2 - t1
             stats["shards"] += 1
-            tmp = f.with_suffix(".tmp.npz")
-            np.savez(tmp, t=tt, r=rr, d=dd, q=np.asarray(q, np.float64))
+            tmp = d / f"{f.name}.{os.getpid()}.tmp"
+            with open(tmp, "wb") as fh:                   # a file object: np.savez would append .npz to a path
+                np.savez(fh, t=tt, r=rr, d=dd, q=np.asarray(q, np.float64))
             os.replace(tmp, f)
             log(f"  {mode} H={H} {kind} shard {k}: {n_series} series, prep {t1 - t0:.1f}s, model {t2 - t1:.1f}s "
                 f"({n_series / max(t2 - t1, 1e-9):.0f} series/s)")
+    if only is not None:
+        return None, stats
     q_all = {c.name: np.full((c.info["n_rows"], len(c.info["target_columns"]), Q, c.info["horizon"]), np.nan, np.float64)
              for c in caches}
-    for f in sorted(d.glob("H*.npz")):
+    for f in sorted(d.glob(SHARD_GLOB)):
         z = np.load(f)
         for t in np.unique(z["t"]):
             m = z["t"] == t

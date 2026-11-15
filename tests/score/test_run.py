@@ -89,3 +89,42 @@ def test_weights_bootstrap_compare(tmp_path):
         x.to_csv(d / "tasks.csv", index=False)
     md = AG.compare([tmp_path / "a", tmp_path / "b"], n_boot=50)
     assert "0.9" in md.split("against the first")[1]
+
+
+def test_parts_in_parallel_then_final_equals_one_run(release, tmp_path, tiny_ckpt):
+    """Two --part processes at once, then a normal run (reuses every shard, no new forecasts) -> the same tasks.csv as one
+    plain run. chunk_points is small through TF_SCORE_CHUNK so there are several shards to split."""
+    import os
+    import subprocess
+    import sys
+    from tideforge.score import predict as PR
+    env = dict(os.environ, TF_ROOT=str(tmp_path / "tfroot"), TF_SCORE_CHUNK="400")
+    common = ["--release-root", str(release.parent), "--version", release.name, "--tier", "full", "--workers", "1",
+              "--device", "cpu", "--n-boot", "20", "--model", str(tiny_ckpt), "--model-id", "tiny", "--groups", "both"]
+
+    def cli(out, *extra):
+        return [sys.executable, "-m", "tideforge.score.run", "score", *common, "--out", str(out), *extra]
+    assert subprocess.run(cli(tmp_path / "one"), env=env).returncode == 0
+    ps = [subprocess.Popen(cli(tmp_path / "parts", "--part", f"{k}/2"), env=env) for k in range(2)]
+    assert [p.wait() for p in ps] == [0, 0]
+    base = tmp_path / "parts" / "tiny" / release.name / "full_tuning"
+    assert not (base / "groups_on" / "tasks.csv").exists()                     # parts do not score
+    r = subprocess.run(cli(tmp_path / "parts"), env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert " shard " not in r.stdout                                           # nothing recomputed
+    for mode in ("on", "off"):
+        st = json.loads((base / f"groups_{mode}" / "stats.json").read_text())
+        assert st["shards_reused"] >= 1
+        a = pd.read_csv(tmp_path / "one" / "tiny" / release.name / "full_tuning" / f"groups_{mode}" / "tasks.csv")
+        b = pd.read_csv(base / f"groups_{mode}" / "tasks.csv")
+        pd.testing.assert_frame_equal(a, b)
+    left = [p.name for p in base.rglob("*") if p.is_file() and ".tmp" in p.name]
+    assert not left
+
+
+def test_assembly_ignores_temp_files():
+    import fnmatch
+    from tideforge.score import predict as PR
+    assert fnmatch.fnmatch("H24_plain_00003.npz", PR.SHARD_GLOB)
+    for n in ("H24_plain_00003.npz.123.tmp", "H24_plain_00003.tmp.npz"):
+        assert not fnmatch.fnmatch(n, PR.SHARD_GLOB)

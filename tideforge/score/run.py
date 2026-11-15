@@ -123,8 +123,22 @@ def cmd_score(a) -> int:
     base = out_root / mid / version / f"{tier}_{split}"
     from tideforge.score.adapters.naive import SeasonalNaive
     nv = SeasonalNaive(naive_kind)
+    part = None
+    if a.part:
+        k, n = (int(x) for x in a.part.split("/"))
+        if not (n >= 1 and 0 <= k < n):
+            raise SystemExit(f"--part {a.part}: k/n with 0 <= k < n")
+        part = (k, n)
     qn, _ = PR.run(caches, nv, "off", out_root / "_naive" / version / f"{tier}_{split}_{naive_kind}", f"naive_{naive_kind}",
-                   log=lambda s: None)
+                   log=lambda s: None, only=part)
+    if part:
+        for mode in modes:
+            d = base / f"groups_{mode}"
+            d.mkdir(parents=True, exist_ok=True)
+            _, st = PR.run(caches, pred, mode, d, mid, log=lambda s: print(s, flush=True), only=part)
+            print(f"{mid} groups {mode.upper()} part {a.part}: {st['shards']} shards computed, {st['reused']} reused, "
+                  f"{st['skipped']} left to other parts (no scoring; run without --part to score)", flush=True)
+        return 0
     naive = {c.name: MT.score_task(c, qn[c.name]) for c in caches}
     summaries = {}
     for mode in modes:
@@ -221,6 +235,8 @@ def main(argv=None) -> int:
     s.add_argument("--rescale", default="on", choices=["on", "off"],
                    help="ft3 models: map each series to (y - median) / MAD in float64 before the model (default on); off = "
                         "the old scorer's path, results under <model_id>_raw")
+    s.add_argument("--part", help="k/n: compute only prediction shards with sequence number %% n == k, then exit "
+                                   "without scoring (run n parts, then once without --part to assemble and score)")
     s.add_argument("--batch-size", type=int, help="series (univariate) / rows (groups) per forward; default from free GPU memory")
     s.add_argument("--device")
     s.add_argument("--ctx", type=int, default=8192)
